@@ -156,7 +156,9 @@ export default function PrivacyPage() {
           après 90 jours. Nous relevons aussi des indicateurs techniques globaux (nombre de
           serveurs, nombre total de membres, latence, mémoire utilisée), sans aucune donnée
           personnelle. Leur historique, par tranche de 10 minutes, est lui aussi supprimé
-          automatiquement après 90 jours.
+          automatiquement après 90 jours. Le nombre total de serveurs, de membres et de commandes
+          utilisées sur les 30 derniers jours est affiché publiquement sur la page d&apos;accueil,
+          sans aucun détail par serveur ni par utilisateur.
         </p>
 
         <h2>3. Données traitées par le tableau de bord</h2>

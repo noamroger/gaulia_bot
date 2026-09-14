@@ -256,19 +256,10 @@ export interface ShardMetricHistory {
   points: ShardMetricPoint[];
 }
 
-export interface ShardInfo {
-  shardId: number;
-  guildCount: number;
-  ping: number;
+/** Totaux publics de la page d'accueil (GET /stats). */
+export interface PublicStats {
   online: boolean;
-  startedAt: string;
-  updatedAt: string;
-}
-
-export interface Stats {
-  shardCount: number;
-  onlineShardCount: number;
   guildCount: number;
-  averagePing: number | null;
-  shards: ShardInfo[];
+  memberCount: number;
+  commandsLast30Days: number;
 }

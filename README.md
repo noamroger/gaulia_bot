@@ -48,7 +48,8 @@ ailleurs.
   (cookies de session inclus). C'est l'API seule qui parle à la base.
 - Le bot n'a pas d'API HTTP interne : les stats "live" (nombre de serveurs, ping, uptime par
   shard) passent par un heartbeat écrit en base toutes les ~20s (`apps/bot/src/core/heartbeat`),
-  lu par l'API (`GET /stats`). La configuration (logs, automod, warns, statut premium) est un
+  lu par l'API : totaux publics pour la page d'accueil (`GET /stats`, mis en cache 60 s) et détail
+  par shard réservé au panel admin (`GET /admin/stats`). La configuration (logs, automod, warns, statut premium) est un
   CRUD classique sur Postgres, sans dépendre du process du bot.
 
 ## Prérequis
@@ -299,7 +300,7 @@ serveur particulier.
 - Un propriétaire peut aussi consulter/modifier la config de **n'importe quel serveur** via les
   routes `/guilds/:guildId/...` normales (`hasGuildAccess` bypass la vérification MANAGE_GUILD si
   `isOwner` est vrai) — pratique pour du support sans avoir besoin d'être membre du serveur.
-- Fonctionnalités actuelles : stats globales (`GET /stats`), liste de **tous** les serveurs connus
+- Fonctionnalités actuelles : statistiques détaillées (`GET /admin/stats`), liste de **tous** les serveurs connus
   du bot avec leur nom (synchronisé par `apps/bot/src/events/{guildCreate,guildUpdate}.ts` et
   `core/presence/guildPresenceSync.ts` — utile car un owner n'est pas forcément membre de chaque
   serveur), un bouton pour offrir/retirer manuellement le premium à un serveur

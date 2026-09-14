@@ -22,6 +22,16 @@ export async function recordCommandUsage(commandName: string, category: string):
   });
 }
 
+/** Total des commandes utilisées sur les `days` derniers jours (UTC, jour courant inclus). */
+export async function countCommandUsageSince(days: number): Promise<number> {
+  const since = new Date(startOfUtcDay(new Date()).getTime() - (days - 1) * DAY_MS);
+  const result = await prisma.commandUsageDaily.aggregate({
+    where: { date: { gte: since } },
+    _sum: { count: true },
+  });
+  return result._sum.count ?? 0;
+}
+
 /** Supprime les compteurs plus anciens que la durée de conservation ; retourne le nombre de lignes supprimées. */
 export async function purgeExpiredCommandUsage(): Promise<number> {
   const cutoff = new Date(
