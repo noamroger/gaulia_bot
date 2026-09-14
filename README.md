@@ -352,9 +352,10 @@ Discord complet via ton reverse proxy (et le lien **Admin** si ton compte est da
 ## Déploiement automatique (timer systemd)
 
 Le dossier `deploy/` fournit un déploiement continu sans port exposé : un timer systemd vérifie chaque
-minute s'il y a un nouveau commit sur `main`, et si oui :
+minute s'il y a un nouveau commit sur la branche du dossier (`main` en production, `dev` pour
+l'instance de test), et si oui :
 
-1. `git reset --hard origin/main` puis `git clean -fd` (le `.env`, ignoré par git, est conservé) ;
+1. `git reset --hard origin/<branche>` puis `git clean -fd` (le `.env`, ignoré par git, est conservé) ;
 2. `docker compose up -d --build --remove-orphans` : les images sont construites pendant que les
    anciens conteneurs tournent, seuls les services modifiés sont recréés, et le service `migrate`
    applique les nouvelles migrations ;
@@ -381,3 +382,31 @@ Commandes utiles :
 Un commit dont le build échoue n'est pas retenté en boucle : les anciens conteneurs continuent de
 tourner, l'échec apparaît dans `journalctl`, et le commit suivant (ou `--force`) relance un
 déploiement. Si `deploy/gaulia-deploy.service` ou `.timer` change, relance `sudo bash deploy/install.sh`.
+
+### Instance de test (branche `dev`)
+
+Une seconde instance tourne sur la même machine pour tester sans toucher au bot principal : autre
+dossier, autre branche, autre `.env`, donc autres conteneurs, autre base de données et autre bot
+Discord. Pousser sur `dev` met à jour le test ; merger `dev` dans `main` déploie la production.
+
+|                     | Production                            | Test                                        |
+| ------------------- | ------------------------------------- | ------------------------------------------- |
+| Dossier / branche   | `~/gaulia_bot` / `main`               | `~/gaulia_test` / `dev`                     |
+| Domaines            | `gauliabot.xyz`, `api.gauliabot.xyz`  | `gtest.noam.ovh`, `api-gtest.noam.ovh`      |
+| Ports publics       | `4500`, `4501`                        | `4510`, `4511`                              |
+| `.env` (instance)   | valeurs par défaut                    | `COMPOSE_PROJECT_NAME=gaulia_test`, `CONTAINER_PREFIX=gaulia_test`, `DASHBOARD_HOST_PORT=4510`, `API_HOST_PORT=4511` |
+| Unités systemd      | `gaulia-deploy`                       | `gaulia-test-deploy`                        |
+
+L'instance de test utilise sa propre application Discord (token, client id, secret et redirect URI
+`https://api-gtest.noam.ovh/auth/callback`) : avec le même token, les deux bots répondraient et
+écraseraient mutuellement leurs commandes. Laisse `TOPGG_API_KEY` et `TOPGG_WEBHOOK_SECRET` vides sur
+le test : la clé top.gg est liée au bot de production. `deploy.sh` et `install.sh` refusent de
+déployer une autre branche que `main` tant que `COMPOSE_PROJECT_NAME` n'est pas défini (et différent
+de `gaulia_bot`).
+
+```bash
+git clone -b dev https://github.com/noamroger/gaulia_bot.git ~/gaulia_test
+cd ~/gaulia_test && cp .env.example .env   # puis remplir le .env de test
+sudo bash deploy/install.sh gaulia-test-deploy
+journalctl -u gaulia-test-deploy.service -f
+```

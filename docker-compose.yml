@@ -1,6 +1,8 @@
-# Nom de projet figé : le volume Postgres (gaulia_bot_gaulia_postgres_data) garde le même nom même si
-# le dossier du dépôt est renommé ou recloné ailleurs.
-name: gaulia_bot
+# Plusieurs instances peuvent tourner sur la même machine (production sur main, test sur dev) : le nom
+# de projet, le préfixe des conteneurs et les ports publics viennent du .env de chaque dossier. Les
+# valeurs par défaut sont celles de la production, dont le volume Postgres reste
+# gaulia_bot_gaulia_postgres_data même si le dossier est renommé.
+name: ${COMPOSE_PROJECT_NAME:-gaulia_bot}
 
 # Rotation des journaux de chaque conteneur (10 Mo × 5 fichiers max) : les logs ne sont pas conservés
 # indéfiniment, comme annoncé dans la politique de confidentialité.
@@ -13,7 +15,7 @@ x-logging: &default-logging
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: gaulia_database
+    container_name: ${CONTAINER_PREFIX:-gaulia}_database
     logging: *default-logging
     restart: unless-stopped
     environment:
@@ -32,7 +34,7 @@ services:
 
   lavalink:
     image: ghcr.io/lavalink-devs/lavalink:4
-    container_name: gaulia_lavalink
+    container_name: ${CONTAINER_PREFIX:-gaulia}_lavalink
     logging: *default-logging
     restart: unless-stopped
     environment:
@@ -40,9 +42,9 @@ services:
       SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:-}
       SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:-}
       YT_CIPHER_TOKEN: ${YT_CIPHER_TOKEN:?YT_CIPHER_TOKEN doit être défini dans .env}
-      # Plafonne le tas JVM pour ne pas laisser Lavalink consommer toute la RAM de l'hôte en prod ;
-      # ajuste selon la taille de ta machine (voir README > Production).
-      _JAVA_OPTIONS: "-Xmx1g -Xms512m"
+      # Plafonne le tas JVM pour ne pas laisser Lavalink consommer toute la RAM de l'hôte ;
+      # une instance de test peut en demander moins (voir README > Production).
+      _JAVA_OPTIONS: ${LAVALINK_JAVA_OPTIONS:--Xmx1g -Xms512m}
     volumes:
       - ./docker/lavalink/application.yml:/opt/Lavalink/application.yml:ro
       # Pas de volume sur /opt/Lavalink/plugins : un volume nommé "frais" écrase les permissions
@@ -80,7 +82,7 @@ services:
   # Image distroless (pas de shell), donc pas de healthcheck possible. Réseau interne uniquement.
   yt-cipher:
     build: https://github.com/kikkia/yt-cipher.git
-    container_name: gaulia_yt_cipher
+    container_name: ${CONTAINER_PREFIX:-gaulia}_yt_cipher
     logging: *default-logging
     restart: unless-stopped
     environment:
@@ -94,7 +96,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.bot
-    container_name: gaulia_migrate
+    container_name: ${CONTAINER_PREFIX:-gaulia}_migrate
     logging: *default-logging
     env_file:
       - .env
@@ -112,7 +114,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.bot
-    container_name: gaulia_bot
+    container_name: ${CONTAINER_PREFIX:-gaulia}_bot
     logging: *default-logging
     restart: unless-stopped
     env_file:
@@ -134,7 +136,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.api
-    container_name: gaulia_api
+    container_name: ${CONTAINER_PREFIX:-gaulia}_api
     logging: *default-logging
     restart: unless-stopped
     env_file:
@@ -144,9 +146,9 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
-    # Exposé sur 4501 côté hôte (ton reverse proxy en amont doit pointer api.<ton-domaine> ici).
+    # Port public de l'API (4501 en production) : ton reverse proxy doit pointer api.<ton-domaine> ici.
     ports:
-      - "4501:4000"
+      - "${API_HOST_PORT:-4501}:4000"
     networks:
       - gaulia
 
@@ -161,12 +163,12 @@ services:
         NEXT_PUBLIC_CONTACT_EMAIL: ${NEXT_PUBLIC_CONTACT_EMAIL:-}
         # Redirection /vote vers la page de vote top.gg du bot (next.config.js).
         DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:?DISCORD_CLIENT_ID doit être défini dans .env}
-    container_name: gaulia_dashboard
+    container_name: ${CONTAINER_PREFIX:-gaulia}_dashboard
     logging: *default-logging
     restart: unless-stopped
-    # Exposé sur 4500 côté hôte (ton reverse proxy en amont doit pointer <ton-domaine> ici).
+    # Port public du dashboard (4500 en production) : ton reverse proxy doit pointer <ton-domaine> ici.
     ports:
-      - "4500:3000"
+      - "${DASHBOARD_HOST_PORT:-4500}:3000"
     networks:
       - gaulia
 
