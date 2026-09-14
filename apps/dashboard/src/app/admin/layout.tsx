@@ -10,6 +10,7 @@ import { useSession } from "@/lib/useSession";
 const TABS = [
   { href: "/admin", label: "Statistiques" },
   { href: "/admin/servers", label: "Serveurs" },
+  { href: "/admin/credits", label: "Crédits" },
   { href: "/admin/data", label: "Données" },
 ];
 

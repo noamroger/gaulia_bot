@@ -79,6 +79,14 @@ function UserSummary({ summary }: { summary: UserDataSummary }) {
         <span>Droits premium en cache (supprimés)</span>
         <strong>{formatNumber(summary.premiumEntitlements)}</strong>
       </li>
+      <li>
+        <span>Crédits (supprimés avec le compte)</span>
+        <strong>{formatNumber(summary.creditBalance)}</strong>
+      </li>
+      <li>
+        <span>Votes top.gg enregistrés (supprimés)</span>
+        <strong>{formatNumber(summary.topggVotes)}</strong>
+      </li>
     </ul>
   );
 }

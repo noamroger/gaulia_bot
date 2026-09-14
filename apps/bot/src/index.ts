@@ -4,6 +4,7 @@ import { ShardingManager } from "discord.js";
 
 import { logger } from "./client/logger";
 import { env, totalShards } from "./config/env";
+import { startTopggStatsJob } from "./core/topgg/topggService";
 import { syncApplicationCommands } from "./handlers/commandRegistry";
 
 /**
@@ -32,6 +33,9 @@ async function main(): Promise<void> {
   }
 
   await manager.spawn();
+
+  // Après le spawn seulement : le total de serveurs se calcule en interrogeant les shards.
+  startTopggStatsJob(manager);
 }
 
 main().catch((error: unknown) => {

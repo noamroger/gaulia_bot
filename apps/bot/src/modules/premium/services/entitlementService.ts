@@ -2,6 +2,7 @@ import type { Entitlement } from "discord.js";
 
 import {
   listActiveEntitlements,
+  listPremiumGrantedGuildIds,
   markEntitlementDeleted,
   setGuildPremium,
   upsertEntitlement,
@@ -19,6 +20,15 @@ import { env } from "../../../config/env";
  * n'a pas accès à ce cache mémoire) puisse lire le statut sans dépendre du process du bot.
  */
 const premiumGuildIds = new Set<string>();
+
+/**
+ * Serveurs dont le premium a été offert en échange de crédits (Guild.premiumGrantedUntil). Ces
+ * octrois viennent du dashboard, pas de la gateway Discord : le bot n'en est jamais notifié, d'où
+ * une relecture périodique en base plutôt qu'un événement.
+ */
+const grantedPremiumGuildIds = new Set<string>();
+
+const GRANT_REFRESH_INTERVAL_MS = 60_000;
 
 function isActivePremiumEntitlement(skuId: string, endsAt: Date | null): boolean {
   if (env.PREMIUM_SKU_ID === "" || skuId !== env.PREMIUM_SKU_ID) return false;
@@ -109,10 +119,37 @@ export async function handleEntitlementDelete(entitlement: Entitlement): Promise
   }
 }
 
+/** Recharge la liste des serveurs au premium offert encore valide (les échéances passées sortent). */
+export async function refreshPremiumGrants(): Promise<void> {
+  const guildIds = await listPremiumGrantedGuildIds();
+  grantedPremiumGuildIds.clear();
+  for (const guildId of guildIds) {
+    grantedPremiumGuildIds.add(guildId);
+  }
+}
+
+/** Démarre la synchronisation périodique des premiums offerts (appelée une fois depuis ready). */
+export function startPremiumGrantSync(client: GauliaClient): void {
+  const refresh = (): void => {
+    refreshPremiumGrants().catch((error: unknown) => {
+      client.logger.error({ err: error }, "Échec de la synchronisation des premiums offerts");
+    });
+  };
+
+  refresh();
+  setInterval(refresh, GRANT_REFRESH_INTERVAL_MS).unref();
+}
+
+/** Un serveur est premium via un entitlement Discord OU via du premium offert (crédits). */
 export function isPremiumGuild(guildId: string): boolean {
-  return premiumGuildIds.has(guildId);
+  return premiumGuildIds.has(guildId) || grantedPremiumGuildIds.has(guildId);
+}
+
+/** Vrai uniquement pour le premium offert : permet de l'afficher différemment d'un abonnement. */
+export function isGrantedPremiumGuild(guildId: string): boolean {
+  return grantedPremiumGuildIds.has(guildId);
 }
 
 export function premiumGuildCount(): number {
-  return premiumGuildIds.size;
+  return new Set([...premiumGuildIds, ...grantedPremiumGuildIds]).size;
 }

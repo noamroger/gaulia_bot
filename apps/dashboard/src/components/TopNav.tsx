@@ -6,7 +6,9 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
 import { userAvatarUrl } from "@/lib/discordCdn";
+import { formatNumber } from "@/lib/format";
 import type { Session } from "@/lib/types";
+import { useCredits } from "@/lib/useCredits";
 import { useDismiss } from "@/lib/useDismiss";
 
 export function TopNav({ session }: { session: Session | null }) {
@@ -16,6 +18,7 @@ export function TopNav({ session }: { session: Session | null }) {
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuId = useId();
+  const { credits } = useCredits();
 
   async function logout(): Promise<void> {
     await api.post("/auth/logout");
@@ -44,6 +47,15 @@ export function TopNav({ session }: { session: Session | null }) {
             {session.isOwner && (
               <Link href="/admin" className="text-muted">
                 Admin
+              </Link>
+            )}
+            {credits && (
+              <Link
+                href="/dashboard"
+                className="credits-chip"
+                title="Crédits gagnés en votant sur top.gg"
+              >
+                {formatNumber(credits.balance)} crédits
               </Link>
             )}
             <span className="user-chip">
@@ -98,6 +110,11 @@ export function TopNav({ session }: { session: Session | null }) {
             {menuOpen && (
               <ul id={menuId} className="menu-list">
                 <li className="menu-header">{session.username}</li>
+                {credits && (
+                  <li className="menu-header menu-header-muted">
+                    {formatNumber(credits.balance)} crédit(s)
+                  </li>
+                )}
                 <li>
                   <Link
                     href="/dashboard"

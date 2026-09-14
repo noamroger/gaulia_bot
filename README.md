@@ -26,8 +26,8 @@ gaulia_bot/
 ├─ apps/
 │  ├─ bot/                   # @gaulia/bot — le bot Discord
 │  │  └─ src/{client,config,core,events,handlers,modules,structures,bot.ts,index.ts}
-│  ├─ api/                   # @gaulia/api — Fastify : OAuth2 Discord, config, stats
-│  │  └─ src/{auth,discord,plugins,routes,index.ts}
+│  ├─ api/                   # @gaulia/api — Fastify : OAuth2 Discord, config, stats, webhook top.gg
+│  │  └─ src/{auth,discord,plugins,premium,routes,topgg,index.ts}
 │  └─ dashboard/             # @gaulia/dashboard — Next.js, ne parle qu'à l'API (fetch + cookies)
 │     └─ src/{app,lib,components}
 ├─ docker/lavalink/
@@ -190,8 +190,16 @@ simultané (playback saccadé/`OutOfMemoryError` dans les logs = signal qu'il fa
    l'appel REST échoue au redémarrage, et `Guild.premium`/`premiumExpiresAt` sont mis à jour en
    miroir pour que l'API (qui n'a pas accès à la mémoire du process du bot) puisse lire le statut.
 4. `isPremiumGuild(guildId)` (même fichier) reste la seule source de vérité utilisée dans le code
-   du **bot** pour gater une fonctionnalité en temps réel ; l'**API/dashboard** lisent
-   `Guild.premium` directement (`GET /guilds/:guildId/premium`).
+   du **bot** pour gater une fonctionnalité en temps réel ; l'**API/dashboard** lisent la base
+   directement (`GET /guilds/:guildId/premium`, via le helper `isPremiumActive`).
+
+   Un serveur est premium s'il a **soit** un entitlement Discord actif (`Guild.premium`), **soit**
+   du premium offert encore valide (`Guild.premiumGrantedUntil`, obtenu contre des crédits de vote —
+   voir la section top.gg). Les deux colonnes sont indépendantes : l'expiration d'un abonnement
+   Discord n'annule pas un premium offert, et inversement. Comme les octrois viennent du dashboard
+   et non de la gateway, le bot relit la liste des serveurs concernés toutes les 60 s
+   (`startPremiumGrantSync`, appelé depuis `events/ready.ts`) — un échange peut donc mettre jusqu'à
+   une minute à débloquer une commande en jeu.
 5. Pour gater une nouvelle commande côté bot : ajoute `premiumOnly: true` sur l'objet `Command` —
    le dispatcher (`apps/bot/src/events/interactionCreate.ts`) affiche automatiquement un message
    d'upsell avec un bouton d'achat natif Discord (`ButtonBuilder` + `ButtonStyle.Premium`) si le
@@ -202,6 +210,58 @@ Fonctionnalités premium actuelles : mode 24/7 (`/247`), filtres audio (`/filter
 
 Pour tester sans payer : Discord permet de créer des **entitlements de test** gratuits pour ton
 serveur de dev depuis le portail développeur (onglet Monetization de ton app → Test entitlements).
+
+## top.gg (statistiques, votes et crédits)
+
+Deux intégrations distinctes, chacune avec sa propre clé, toutes deux facultatives : sans clé,
+la fonctionnalité correspondante est simplement inactive et le reste du bot tourne normalement.
+
+### Publier le nombre de serveurs
+
+1. Sur la page de ton bot sur top.gg → **Integrations & API**, génère une clé d'API et place-la
+   dans `TOPGG_API_KEY` (`.env`).
+2. `apps/bot/src/core/topgg/topggService.ts` publie `server_count` et `shard_count` sur
+   `PATCH https://top.gg/api/v1/projects/@me/metrics` (API v1 : la clé s'envoie en
+   `Authorization: Bearer <clé>` et le projet est déduit de la clé, aucun ID à passer).
+3. L'envoi est piloté par le **process parent** du sharding (`apps/bot/src/index.ts`), une minute
+   après le spawn puis toutes les 30 minutes : `client.guilds.cache` d'un shard ne connaît que ses
+   propres serveurs, le total réel s'obtient avec `manager.fetchClientValues("guilds.cache.size")`.
+   Un échec côté top.gg est loggé et retenté au tour suivant, jamais propagé au bot.
+
+### Recevoir les votes et créditer les votants
+
+1. Toujours dans **Integrations & API** → section **Webhooks**, déclare l'URL
+   `https://api.<ton-domaine>/topgg/webhook` et copie le secret dans `TOPGG_WEBHOOK_SECRET`.
+2. `apps/api/src/routes/topgg.routes.ts` vérifie chaque livraison avant tout traitement :
+   l'en-tête `x-topgg-signature` (`t=<timestamp>,v1=<hmac>`) doit correspondre au HMAC-SHA256 de
+   `<timestamp>.<corps brut>` calculé avec le secret, et l'horodatage doit tomber dans une fenêtre
+   de 30 s (anti-rejeu) — voir `apps/api/src/topgg/webhookSignature.ts`. La route conserve le corps
+   **brut** (parseur `application/json` encapsulé à ce scope) : re-sérialiser le JSON invaliderait
+   la signature. Sans `TOPGG_WEBHOOK_SECRET`, l'endpoint répond `503` plutôt que de créditer sur la
+   foi d'une requête non vérifiée.
+3. Un événement `vote.create` valide crédite **10 crédits** (`CREDITS_PER_VOTE`) au compte du
+   votant, identifié par `user.platform_id` (son ID Discord, donc le même compte que sur le
+   dashboard). L'id du vote est stocké dans `topgg_votes` : top.gg réessayant une livraison tant
+   qu'elle n'a pas abouti, cette table garantit qu'un même vote ne crédite qu'une fois.
+
+### Crédits et premium offert
+
+- L'utilisateur voit son solde partout sur le dashboard (badge de la barre de navigation) et le
+  détail sur « Mes serveurs » : total gagné, nombre de votes, lien de vote et historique des
+  mouvements (`GET /me/credits`).
+- Dans l'onglet **Premium** d'un serveur qu'il gère, il échange ses crédits contre du premium
+  offert : **150 crédits pour une semaine**, **500 pour un mois** (`POST
+  /guilds/:guildId/premium/redeem`). Les offres sont définies au même endroit pour l'API et le
+  dashboard, dans `apps/api/src/premium/offers.ts`.
+- L'échange débite d'abord (`spendCredits`, dont le `updateMany` conditionné sur
+  `balance >= montant` empêche deux échanges simultanés de passer le solde en négatif), puis
+  prolonge `Guild.premiumGrantedUntil` — en repartant de l'échéance en cours si elle est encore
+  valide, pour que deux échanges se cumulent. Si l'octroi échoue après le débit, les crédits sont
+  recrédités.
+- Chaque mouvement (vote, échange, ajustement admin) est journalisé dans `credit_transactions`
+  avec le solde résultant, l'auteur d'un ajustement et le serveur concerné par un échange.
+- Le compte de crédits et l'historique de votes d'un utilisateur partent avec ses données lors
+  d'une suppression RGPD (onglet **Données** du panel admin).
 
 ## Le dashboard et l'API
 
@@ -242,9 +302,16 @@ serveur particulier.
 - Fonctionnalités actuelles : stats globales (`GET /stats`), liste de **tous** les serveurs connus
   du bot avec leur nom (synchronisé par `apps/bot/src/events/{guildCreate,guildUpdate}.ts` et
   `core/presence/guildPresenceSync.ts` — utile car un owner n'est pas forcément membre de chaque
-  serveur), et un bouton pour offrir/retirer manuellement le premium à un serveur
+  serveur), un bouton pour offrir/retirer manuellement le premium à un serveur
   (`PATCH /admin/guilds/:guildId/premium`, sans passer par un vrai achat Discord — pratique pour du
-  support ou des essais).
+  support ou des essais), et l'onglet **Crédits**.
+- Onglet **Crédits** (`/admin/credits`) : liste des utilisateurs possédant des crédits (pseudo,
+  identifiant, solde, nombre de votes, dernier vote) avec deux façons d'écrire un solde, toutes
+  deux confirmées avant enregistrement — la boîte de dialogue « Ajouter / retirer des crédits »
+  (identifiant Discord + variation ±, motif facultatif ; le compte est créé s'il n'existe pas) et
+  l'édition directe de la cellule d'une ligne. Les deux passent par
+  `PATCH /admin/credits/:userId` (`delta` ou `balance`), qui journalise systématiquement un
+  mouvement `ADMIN_ADJUST` avec l'auteur, jamais une valeur absolue.
 - Le dashboard (`apps/dashboard/src/app/admin/`) réutilise le même login que le reste — pas de
   système d'auth séparé à maintenir.
 

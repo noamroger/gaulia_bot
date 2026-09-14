@@ -3,7 +3,10 @@ import { Events, type Client } from "discord.js";
 import type { GauliaClient } from "../client/GauliaClient";
 import { startHeartbeat } from "../core/heartbeat/heartbeatService";
 import { startGuildPresenceResync, syncGuildPresence } from "../core/presence/guildPresenceSync";
-import { initEntitlements } from "../modules/premium/services/entitlementService";
+import {
+  initEntitlements,
+  startPremiumGrantSync,
+} from "../modules/premium/services/entitlementService";
 import type { GauliaEvent } from "../structures/Event";
 
 const event: GauliaEvent<typeof Events.ClientReady> = {
@@ -36,6 +39,7 @@ const event: GauliaEvent<typeof Events.ClientReady> = {
     }
 
     startGuildPresenceResync(client);
+    startPremiumGrantSync(client);
     startHeartbeat(client);
   },
 };

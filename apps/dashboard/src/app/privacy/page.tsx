@@ -134,6 +134,19 @@ export default function PrivacyPage() {
           de début et de fin) pour activer les fonctionnalités premium.
         </p>
 
+        <h3>Votes top.gg et crédits</h3>
+        <p>
+          Si vous votez pour Gaulia sur top.gg, top.gg nous transmet votre identifiant Discord,
+          votre pseudo, l&apos;adresse de votre avatar et la date du vote. Nous enregistrons
+          l&apos;identifiant de chaque vote (pour ne pas vous créditer deux fois pour le même vote),
+          votre solde de crédits et l&apos;historique de vos mouvements de crédits (votes, échanges
+          contre du premium offert, ajustements par un administrateur du bot). Ces données servent
+          uniquement à faire fonctionner les crédits : elles sont visibles par vous sur le tableau
+          de bord et par les propriétaires du bot dans leur panneau d&apos;administration. Elles
+          sont conservées tant que votre compte de crédits existe, et supprimées sur demande. Nous
+          ne recevons de top.gg aucune information de compte au-delà de ce qui est listé ici.
+        </p>
+
         <h3>Statistiques</h3>
         <p>
           Pour suivre la santé du service, nous comptons le nombre d&apos;utilisations de chaque
@@ -228,6 +241,10 @@ export default function PrivacyPage() {
                 <td>Droits premium</td>
                 <td>Tant que l&apos;abonnement existe chez Discord</td>
               </tr>
+              <tr>
+                <td>Votes top.gg et crédits</td>
+                <td>Jusqu&apos;à une demande de suppression</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -244,6 +261,10 @@ export default function PrivacyPage() {
         <ul>
           <li>Discord, la plateforme sur laquelle fonctionne le bot ;</li>
           <li>SoundCloud et Spotify, uniquement pour les recherches musicales que vous lancez ;</li>
+          <li>
+            top.gg, si vous choisissez d&apos;y voter pour Gaulia : c&apos;est top.gg qui nous
+            transmet votre vote, nous ne lui envoyons que le nombre de serveurs du bot ;
+          </li>
           <li>
             l&apos;hébergeur du serveur sur lequel tournent le bot, l&apos;API et la base de
             données.
@@ -272,8 +293,9 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Suppression d&apos;un utilisateur</strong> : les sanctions et avertissements
-            reçus sont effacés. Les sanctions données en tant que modérateur restent dans
-            l&apos;historique du serveur, mais sans identifiant ni pseudo.
+            reçus sont effacés, ainsi que le compte de crédits et l&apos;historique de votes
+            associés. Les sanctions données en tant que modérateur restent dans l&apos;historique du
+            serveur, mais sans identifiant ni pseudo.
           </li>
         </ul>
         <p>

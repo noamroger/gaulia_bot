@@ -11,10 +11,12 @@ import adminRoutes from "./routes/admin.routes";
 import automodRoutes from "./routes/automod.routes";
 import authRoutes from "./routes/auth.routes";
 import blindtestRoutes from "./routes/blindtest.routes";
+import creditsRoutes from "./routes/credits.routes";
 import guildsRoutes from "./routes/guilds.routes";
 import premiumRoutes from "./routes/premium.routes";
 import settingsRoutes from "./routes/settings.routes";
 import statsRoutes from "./routes/stats.routes";
+import topggRoutes from "./routes/topgg.routes";
 
 async function main(): Promise<void> {
   const app = Fastify({ loggerInstance: logger });
@@ -60,8 +62,10 @@ async function main(): Promise<void> {
   await app.register(automodRoutes);
   await app.register(blindtestRoutes);
   await app.register(premiumRoutes);
+  await app.register(creditsRoutes);
   await app.register(statsRoutes);
   await app.register(adminRoutes);
+  await app.register(topggRoutes);
 
   await app.listen({ host: "0.0.0.0", port: env.API_PORT });
 

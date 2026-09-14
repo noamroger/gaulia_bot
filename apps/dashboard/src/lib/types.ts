@@ -118,9 +118,63 @@ export interface SpotifyImport {
   tracks: BlindtestTrack[];
 }
 
+export interface PremiumOffer {
+  id: "week" | "month";
+  label: string;
+  /** Coût en crédits. */
+  cost: number;
+  durationLabel: string;
+}
+
 export interface PremiumStatus {
   premium: boolean;
   premiumExpiresAt: string | null;
+  /** Échéance du premium offert contre des crédits (null si aucun). */
+  premiumGrantedUntil: string | null;
+  /** Solde de crédits de l'utilisateur connecté. */
+  credits: number;
+  offers: PremiumOffer[];
+}
+
+export interface PremiumRedeemResult {
+  premium: boolean;
+  premiumGrantedUntil: string;
+  credits: number;
+  offerId: PremiumOffer["id"];
+}
+
+export type CreditTransactionType = "VOTE" | "PREMIUM_REDEEM" | "ADMIN_ADJUST";
+
+export interface CreditTransaction {
+  id: number;
+  type: CreditTransactionType;
+  /** Positif pour un gain, négatif pour une dépense. */
+  amount: number;
+  balanceAfter: number;
+  guildId: string | null;
+  reason: string | null;
+  createdAt: string;
+}
+
+export interface CreditsOverview {
+  balance: number;
+  totalEarned: number;
+  voteCount: number;
+  lastVoteAt: string | null;
+  creditsPerVote: number;
+  offers: PremiumOffer[];
+  transactions: CreditTransaction[];
+}
+
+export interface AdminCreditAccount {
+  userId: string;
+  username: string | null;
+  avatar: string | null;
+  balance: number;
+  totalEarned: number;
+  voteCount: number;
+  lastVoteAt: string | null;
+  updatedAt: string;
 }
 
 export interface AdminGuild {
@@ -152,6 +206,8 @@ export interface UserDataSummary {
   warnsAsTarget: number;
   warnsAsModerator: number;
   premiumEntitlements: number;
+  creditBalance: number;
+  topggVotes: number;
 }
 
 export interface AdminShard {

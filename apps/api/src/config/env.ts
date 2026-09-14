@@ -35,6 +35,11 @@ const envSchema = z.object({
 
   JWT_SECRET: z.string().min(16, "JWT_SECRET doit faire au moins 16 caractères"),
 
+  // Secret de l'intégration webhook top.gg (page du bot > Integrations & API > Webhooks) : sert à
+  // vérifier la signature des votes reçus sur POST /topgg/webhook. Vide = endpoint désactivé
+  // (il répond 503), pour ne jamais créditer sur la foi d'une requête non vérifiée.
+  TOPGG_WEBHOOK_SECRET: z.string().optional().default(""),
+
   API_PORT: z.coerce.number().int().positive().default(4000),
 
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),

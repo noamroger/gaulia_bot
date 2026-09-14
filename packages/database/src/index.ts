@@ -7,6 +7,7 @@ export * from "./repositories/automod.repo";
 export * from "./repositories/music.repo";
 export * from "./repositories/blindtest.repo";
 export * from "./repositories/premium.repo";
+export * from "./repositories/credits.repo";
 export * from "./repositories/shardStatus.repo";
 export * from "./repositories/shardMetrics.repo";
 export * from "./repositories/commandUsage.repo";
@@ -20,6 +21,9 @@ export * from "./data/blindtestPresets";
 export type {
   BlindtestPlaylist,
   CommandUsageDaily,
+  CreditAccount,
+  CreditTransaction,
+  CreditTransactionType,
   Guild,
   ModerationCase,
   ModerationCaseType,
@@ -30,4 +34,5 @@ export type {
   LoopMode,
   PremiumEntitlement,
   ShardStatus,
+  TopggVote,
 } from "@prisma/client";

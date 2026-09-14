@@ -1,12 +1,17 @@
 import {
+  adjustCredits,
   eraseGuildData,
   eraseUserData,
   getCommandUsageSummary,
+  getCreditAccount,
   getGuildDataSummary,
   getShardMetricHistory,
   getUserDataSummary,
+  listCreditAccounts,
+  listCreditTransactions,
   listPresentGuilds,
   listShardStatuses,
+  MAX_CREDIT_BALANCE,
   setGuildPremium,
 } from "@gaulia/database";
 import type { FastifyInstance } from "fastify";
@@ -25,6 +30,26 @@ const setPremiumSchema = z.object({
 const snowflakeParamsSchema = z.object({
   id: z.string().regex(/^\d{17,20}$/),
 });
+
+const userIdParamsSchema = z.object({
+  userId: z.string().regex(/^\d{17,20}$/),
+});
+
+/**
+ * Deux façons d'écrire un solde depuis le panel admin : `delta` (ajout/retrait via la boîte de
+ * dialogue) ou `balance` (valeur cible saisie directement dans la liste). Exactement l'une des
+ * deux, jamais les deux à la fois.
+ */
+const creditAdjustSchema = z
+  .object({
+    delta: z.number().int().min(-MAX_CREDIT_BALANCE).max(MAX_CREDIT_BALANCE).optional(),
+    balance: z.number().int().min(0).max(MAX_CREDIT_BALANCE).optional(),
+    reason: z.string().trim().max(200).optional(),
+  })
+  .refine(
+    (value) => (value.delta === undefined) !== (value.balance === undefined),
+    "Fournis soit delta, soit balance.",
+  );
 
 const statsQuerySchema = z.object({
   days: z.enum(["7", "30", "90"]).default("30").transform(Number),
@@ -131,6 +156,64 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
       "Données d'un utilisateur supprimées",
     );
     return summary;
+  });
+
+  // Crédits : liste des comptes, puis ajustement par identifiant (boîte de dialogue du panel ou
+  // édition directe d'une ligne de la liste).
+  app.get("/admin/credits", async () => {
+    return listCreditAccounts();
+  });
+
+  app.get("/admin/credits/:userId", async (request, reply) => {
+    const parsed = userIdParamsSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: "Identifiant invalide." });
+    }
+
+    const [account, transactions] = await Promise.all([
+      getCreditAccount(parsed.data.userId),
+      listCreditTransactions(parsed.data.userId, 20),
+    ]);
+    return { ...account, transactions };
+  });
+
+  app.patch("/admin/credits/:userId", async (request, reply) => {
+    const params = userIdParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.status(400).send({ error: "Identifiant invalide." });
+    }
+
+    const body = creditAdjustSchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.status(400).send({ error: "Corps de requête invalide." });
+    }
+
+    const { userId } = params.data;
+    const { delta: requestedDelta, balance: targetBalance } = body.data;
+
+    // Édition directe du solde : convertie en variation, pour que le journal des crédits
+    // enregistre toujours un mouvement et jamais une valeur absolue.
+    let delta: number;
+    if (requestedDelta !== undefined) {
+      delta = requestedDelta;
+    } else if (targetBalance !== undefined) {
+      delta = targetBalance - (await getCreditAccount(userId)).balance;
+    } else {
+      return reply.status(400).send({ error: "Corps de requête invalide." });
+    }
+
+    const account = await adjustCredits({
+      userId,
+      delta,
+      actorId: request.user.userId,
+      reason: body.data.reason ?? null,
+    });
+
+    request.log.info(
+      { ownerId: request.user.userId, userId, delta, balance: account.balance },
+      "Crédits ajustés depuis le panel admin",
+    );
+    return account;
   });
 
   app.patch<{ Params: { guildId: string } }>(

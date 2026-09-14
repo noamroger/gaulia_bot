@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { CreditsCard } from "@/components/credits/CreditsCard";
 import { api } from "@/lib/api";
 import type { ManageableGuild } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
@@ -40,6 +41,8 @@ export default function DashboardPage() {
     <div className="container">
       <h1>Tes serveurs</h1>
       <p className="text-muted">Sélectionne un serveur pour gérer sa configuration.</p>
+
+      <CreditsCard />
 
       {guilds === null ? (
         <p className="text-muted">Chargement…</p>

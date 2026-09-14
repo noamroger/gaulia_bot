@@ -18,6 +18,9 @@ model Guild {
   language            String   @default("fr")
   premium             Boolean  @default(false)
   premiumExpiresAt    DateTime?
+  /// Premium offert en échange de crédits (voir CreditAccount) : indépendant de `premium`, qui
+  /// reflète les entitlements Discord. Le serveur est premium si l'un OU l'autre est actif.
+  premiumGrantedUntil DateTime?
   /// Faux dès que le bot quitte le serveur (guildDelete) ; permet à l'API/dashboard de ne lister
   /// que les serveurs où le bot est réellement présent, sans perdre l'historique associé.
   botPresent          Boolean  @default(true)
@@ -215,4 +218,71 @@ model CommandUsageDaily {
   @@id([date, commandName])
   @@index([date])
   @@map("command_usage_daily")
+}
+
+/// Compte de crédits d'un utilisateur Discord. Les crédits sont gagnés en votant pour Gaulia sur
+/// top.gg (webhook de vote, voir apps/api/src/routes/topgg.routes.ts) et dépensés contre du
+/// premium offert sur un serveur (Guild.premiumGrantedUntil). `username`/`avatar` sont
+/// dénormalisés depuis le payload du vote pour que le panel admin affiche autre chose qu'un ID.
+model CreditAccount {
+  userId      String   @id
+  username    String?
+  avatar      String?
+  balance     Int      @default(0)
+  /// Total cumulé des crédits gagnés (votes + ajouts admin), jamais décrémenté : sert de repère
+  /// historique dans le panel admin.
+  totalEarned Int      @default(0)
+  voteCount   Int      @default(0)
+  lastVoteAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  transactions CreditTransaction[]
+
+  @@index([balance])
+  @@map("credit_accounts")
+}
+
+enum CreditTransactionType {
+  /// Vote sur top.gg
+  VOTE
+  /// Échange contre du premium offert
+  PREMIUM_REDEEM
+  /// Ajout ou retrait manuel depuis le panel admin
+  ADMIN_ADJUST
+}
+
+/// Journal des mouvements de crédits : chaque ligne explique une variation du solde, ce qui rend
+/// les ajustements admin traçables et permet d'afficher un historique à l'utilisateur.
+model CreditTransaction {
+  id           Int                   @id @default(autoincrement())
+  userId       String
+  account      CreditAccount         @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  type         CreditTransactionType
+  /// Positif pour un gain, négatif pour une dépense.
+  amount       Int
+  balanceAfter Int
+  /// Serveur concerné pour un échange premium, null sinon.
+  guildId      String?
+  /// Auteur d'un ajustement admin (OWNER_IDS), null sinon.
+  actorId      String?
+  reason       String?
+  createdAt    DateTime              @default(now())
+
+  @@index([userId, createdAt])
+  @@map("credit_transactions")
+}
+
+/// Votes top.gg déjà traités, identifiés par l'id du vote fourni dans le webhook. Top.gg réessaie
+/// une livraison tant qu'elle n'a pas abouti : cette table garantit qu'un même vote ne crédite
+/// l'utilisateur qu'une seule fois.
+model TopggVote {
+  id        String   @id
+  userId    String
+  weight    Int      @default(1)
+  votedAt   DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("topgg_votes")
 }

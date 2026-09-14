@@ -39,6 +39,12 @@ const envSchema = z.object({
 
   PREMIUM_SKU_ID: z.string().optional().default(""),
 
+  // Clé de l'API top.gg (onglet « Integrations & API » de la page du bot) : sert à publier le
+  // nombre de serveurs. Vide = intégration top.gg désactivée, le bot démarre normalement.
+  TOPGG_API_KEY: z.string().optional().default(""),
+  // URL publique du dashboard, citée dans /premium pour l'échange de crédits. Vide = lien masqué.
+  DASHBOARD_URL: z.string().optional().default(""),
+
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
 });

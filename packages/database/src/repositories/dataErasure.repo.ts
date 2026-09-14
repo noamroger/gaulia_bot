@@ -23,6 +23,9 @@ export interface UserDataSummary {
   warnsAsTarget: number;
   warnsAsModerator: number;
   premiumEntitlements: number;
+  /** Solde de crédits (top.gg) qui sera remis à zéro avec la suppression du compte. */
+  creditBalance: number;
+  topggVotes: number;
 }
 
 export async function getGuildDataSummary(guildId: string): Promise<GuildDataSummary> {
@@ -78,12 +81,16 @@ export async function getUserDataSummary(userId: string): Promise<UserDataSummar
     warnsAsTarget,
     warnsAsModerator,
     premiumEntitlements,
+    creditAccount,
+    topggVotes,
   ] = await Promise.all([
     prisma.moderationCase.count({ where: { targetId: userId } }),
     prisma.moderationCase.count({ where: { moderatorId: userId } }),
     prisma.warn.count({ where: { userId } }),
     prisma.warn.count({ where: { moderatorId: userId } }),
     prisma.premiumEntitlement.count({ where: { userId } }),
+    prisma.creditAccount.findUnique({ where: { userId }, select: { balance: true } }),
+    prisma.topggVote.count({ where: { userId } }),
   ]);
 
   return {
@@ -93,12 +100,16 @@ export async function getUserDataSummary(userId: string): Promise<UserDataSummar
     warnsAsTarget,
     warnsAsModerator,
     premiumEntitlements,
+    creditBalance: creditAccount?.balance ?? 0,
+    topggVotes,
   };
 }
 
 /**
  * Supprime les sanctions et avertissements reçus par l'utilisateur, anonymise ceux qu'il a donnés
- * en tant que modérateur, et supprime ses droits premium en cache.
+ * en tant que modérateur, et supprime ses droits premium en cache ainsi que son compte de crédits
+ * (son historique de votes top.gg part avec, donc un vote déjà encaissé pourra être recrédité si
+ * top.gg le relivre — cas marginal accepté pour ne rien conserver de l'utilisateur).
  */
 export async function eraseUserData(userId: string): Promise<UserDataSummary> {
   const summary = await getUserDataSummary(userId);
@@ -114,6 +125,8 @@ export async function eraseUserData(userId: string): Promise<UserDataSummary> {
       data: { moderatorId: ANONYMIZED_USER_ID },
     }),
     prisma.premiumEntitlement.deleteMany({ where: { userId } }),
+    prisma.topggVote.deleteMany({ where: { userId } }),
+    prisma.creditAccount.deleteMany({ where: { userId } }),
   ]);
   return summary;
 }

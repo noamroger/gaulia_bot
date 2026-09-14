@@ -1358,3 +1358,131 @@ button {
     font-size: 1.6em;
   }
 }
+
+/* ─── Crédits (top.gg) ──────────────────────────────────────────────────── */
+
+.credits-card {
+  margin: 20px 0 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.credits-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.credits-balance {
+  margin: 4px 0 2px;
+  font-size: 32px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.amount-up {
+  color: var(--success);
+}
+
+.amount-down {
+  color: var(--text-muted);
+}
+
+.offer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.offer-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.offer-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.offer-meta {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.confirm-box {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  font-size: 14px;
+}
+
+.credit-dialog {
+  margin-bottom: 16px;
+  max-width: 720px;
+}
+
+.credit-dialog-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.credit-dialog-form .field {
+  margin: 0;
+  min-width: 180px;
+}
+
+.credit-dialog-form .input-number {
+  width: 120px;
+}
+
+/* `.field` posé sur le <label> lui-même (et non sur un conteneur) : le libellé est alors un
+   <span> enfant, que `.field label` ne couvre pas. */
+.credit-dialog-form .field > span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.credits-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.credits-chip:hover {
+  color: var(--text);
+  border-color: var(--primary);
+}
+
+.menu-header-muted {
+  font-weight: 500;
+  padding-top: 0;
+}
