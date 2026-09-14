@@ -1,0 +1,12 @@
+[Unit]
+Description=Déploiement automatique de Gaulia (git + docker compose)
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+User=@RUN_USER@
+WorkingDirectory=@REPO_DIR@
+ExecStart=/usr/bin/env bash @REPO_DIR@/deploy/deploy.sh
+TimeoutStartSec=45min
+Nice=10

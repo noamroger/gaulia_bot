@@ -1,0 +1,11 @@
+[Unit]
+Description=Vérifie chaque minute si un nouveau commit de Gaulia est à déployer
+
+[Timer]
+OnActiveSec=30s
+OnBootSec=2min
+OnUnitInactiveSec=1min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

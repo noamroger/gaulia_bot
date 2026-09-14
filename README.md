@@ -282,19 +282,35 @@ Puis en conditions réelles : `docker compose up -d --build`, et sur ton
 serveur de test : `/ping`, `/warn`, `/automod setup`, `/play`, `/premium status`, puis le login
 Discord complet via ton reverse proxy (et le lien **Admin** si ton compte est dans `OWNER_IDS`).
 
-## Redéployer une instance existante (ex: Proxmox)
+## Déploiement automatique (timer systemd)
 
-Cette version restructure le dépôt en monorepo (`src/` → `apps/bot/src/`, `prisma/` →
-`packages/database/prisma/`, nouveaux `Dockerfile.bot`/`Dockerfile.api`/`Dockerfile.dashboard` à la
-place de l'unique `Dockerfile`). Si tu avais déjà une instance qui tournait sur un ancien layout :
+Le dossier `deploy/` fournit un déploiement continu sans port exposé : un timer systemd vérifie chaque
+minute s'il y a un nouveau commit sur `main`, et si oui :
 
-1. Recopie l'intégralité du dépôt (pas de `git pull` incrémental possible ici, les chemins ont
-   changé) sur la machine cible.
-2. Complète le `.env` existant avec les nouvelles variables (`DISCORD_REDIRECT_URI`,
-   `DASHBOARD_URL`, `JWT_SECRET`, `API_PORT`, `NEXT_PUBLIC_API_URL`, `OWNER_IDS` — voir
-   `.env.example`), enregistre `DISCORD_REDIRECT_URI` comme redirect URI OAuth2 valide sur le
-   portail développeur, et branche ton reverse proxy en amont sur les ports `4500`/`4501` (voir
-   [Domaine & ports](#domaine--ports)).
-3. `docker compose down` puis `docker compose up -d --build` : le service `migrate` applique le
-   nouveau schéma (ajout de `Guild.name`, `Guild.botPresent` et `ShardStatus`) avant que bot/API ne
-   démarrent.
+1. `git reset --hard origin/main` puis `git clean -fd` (le `.env`, ignoré par git, est conservé) ;
+2. `docker compose up -d --build --remove-orphans` : les images sont construites pendant que les
+   anciens conteneurs tournent, seuls les services modifiés sont recréés, et le service `migrate`
+   applique les nouvelles migrations ;
+3. nettoyage des anciennes images et du cache de build de plus de 7 jours.
+
+Les données Postgres sont dans un volume nommé (`gaulia_bot_gaulia_postgres_data`) qui n'est jamais
+supprimé. N'utilise jamais `docker compose down -v`.
+
+Installation (une fois, à la racine du dépôt cloné sur le serveur, avec le `.env` en place) :
+
+```bash
+sudo bash deploy/install.sh
+```
+
+Commandes utiles :
+
+| Action                                     | Commande                                        |
+| ------------------------------------------ | ----------------------------------------------- |
+| Suivre les déploiements                    | `journalctl -u gaulia-deploy.service -f`        |
+| État du timer (prochaine vérification)     | `systemctl list-timers gaulia-deploy.timer`     |
+| Forcer un redéploiement                    | `bash deploy/deploy.sh --force`                 |
+| Suspendre / reprendre le déploiement auto  | `sudo systemctl stop/start gaulia-deploy.timer` |
+
+Un commit dont le build échoue n'est pas retenté en boucle : les anciens conteneurs continuent de
+tourner, l'échec apparaît dans `journalctl`, et le commit suivant (ou `--force`) relance un
+déploiement. Si `deploy/gaulia-deploy.service` ou `.timer` change, relance `sudo bash deploy/install.sh`.

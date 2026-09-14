@@ -1,3 +1,7 @@
+# Nom de projet figé : le volume Postgres (gaulia_bot_gaulia_postgres_data) garde le même nom même si
+# le dossier du dépôt est renommé ou recloné ailleurs.
+name: gaulia_bot
+
 # Rotation des journaux de chaque conteneur (10 Mo × 5 fichiers max) : les logs ne sont pas conservés
 # indéfiniment, comme annoncé dans la politique de confidentialité.
 x-logging: &default-logging
