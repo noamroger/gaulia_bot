@@ -8,10 +8,11 @@ import {
 } from "discord.js";
 
 import type { GauliaClient } from "../client/GauliaClient";
-import { handleInteractionError } from "../core/errors";
+import { GauliaError, handleInteractionError } from "../core/errors";
 import { hasPermissionLevel, PermissionLevel } from "../core/permissions/permissionLevel";
 import { warningPayload } from "../core/ui/containers";
 import { resolveComponent } from "../handlers/componentHandler";
+import { isBlindtestRunning } from "../modules/fun/services/blindtest";
 import { assertFunChannel } from "../modules/fun/services/funAccess";
 import { assertMusicAccess, MUSIC_COMMAND_ACCESS } from "../modules/music/services/musicAccess";
 import { requirePremium } from "../modules/premium/guards/requirePremium";
@@ -76,6 +77,11 @@ async function passesCommandGuards(
 
   const musicAccess = MUSIC_COMMAND_ACCESS[interaction.commandName];
   if (musicAccess && interaction.inCachedGuild()) {
+    if (isBlindtestRunning(interaction.guildId)) {
+      throw new GauliaError(
+        "Un blindtest est en cours sur ce serveur : les commandes musique reviennent à la fin de la partie.",
+      );
+    }
     await assertMusicAccess(interaction.member, musicAccess, interaction.channelId);
   }
 

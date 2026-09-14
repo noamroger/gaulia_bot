@@ -108,6 +108,15 @@ export default function PrivacyPage() {
           résultat de la commande lovecalc est calculé à partir des identifiants Discord des deux
           membres, sans rien conserver.
         </p>
+        <p>
+          Pendant un blindtest, Gaulia lit les messages envoyés dans le salon de la partie par les
+          membres présents dans le salon vocal, uniquement pour les comparer à la réponse attendue :
+          ils ne sont ni enregistrés ni conservés. Les scores (identifiants des joueurs et points)
+          restent en mémoire vive et disparaissent à la fin de la partie. Les extraits joués sont
+          les aperçus de 30 secondes fournis publiquement par Spotify, rejoués par notre serveur
+          audio (ou retrouvés sur SoundCloud à défaut) : aucune donnée vous concernant n&apos;est
+          transmise à Spotify.
+        </p>
 
         <h3>Abonnement premium</h3>
         <p>

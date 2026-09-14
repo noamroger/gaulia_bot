@@ -13,7 +13,8 @@
     "start": "node dist/index.js",
     "start:single": "node dist/bot.js",
     "deploy": "tsx src/handlers/deploy-commands.ts",
-    "deploy:guild": "tsx src/handlers/deploy-commands.ts --guild"
+    "deploy:guild": "tsx src/handlers/deploy-commands.ts --guild",
+    "blindtest:categories": "node scripts/generate-blindtest-categories.mjs"
   },
   "dependencies": {
     "@discordjs/rest": "^2.4.3",

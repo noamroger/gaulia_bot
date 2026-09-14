@@ -4,6 +4,11 @@ import type { GauliaClient } from "../../../client/GauliaClient";
 import { env } from "../../../config/env";
 import { errorPayload, warningPayload, type V2MessagePayload } from "../../../core/ui/containers";
 import { getMusicSettings } from "@gaulia/database";
+import {
+  abortBlindtest,
+  BLINDTEST_PLAYER_FLAG,
+  failBlindtestRound,
+} from "../../fun/services/blindtest";
 import { isPremiumGuild } from "../../premium/services/entitlementService";
 import { clearIdleTimer, scheduleIdleDestroy } from "./idleTimers";
 import { deleteNowPlayingCard, postOrUpdateNowPlayingCard } from "./nowPlayingCardService";
@@ -47,6 +52,8 @@ export function createMusicManager(client: GauliaClient): LavalinkManager {
 
   manager.on("trackStart", (player, track) => {
     clearIdleTimer(player.guildId);
+    // Pendant un blindtest, la carte révélerait le titre à deviner.
+    if (player.get<boolean | undefined>(BLINDTEST_PLAYER_FLAG)) return;
     void postOrUpdateNowPlayingCard(client, player, track ?? undefined);
   });
 
@@ -64,6 +71,10 @@ export function createMusicManager(client: GauliaClient): LavalinkManager {
       { guildId: player.guildId, track: track?.info.title, exception: payload.exception },
       "Erreur de lecture Lavalink",
     );
+    if (player.get<boolean | undefined>(BLINDTEST_PLAYER_FLAG)) {
+      void failBlindtestRound(player.guildId);
+      return;
+    }
     void notifyTextChannel(
       client,
       player.textChannelId,
@@ -73,6 +84,10 @@ export function createMusicManager(client: GauliaClient): LavalinkManager {
 
   manager.on("trackStuck", (player, track) => {
     client.logger.warn({ guildId: player.guildId, track: track?.info.title }, "Titre bloqué");
+    if (player.get<boolean | undefined>(BLINDTEST_PLAYER_FLAG)) {
+      void failBlindtestRound(player.guildId);
+      return;
+    }
     void notifyTextChannel(
       client,
       player.textChannelId,
@@ -83,6 +98,7 @@ export function createMusicManager(client: GauliaClient): LavalinkManager {
   manager.on("playerDestroy", (player) => {
     clearIdleTimer(player.guildId);
     void deleteNowPlayingCard(client, player.guildId);
+    void abortBlindtest(player.guildId);
   });
 
   manager.nodeManager.on("connect", (node) => {
