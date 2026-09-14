@@ -107,29 +107,6 @@ export default function AdminStatsPage() {
         </span>
       </div>
 
-      {categories.length > 0 && (
-        <div className="category-filter" role="group" aria-label="Catégories de commandes">
-          <span className="category-filter-label">Catégories</span>
-          {categories.map(({ category, count }) => (
-            <button
-              key={category}
-              type="button"
-              className="filter-chip"
-              aria-pressed={!excluded.includes(category)}
-              onClick={() => toggleCategory(category)}
-            >
-              {categoryLabel(category)}
-              <span className="numeric">{formatCompact(count)}</span>
-            </button>
-          ))}
-          {excluded.length > 0 && (
-            <button type="button" className="filter-reset" onClick={() => setExcluded([])}>
-              Tout afficher
-            </button>
-          )}
-        </div>
-      )}
-
       {stats === null ? (
         failed ? (
           <div className="empty-state">Impossible de charger les statistiques.</div>
@@ -206,6 +183,29 @@ export default function AdminStatsPage() {
               )}
             </section>
           </div>
+
+          {categories.length > 0 && (
+            <div className="category-filter" role="group" aria-label="Catégories de commandes">
+              <span className="category-filter-label">Catégories</span>
+              {categories.map(({ category, count }) => (
+                <button
+                  key={category}
+                  type="button"
+                  className="filter-chip"
+                  aria-pressed={!excluded.includes(category)}
+                  onClick={() => toggleCategory(category)}
+                >
+                  {categoryLabel(category)}
+                  <span className="numeric">{formatCompact(count)}</span>
+                </button>
+              ))}
+              {excluded.length > 0 && (
+                <button type="button" className="filter-reset" onClick={() => setExcluded([])}>
+                  Tout afficher
+                </button>
+              )}
+            </div>
+          )}
 
           <h2 className="section-title">Shards</h2>
           {stats.shards.length === 0 ? (
