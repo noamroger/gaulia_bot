@@ -141,7 +141,9 @@ export default function PrivacyPage() {
           contiennent ni identifiant d&apos;utilisateur, ni identifiant de serveur, ni contenu : il
           est impossible de savoir qui a utilisé une commande. Ils sont supprimés automatiquement
           après 90 jours. Nous relevons aussi des indicateurs techniques globaux (nombre de
-          serveurs, latence, mémoire utilisée), sans aucune donnée personnelle.
+          serveurs, nombre total de membres, latence, mémoire utilisée), sans aucune donnée
+          personnelle. Leur historique, par tranche de 10 minutes, est lui aussi supprimé
+          automatiquement après 90 jours.
         </p>
 
         <h2>3. Données traitées par le tableau de bord</h2>
@@ -200,7 +202,10 @@ export default function PrivacyPage() {
             </thead>
             <tbody>
               <tr>
-                <td>Statistiques d&apos;utilisation (anonymes)</td>
+                <td>
+                  Statistiques d&apos;utilisation et historique des indicateurs techniques
+                  (anonymes)
+                </td>
                 <td>90 jours, puis suppression automatique</td>
               </tr>
               <tr>

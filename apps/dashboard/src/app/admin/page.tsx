@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { DailyUsageChart } from "@/components/stats/DailyUsageChart";
+import { ShardHistoryCharts } from "@/components/stats/ShardHistoryCharts";
 import { StatTile } from "@/components/stats/StatTile";
 import { TopCommandsChart } from "@/components/stats/TopCommandsChart";
 import { api } from "@/lib/api";
@@ -155,6 +156,8 @@ export default function AdminStatsPage() {
             />
             <StatTile label="Lecteurs musique actifs" value={formatNumber(stats.playerCount)} />
           </div>
+
+          <ShardHistoryCharts history={stats.history} days={stats.days} />
 
           <div className="chart-grid">
             <section className="card">

@@ -3,6 +3,7 @@ import {
   eraseUserData,
   getCommandUsageSummary,
   getGuildDataSummary,
+  getShardMetricHistory,
   getUserDataSummary,
   listPresentGuilds,
   listShardStatuses,
@@ -52,9 +53,10 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const { days, exclude } = parsed.data;
-    const [shardRows, commands] = await Promise.all([
+    const [shardRows, commands, history] = await Promise.all([
       listShardStatuses(),
       getCommandUsageSummary(days, exclude),
+      getShardMetricHistory(days),
     ]);
 
     const now = Date.now();
@@ -83,6 +85,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
       averagePing:
         online.length === 0 ? null : Math.round(sumOnline((shard) => shard.ping) / online.length),
       commands,
+      history,
       shards,
     };
   });

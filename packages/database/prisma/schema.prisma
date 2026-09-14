@@ -187,6 +187,23 @@ model ShardStatus {
   @@map("shard_status")
 }
 
+/// Historique des métriques de chaque shard par tranche de 10 minutes (UTC), pour les graphiques du
+/// panel admin. Chaque heartbeat met à jour la tranche courante ; l'API additionne les shards.
+model ShardMetricSample {
+  shardId     Int
+  bucket      DateTime
+  guildCount  Int
+  memberCount Int
+  /// Somme des pings relevés dans la tranche et nombre de relevés, pour en tirer la moyenne.
+  pingTotal   Int      @default(0)
+  pingSamples Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@id([shardId, bucket])
+  @@index([bucket])
+  @@map("shard_metric_samples")
+}
+
 /// Compteur agrégé par jour (UTC) et par commande, alimente l'onglet statistiques du panel admin.
 model CommandUsageDaily {
   date        DateTime @db.Date

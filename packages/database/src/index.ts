@@ -8,6 +8,7 @@ export * from "./repositories/music.repo";
 export * from "./repositories/blindtest.repo";
 export * from "./repositories/premium.repo";
 export * from "./repositories/shardStatus.repo";
+export * from "./repositories/shardMetrics.repo";
 export * from "./repositories/commandUsage.repo";
 export * from "./repositories/dataErasure.repo";
 export * from "./repositories/moderationSettings.repo";

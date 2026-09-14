@@ -21,6 +21,21 @@ export function formatDay(isoDate: string): string {
   });
 }
 
+/** Date courte d'un instant ISO, dans le fuseau du navigateur (« 14 sept. »). */
+export function formatShortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+}
+
+/** Date et heure d'un instant ISO, dans le fuseau du navigateur (« 14 sept., 18:00 »). */
+export function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("fr-FR", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function formatUptime(sinceIso: string, now: number): string {
   const seconds = Math.max(0, Math.floor((now - new Date(sinceIso).getTime()) / 1000));
   const days = Math.floor(seconds / 86_400);

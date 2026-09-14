@@ -147,6 +147,28 @@ button {
   }
 }
 
+.history-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 960px) {
+  .history-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.history-empty {
+  padding: 48px 12px;
+}
+
+.history-table {
+  overflow-x: auto;
+  max-height: 260px;
+}
+
 .card-title {
   margin: 0 0 4px;
   font-size: 15px;

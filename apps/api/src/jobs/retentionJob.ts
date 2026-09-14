@@ -1,4 +1,4 @@
-import { purgeExpiredCommandUsage } from "@gaulia/database";
+import { purgeExpiredCommandUsage, purgeExpiredShardMetrics } from "@gaulia/database";
 
 import { logger } from "../logger";
 
@@ -6,9 +6,12 @@ const RETENTION_JOB_INTERVAL_MS = 6 * 60 * 60_000;
 
 async function runRetentionPurge(): Promise<void> {
   try {
-    const deleted = await purgeExpiredCommandUsage();
-    if (deleted > 0) {
-      logger.info({ deleted }, "Statistiques expirées supprimées");
+    const [commandUsage, shardMetrics] = await Promise.all([
+      purgeExpiredCommandUsage(),
+      purgeExpiredShardMetrics(),
+    ]);
+    if (commandUsage > 0 || shardMetrics > 0) {
+      logger.info({ commandUsage, shardMetrics }, "Statistiques expirées supprimées");
     }
   } catch (error) {
     logger.error({ err: error }, "Échec de la purge des statistiques expirées");

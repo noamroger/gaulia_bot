@@ -1,4 +1,4 @@
-import { upsertShardHeartbeat } from "@gaulia/database";
+import { recordShardMetrics, upsertShardHeartbeat } from "@gaulia/database";
 
 import type { GauliaClient } from "../../client/GauliaClient";
 
@@ -11,16 +11,30 @@ function currentShardId(client: GauliaClient): number {
 }
 
 async function sendHeartbeat(client: GauliaClient, startedAt: Date): Promise<void> {
+  const shardId = currentShardId(client);
+  const guildCount = client.guilds.cache.size;
+  const memberCount = client.guilds.cache.reduce((sum, guild) => sum + guild.memberCount, 0);
+  // -1 tant que la gateway n'a pas encore mesuré de latence.
+  const rawPing = client.ws.ping;
+
   try {
-    await upsertShardHeartbeat({
-      shardId: currentShardId(client),
-      guildCount: client.guilds.cache.size,
-      memberCount: client.guilds.cache.reduce((sum, guild) => sum + guild.memberCount, 0),
-      ping: Math.max(0, Math.round(client.ws.ping)),
-      memoryMb: Math.round(process.memoryUsage().rss / 1_048_576),
-      playerCount: client.lavalink.players.size,
-      startedAt,
-    });
+    await Promise.all([
+      upsertShardHeartbeat({
+        shardId,
+        guildCount,
+        memberCount,
+        ping: Math.max(0, Math.round(rawPing)),
+        memoryMb: Math.round(process.memoryUsage().rss / 1_048_576),
+        playerCount: client.lavalink.players.size,
+        startedAt,
+      }),
+      recordShardMetrics({
+        shardId,
+        guildCount,
+        memberCount,
+        ping: rawPing >= 0 ? Math.round(rawPing) : null,
+      }),
+    ]);
   } catch (error) {
     client.logger.error({ err: error }, "Échec de l'écriture du heartbeat de shard");
   }
@@ -28,7 +42,7 @@ async function sendHeartbeat(client: GauliaClient, startedAt: Date): Promise<voi
 
 /**
  * Démarre le heartbeat périodique de ce process de shard, lu par l'API pour les stats du
- * dashboard (nombre de serveurs, ping, uptime). Appelé une fois depuis events/ready.ts.
+ * dashboard (état actuel des shards et historique). Appelé une fois depuis events/ready.ts.
  */
 export function startHeartbeat(client: GauliaClient): void {
   const startedAt = new Date();

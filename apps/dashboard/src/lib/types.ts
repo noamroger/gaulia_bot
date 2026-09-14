@@ -182,7 +182,22 @@ export interface AdminStats {
     /** Toutes les catégories connues, même exclues, avec leur total sur la période. */
     categories: { category: string; count: number }[];
   };
+  history: ShardMetricHistory;
   shards: AdminShard[];
+}
+
+export interface ShardMetricPoint {
+  /** Début de la tranche (ISO). */
+  at: string;
+  /** null : aucun shard n'a envoyé de heartbeat pendant la tranche. */
+  guildCount: number | null;
+  memberCount: number | null;
+  ping: number | null;
+}
+
+export interface ShardMetricHistory {
+  stepMinutes: number;
+  points: ShardMetricPoint[];
 }
 
 export interface ShardInfo {
