@@ -45,6 +45,10 @@ function GuildSummary({ summary }: { summary: GuildDataSummary }) {
         <strong>{summary.musicSettings ? "Oui" : "Non"}</strong>
       </li>
       <li>
+        <span>Listes de blindtest</span>
+        <strong>{formatNumber(summary.blindtestPlaylists)}</strong>
+      </li>
+      <li>
         <span>Droits premium en cache</span>
         <strong>{formatNumber(summary.premiumEntitlements)}</strong>
       </li>

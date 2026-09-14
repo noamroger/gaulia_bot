@@ -7,6 +7,8 @@ const DEFAULTS: Omit<MusicSettings, "guildId" | "updatedAt"> = {
   volume: 100,
   stay247: false,
   defaultLoop: "NONE",
+  blindtestChannelIds: [],
+  blindtestDisabledCategories: [],
 };
 
 export async function getMusicSettings(guildId: string): Promise<MusicSettings> {
@@ -20,7 +22,13 @@ export async function getMusicSettings(guildId: string): Promise<MusicSettings> 
 
 export async function updateMusicSettings(
   guildId: string,
-  data: Partial<{ volume: number; stay247: boolean; defaultLoop: LoopMode }>,
+  data: Partial<{
+    volume: number;
+    stay247: boolean;
+    defaultLoop: LoopMode;
+    blindtestChannelIds: string[];
+    blindtestDisabledCategories: string[];
+  }>,
 ): Promise<MusicSettings> {
   await getOrCreateGuild(guildId);
   return prisma.musicSettings.upsert({

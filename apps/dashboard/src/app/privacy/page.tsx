@@ -117,6 +117,14 @@ export default function PrivacyPage() {
           audio (ou retrouvés sur SoundCloud à défaut) : aucune donnée vous concernant n&apos;est
           transmise à Spotify.
         </p>
+        <p>
+          Les gestionnaires d&apos;un serveur peuvent créer des listes de musiques pour le blindtest
+          depuis le tableau de bord. Nous enregistrons le nom de chaque liste et, pour chaque titre,
+          son nom, son artiste, sa durée et ses liens Spotify, avec la configuration du serveur.
+          Pour importer un lien Spotify, notre serveur lit la page publique correspondante chez
+          Spotify, sans transmettre aucune donnée vous concernant. Ces listes sont supprimées avec
+          les autres données du serveur.
+        </p>
 
         <h3>Abonnement premium</h3>
         <p>

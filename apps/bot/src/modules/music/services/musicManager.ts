@@ -4,12 +4,8 @@ import type { GauliaClient } from "../../../client/GauliaClient";
 import { env } from "../../../config/env";
 import { errorPayload, warningPayload, type V2MessagePayload } from "../../../core/ui/containers";
 import { getMusicSettings } from "@gaulia/database";
-import {
-  abortBlindtest,
-  BLINDTEST_PLAYER_FLAG,
-  failBlindtestRound,
-} from "../../fun/services/blindtest";
 import { isPremiumGuild } from "../../premium/services/entitlementService";
+import { abortBlindtest, BLINDTEST_PLAYER_FLAG, failBlindtestRound } from "./blindtest";
 import { clearIdleTimer, scheduleIdleDestroy } from "./idleTimers";
 import { deleteNowPlayingCard, postOrUpdateNowPlayingCard } from "./nowPlayingCardService";
 

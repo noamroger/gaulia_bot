@@ -81,6 +81,41 @@ export interface GuildSettings {
   musicStay247: boolean;
   /** Salons où les commandes fun sont utilisables ; vide = tous les salons. */
   funChannelIds: string[];
+  /** Salons où /blindtest peut être lancé ; vide = tous les salons. */
+  blindtestChannelIds: string[];
+  blindtestDisabledCategories: string[];
+}
+
+export interface BlindtestPreset {
+  id: string;
+  name: string;
+  description: string;
+  trackCount: number;
+}
+
+export interface BlindtestTrack {
+  uri: string | null;
+  title: string;
+  artist: string;
+  durationMs: number;
+  /** Extrait Spotify ; null = recherche SoundCloud pendant la partie. */
+  preview: string | null;
+}
+
+export interface BlindtestPlaylistSummary {
+  id: string;
+  name: string;
+  trackCount: number;
+  updatedAt: string;
+}
+
+export interface BlindtestPlaylist extends BlindtestPlaylistSummary {
+  tracks: BlindtestTrack[];
+}
+
+export interface SpotifyImport {
+  name: string;
+  tracks: BlindtestTrack[];
 }
 
 export interface PremiumStatus {
@@ -106,6 +141,7 @@ export interface GuildDataSummary {
   warns: number;
   automodConfig: boolean;
   musicSettings: boolean;
+  blindtestPlaylists: number;
   premiumEntitlements: number;
 }
 

@@ -3,18 +3,18 @@ import type { ButtonInteraction } from "discord.js";
 import { GauliaError } from "../../../core/errors";
 import type { ButtonComponent } from "../../../structures/Component";
 import { requireBlindtestControl, skipBlindtestRound, stopBlindtest } from "../services/blindtest";
-import { parseCustomId } from "../services/funUi";
 
+/** customId `blindtest:<action>:<serveur>` : seul le serveur de la partie est accepté. */
 function controlledSession(interaction: ButtonInteraction) {
   if (!interaction.inCachedGuild()) throw new GauliaError("Ce bouton n'est plus valide.");
-  const { gameId } = parseCustomId(interaction.customId);
-  if (gameId !== interaction.guildId) throw new GauliaError("Ce bouton n'est plus valide.");
-  return requireBlindtestControl(gameId, interaction.member);
+  const guildId = interaction.customId.split(":")[2];
+  if (guildId !== interaction.guildId) throw new GauliaError("Ce bouton n'est plus valide.");
+  return requireBlindtestControl(guildId, interaction.member);
 }
 
 const skipButton: ButtonComponent = {
   type: "button",
-  customIdPrefix: "fun:blindtest-skip:",
+  customIdPrefix: "blindtest:skip:",
   async execute(interaction) {
     const session = controlledSession(interaction);
     await interaction.deferUpdate();
@@ -24,7 +24,7 @@ const skipButton: ButtonComponent = {
 
 const stopButton: ButtonComponent = {
   type: "button",
-  customIdPrefix: "fun:blindtest-stop:",
+  customIdPrefix: "blindtest:stop:",
   async execute(interaction) {
     const session = controlledSession(interaction);
     await interaction.deferUpdate();

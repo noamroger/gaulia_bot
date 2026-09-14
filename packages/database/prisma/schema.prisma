@@ -37,6 +37,7 @@ model Guild {
   automodConfig      AutomodConfig?
   musicSettings      MusicSettings?
   moderationSettings ModerationSettings?
+  blindtestPlaylists BlindtestPlaylist[]
 
   @@map("guilds")
 }
@@ -131,9 +132,29 @@ model MusicSettings {
   volume      Int      @default(100)
   stay247     Boolean  @default(false)
   defaultLoop LoopMode @default(NONE)
+  /// Salons où `/blindtest` peut être lancé ; liste vide = tous les salons.
+  blindtestChannelIds         String[] @default([])
+  /// Identifiants des catégories prédéfinies de blindtest désactivées sur ce serveur.
+  blindtestDisabledCategories String[] @default([])
   updatedAt   DateTime @updatedAt
 
   @@map("music_settings")
+}
+
+/// Liste de musiques créée par un serveur pour ses blindtests. `tracks` est validé par
+/// `blindtestTracksSchema` (src/schemas/blindtest.ts) ; `trackCount` évite de lire le JSON pour lister.
+model BlindtestPlaylist {
+  id         String   @id @default(cuid())
+  guildId    String
+  guild      Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  name       String
+  tracks     Json     @default("[]")
+  trackCount Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([guildId, name])
+  @@map("blindtest_playlists")
 }
 
 /// Cache persistant des entitlements Discord (source de vérité de secours après redémarrage).

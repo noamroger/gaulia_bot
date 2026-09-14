@@ -1,4 +1,5 @@
 import {
+  BLINDTEST_PRESET_CATEGORIES,
   getModerationSettings,
   getMusicSettings,
   getOrCreateGuild,
@@ -26,7 +27,11 @@ const updateSettingsSchema = z.object({
   musicDefaultLoop: z.enum(["NONE", "TRACK", "QUEUE"]).optional(),
   musicStay247: z.boolean().optional(),
   funChannelIds: z.array(snowflakeSchema).max(100).optional(),
+  blindtestChannelIds: z.array(snowflakeSchema).max(100).optional(),
+  blindtestDisabledCategories: z.array(z.string().max(50)).max(100).optional(),
 });
+
+const PRESET_IDS = new Set(BLINDTEST_PRESET_CATEGORIES.map((category) => category.id));
 
 async function loadSettings(guildId: string) {
   const guild = await getOrCreateGuild(guildId);
@@ -47,6 +52,8 @@ async function loadSettings(guildId: string) {
     musicDefaultLoop: music.defaultLoop,
     musicStay247: music.stay247,
     funChannelIds: guild.funChannelIds,
+    blindtestChannelIds: music.blindtestChannelIds,
+    blindtestDisabledCategories: music.blindtestDisabledCategories,
   };
 }
 
@@ -92,6 +99,7 @@ export default async function settingsRoutes(app: FastifyInstance): Promise<void
           body.automodLogChannelId,
           body.musicChannelId,
           ...(body.funChannelIds ?? []),
+          ...(body.blindtestChannelIds ?? []),
         ],
         resources.channels,
       );
@@ -122,6 +130,10 @@ export default async function settingsRoutes(app: FastifyInstance): Promise<void
           defaultLoop: body.musicDefaultLoop,
           // Le 24/7 est premium : on autorise toujours sa désactivation, jamais son activation sans abonnement.
           stay247: body.musicStay247 === true && !guild.premium ? undefined : body.musicStay247,
+          blindtestChannelIds: body.blindtestChannelIds && [...new Set(body.blindtestChannelIds)],
+          blindtestDisabledCategories: body.blindtestDisabledCategories && [
+            ...new Set(body.blindtestDisabledCategories.filter((id) => PRESET_IDS.has(id))),
+          ],
         }),
       );
 

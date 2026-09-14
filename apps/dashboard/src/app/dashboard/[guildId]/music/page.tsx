@@ -1,13 +1,18 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { Toggle } from "@/components/Toggle";
+import { BlindtestPlaylistManager } from "@/components/blindtest/BlindtestPlaylistManager";
+import { PresetCategoryToggles } from "@/components/blindtest/PresetCategoryToggles";
 import { ChannelSelect } from "@/components/settings/ChannelSelect";
+import { MultiPicker } from "@/components/settings/MultiPicker";
 import { RoleSelect } from "@/components/settings/RoleSelect";
 import { SaveBar } from "@/components/settings/SaveBar";
 import { SettingRow, SettingsSection } from "@/components/settings/SettingsSection";
-import type { GuildSettings, LoopMode } from "@/lib/types";
+import { api } from "@/lib/api";
+import type { BlindtestPreset, GuildSettings, LoopMode } from "@/lib/types";
 import { useEditableResource } from "@/lib/useEditableResource";
 import { useGuildResources } from "@/lib/useGuildResources";
 
@@ -21,6 +26,23 @@ export default function MusicSettingsPage() {
   const { guildId } = useParams<{ guildId: string }>();
   const { resources, failed } = useGuildResources(guildId);
   const editor = useEditableResource<GuildSettings>(`/guilds/${guildId}/settings`);
+  const [presets, setPresets] = useState<BlindtestPreset[] | null>(null);
+  const [presetsFailed, setPresetsFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<BlindtestPreset[]>("/blindtest/presets")
+      .then((value) => {
+        if (!cancelled) setPresets(value);
+      })
+      .catch(() => {
+        if (!cancelled) setPresetsFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (failed || editor.loadFailed) {
     return <div className="empty-state">Impossible de charger les réglages musique.</div>;
@@ -30,6 +52,10 @@ export default function MusicSettingsPage() {
   }
 
   const { draft, update } = editor;
+  const channelOptions = resources.channels.map((channel) => ({
+    id: channel.id,
+    label: `#${channel.name}`,
+  }));
 
   return (
     <div className="settings-page">
@@ -105,12 +131,54 @@ export default function MusicSettingsPage() {
         >
           <Toggle
             checked={draft.musicStay247}
+            ariaLabel="Mode 24/7"
             onChange={(musicStay247) => {
               if (draft.premium || !musicStay247) update({ musicStay247 });
             }}
           />
         </SettingRow>
       </SettingsSection>
+
+      <SettingsSection
+        title="Blindtest"
+        description="Réglages de la commande /blindtest. Les administrateurs ne sont jamais concernés par la restriction de salons."
+      >
+        <SettingRow
+          label="Salons du blindtest"
+          hint="Le blindtest ne peut être lancé que dans ces salons et leurs fils, indépendamment du salon des commandes musique. Sans salon choisi, il est utilisable partout."
+        >
+          <MultiPicker
+            values={draft.blindtestChannelIds}
+            options={channelOptions}
+            addLabel="Ajouter un salon…"
+            emptyLabel="Tous les salons"
+            ariaLabel="Ajouter un salon de blindtest"
+            onChange={(blindtestChannelIds) => update({ blindtestChannelIds })}
+          />
+        </SettingRow>
+        <div className="setting-row setting-row-stacked">
+          <div className="setting-row-text">
+            <strong>Catégories proposées</strong>
+            <span className="setting-hint">
+              Une catégorie désactivée n&apos;apparaît plus dans l&apos;autocomplétion de /blindtest
+              sur ce serveur.
+            </span>
+          </div>
+          {presetsFailed && (
+            <p className="notice notice-error">Impossible de charger les catégories.</p>
+          )}
+          {!presetsFailed && !presets && <p className="text-muted">Chargement…</p>}
+          {presets && (
+            <PresetCategoryToggles
+              presets={presets}
+              disabled={draft.blindtestDisabledCategories}
+              onChange={(blindtestDisabledCategories) => update({ blindtestDisabledCategories })}
+            />
+          )}
+        </div>
+      </SettingsSection>
+
+      <BlindtestPlaylistManager guildId={guildId} />
 
       <SaveBar editor={editor} />
     </div>

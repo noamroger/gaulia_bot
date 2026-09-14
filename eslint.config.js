@@ -32,7 +32,7 @@ module.exports = tseslint.config(
       "eslint.config.js",
       "packages/database/prisma.config.ts",
       "apps/dashboard/next.config.js",
-      "apps/bot/scripts/**",
+      "packages/database/scripts/**",
     ],
   },
 );

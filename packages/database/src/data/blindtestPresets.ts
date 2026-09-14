@@ -1,26 +1,9 @@
-// Fichier généré par apps/bot/scripts/generate-blindtest-categories.mjs : ne pas modifier à la main.
+// Fichier généré par packages/database/scripts/generate-blindtest-presets.mjs : ne pas modifier à la main.
 // Dernière génération : 2026-09-14.
 
-export interface BlindtestTrack {
-  uri: string;
-  title: string;
-  artist: string;
-  durationMs: number;
-  /** Extrait officiel de 30 secondes fourni par Spotify. */
-  preview: string;
-}
+import type { BlindtestPresetCategory } from "../schemas/blindtest";
 
-export interface BlindtestCategory {
-  id: string;
-  name: string;
-  description: string;
-  /** "title" : seul le titre rapporte des points (catégories de reprises). */
-  guess: "both" | "title";
-  sources: string[];
-  tracks: BlindtestTrack[];
-}
-
-export const BLINDTEST_CATEGORIES: readonly BlindtestCategory[] = [
+export const BLINDTEST_PRESET_CATEGORIES: readonly BlindtestPresetCategory[] = [
   {
     id: "hits-du-moment",
     name: "Hits du moment",

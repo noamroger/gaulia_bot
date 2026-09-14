@@ -1,16 +1,14 @@
-// Génère src/modules/fun/data/blindtestCategories.ts à partir de playlists Spotify publiques.
-// Les titres sont lus sur la page d'intégration (open.spotify.com/embed), sans compte ni clé d'API.
-// Pour ajouter une catégorie : ajoute une entrée dans CATEGORIES, puis lance
-// `npm run blindtest:categories -w apps/bot`.
+// Génère src/data/blindtestPresets.ts (catégories prédéfinies du blindtest) à partir de playlists
+// Spotify publiques. Les titres sont lus sur la page d'intégration (open.spotify.com/embed), sans
+// compte ni clé d'API. Pour ajouter une catégorie : ajoute une entrée dans CATEGORIES, puis lance
+// `npm run blindtest:presets -w packages/database`.
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const OUTPUT = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "../src/modules/fun/data/blindtestCategories.ts",
-);
+const OUTPUT = join(dirname(fileURLToPath(import.meta.url)), "../src/data/blindtestPresets.ts");
 const MAX_TRACKS = 150;
+const PREVIEW_PATTERN = /^https:\/\/p\.scdn\.co\/mp3-preview\/[A-Za-z0-9]+/;
 
 /**
  * guess : "both" = points pour le titre et l'artiste ; "title" = titre seulement (reprises).
@@ -142,7 +140,7 @@ function dedupeKey(title, artist) {
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
     .toLowerCase()
-    .replace(/\s*[-(\[].*$/, "");
+    .replace(/\s*[-([].*$/, "");
 }
 
 async function buildCategory(definition) {
@@ -153,7 +151,8 @@ async function buildCategory(definition) {
     const entity = await fetchPlaylist(playlistId);
     for (const item of entity.trackList) {
       const preview = item.audioPreview?.url;
-      if (item.entityType !== "track" || !item.isPlayable || !preview) continue;
+      if (item.entityType !== "track" || !item.isPlayable) continue;
+      if (!preview || !PREVIEW_PATTERN.test(preview)) continue;
       if (definition.latinOnly && (NON_LATIN.test(item.title) || NON_LATIN.test(item.subtitle))) {
         continue;
       }
@@ -184,29 +183,12 @@ async function buildCategory(definition) {
 
 function render(categories) {
   const lines = [
-    "// Fichier généré par apps/bot/scripts/generate-blindtest-categories.mjs : ne pas modifier à la main.",
+    "// Fichier généré par packages/database/scripts/generate-blindtest-presets.mjs : ne pas modifier à la main.",
     `// Dernière génération : ${new Date().toISOString().slice(0, 10)}.`,
     "",
-    "export interface BlindtestTrack {",
-    "  uri: string;",
-    "  title: string;",
-    "  artist: string;",
-    "  durationMs: number;",
-    "  /** Extrait officiel de 30 secondes fourni par Spotify. */",
-    "  preview: string;",
-    "}",
+    'import type { BlindtestPresetCategory } from "../schemas/blindtest";',
     "",
-    "export interface BlindtestCategory {",
-    "  id: string;",
-    "  name: string;",
-    "  description: string;",
-    '  /** "title" : seul le titre rapporte des points (catégories de reprises). */',
-    '  guess: "both" | "title";',
-    "  sources: string[];",
-    "  tracks: BlindtestTrack[];",
-    "}",
-    "",
-    "export const BLINDTEST_CATEGORIES: readonly BlindtestCategory[] = [",
+    "export const BLINDTEST_PRESET_CATEGORIES: readonly BlindtestPresetCategory[] = [",
   ];
 
   for (const category of categories) {

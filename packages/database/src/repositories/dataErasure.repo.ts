@@ -12,6 +12,7 @@ export interface GuildDataSummary {
   warns: number;
   automodConfig: boolean;
   musicSettings: boolean;
+  blindtestPlaylists: number;
   premiumEntitlements: number;
 }
 
@@ -25,15 +26,23 @@ export interface UserDataSummary {
 }
 
 export async function getGuildDataSummary(guildId: string): Promise<GuildDataSummary> {
-  const [guild, moderationCases, warns, automodConfigs, musicSettings, premiumEntitlements] =
-    await Promise.all([
-      prisma.guild.findUnique({ where: { id: guildId }, select: { name: true } }),
-      prisma.moderationCase.count({ where: { guildId } }),
-      prisma.warn.count({ where: { guildId } }),
-      prisma.automodConfig.count({ where: { guildId } }),
-      prisma.musicSettings.count({ where: { guildId } }),
-      prisma.premiumEntitlement.count({ where: { guildId } }),
-    ]);
+  const [
+    guild,
+    moderationCases,
+    warns,
+    automodConfigs,
+    musicSettings,
+    blindtestPlaylists,
+    premiumEntitlements,
+  ] = await Promise.all([
+    prisma.guild.findUnique({ where: { id: guildId }, select: { name: true } }),
+    prisma.moderationCase.count({ where: { guildId } }),
+    prisma.warn.count({ where: { guildId } }),
+    prisma.automodConfig.count({ where: { guildId } }),
+    prisma.musicSettings.count({ where: { guildId } }),
+    prisma.blindtestPlaylist.count({ where: { guildId } }),
+    prisma.premiumEntitlement.count({ where: { guildId } }),
+  ]);
 
   return {
     guildId,
@@ -43,6 +52,7 @@ export async function getGuildDataSummary(guildId: string): Promise<GuildDataSum
     warns,
     automodConfig: automodConfigs > 0,
     musicSettings: musicSettings > 0,
+    blindtestPlaylists,
     premiumEntitlements,
   };
 }
