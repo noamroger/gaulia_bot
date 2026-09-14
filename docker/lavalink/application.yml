@@ -1,0 +1,105 @@
+# Config Lavalink v4 — voir https://lavalink.dev/configuration/
+# Les plugins listés sous lavalink.plugins sont téléchargés automatiquement au démarrage
+# (aucune image Docker custom nécessaire).
+
+server:
+  port: 2333
+  address: 0.0.0.0
+
+lavalink:
+  plugins:
+    # Lavalink v4 a retiré le support YouTube du core (raisons légales) : ce plugin le restaure.
+    # Garder à jour : YouTube casse régulièrement les anciens clients (Lavalink logue un WARN au
+    # démarrage quand une version plus récente existe).
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.2"
+      repository: "https://maven.lavalink.dev/releases"
+    # Résout Spotify/Deezer/Apple Music vers des sources jouables (voir plugins.lavasrc ci-dessous).
+    - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.3"
+      repository: "https://maven.lavalink.dev/releases"
+  pluginsDir: "./plugins"
+
+  server:
+    password: "${LAVALINK_PASSWORD}"
+    sources:
+      youtube: false # fourni par le plugin youtube-source, pas par le core
+      bandcamp: true
+      soundcloud: true
+      twitch: true
+      vimeo: true
+      nico: true
+      http: true
+      local: false
+    filters:
+      volume: true
+      equalizer: true
+      karaoke: true
+      timescale: true
+      tremolo: true
+      vibrato: true
+      distortion: true
+      rotation: true
+      channelMix: true
+      lowPass: true
+    bufferDurationMs: 400
+    frameBufferDurationMs: 5000
+    opusEncodingQuality: 10
+    resamplingQuality: LOW
+    trackStuckThresholdMs: 10000
+    useSeekGhosting: true
+    playerUpdateInterval: 5
+    youtubePlaylistLoadLimit: 6
+
+metrics:
+  prometheus:
+    enabled: false
+    endpoint: /metrics
+
+sentry:
+  dsn: ""
+
+logging:
+  level:
+    root: INFO
+    lavalink: INFO
+  logback:
+    rollingpolicy:
+      max-file-size: 100MB
+      max-history: 5
+
+# Configuration propre à chaque plugin déclaré dans lavalink.plugins ci-dessus.
+plugins:
+  youtube:
+    enabled: true
+    allowSearch: true
+    allowDirectVideoIds: true
+    allowDirectPlaylistIds: true
+    # Essayés dans l'ordre pour la lecture ; en cas d'échec le suivant prend le relais. MUSIC ne sert
+    # qu'à la recherche. MWEB/WEB ont besoin du serveur de déchiffrement (remoteCipher).
+    clients:
+      - MUSIC
+      - MWEB
+      - WEB
+      - WEBEMBEDDED
+      - ANDROID_VR
+      - TVHTML5_SIMPLY
+    # YouTube modifie sans cesse son script de signature : le déchiffrement local du plugin casse
+    # ("Must find sig function"), on délègue au service yt-cipher du docker-compose.
+    remoteCipher:
+      url: "http://yt-cipher:8001"
+      password: "${YT_CIPHER_TOKEN}"
+      userAgent: "gaulia"
+  lavasrc:
+    providers:
+      # Les liens Spotify sont rejoués via SoundCloud (YouTube bloque la lecture sans compte).
+      - "scsearch:%QUERY%"
+    sources:
+      spotify: true
+      applemusic: false
+      deezer: false
+      yandexmusic: false
+    # Optionnel : renseigne SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET dans .env pour activer la
+    # résolution des liens/recherches Spotify (voir README > Configuration de Lavalink).
+    spotify:
+      clientId: "${SPOTIFY_CLIENT_ID:}"
+      clientSecret: "${SPOTIFY_CLIENT_SECRET:}"
+      countryCode: "FR"

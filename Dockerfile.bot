@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1
+# Contexte de build : la racine du monorepo (voir docker-compose.yml : build.context: .)
+
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY . .
+RUN npm ci
+# `prisma generate` ne se connecte pas à la base (juste besoin du schéma), mais son chargement de
+# config exige que DATABASE_URL existe — .env est exclu du contexte de build (.dockerignore), donc
+# on fournit une valeur factice ici ; la vraie valeur est injectée au runtime par docker-compose.
+ENV DATABASE_URL="postgresql://user:pass@localhost:5432/db"
+RUN npm run prisma:generate -w packages/database
+RUN npm run build -w packages/database
+RUN npm run build -w apps/bot
+
+FROM node:20-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/packages/database/dist ./packages/database/dist
+COPY --from=build /app/packages/database/prisma ./packages/database/prisma
+COPY --from=build /app/packages/database/prisma.config.ts ./packages/database/prisma.config.ts
+COPY --from=build /app/packages/database/package.json ./packages/database/package.json
+COPY --from=build /app/apps/bot/dist ./apps/bot/dist
+COPY --from=build /app/apps/bot/package.json ./apps/bot/package.json
+
+CMD ["node", "apps/bot/dist/index.js"]

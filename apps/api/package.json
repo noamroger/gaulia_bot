@@ -1,0 +1,31 @@
+{
+  "name": "@gaulia/api",
+  "version": "1.0.0",
+  "description": "Gaulia — API du dashboard (OAuth2 Discord, config des serveurs, stats)",
+  "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.2",
+    "@fastify/cors": "^11.3.0",
+    "@fastify/jwt": "^10.2.2",
+    "@gaulia/database": "*",
+    "dotenv": "^16.4.7",
+    "fastify": "^5.12.4",
+    "pino": "^10.3.1",
+    "pino-pretty": "^13.0.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "name": "gaulia",
+  "version": "5.0.0",
+  "description": "Gaulia — bot Discord modulaire (modération, automod, musique, premium) + dashboard web",
+  "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w packages/database && npm run build -w apps/bot && npm run build -w apps/api && npm run build -w apps/dashboard",
+    "typecheck": "npm run typecheck -w packages/database && npm run typecheck -w apps/bot && npm run typecheck -w apps/api && npm run typecheck -w apps/dashboard",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "dev:bot": "npm run dev -w apps/bot",
+    "dev:api": "npm run dev -w apps/api",
+    "dev:dashboard": "npm run dev -w apps/dashboard",
+    "deploy": "npm run deploy -w apps/bot",
+    "deploy:guild": "npm run deploy:guild -w apps/bot",
+    "prisma:generate": "npm run prisma:generate -w packages/database",
+    "prisma:migrate": "npm run prisma:migrate -w packages/database",
+    "prisma:deploy": "npm run prisma:deploy -w packages/database",
+    "prisma:studio": "npm run prisma:studio -w packages/database"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "@types/node": "^22.10.5",
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.19.1"
+  }
+}

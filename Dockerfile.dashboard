@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1
+# Contexte de build : la racine du monorepo (voir docker-compose.yml : build.context: .)
+# NEXT_PUBLIC_API_URL est nécessaire au BUILD (pas seulement au runtime) : Next.js l'inline
+# directement dans le bundle JS envoyé au navigateur.
+
+FROM node:20-alpine AS build
+WORKDIR /app
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_CONTACT_EMAIL
+ARG DISCORD_CLIENT_ID
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_CONTACT_EMAIL=$NEXT_PUBLIC_CONTACT_EMAIL
+ENV DISCORD_CLIENT_ID=$DISCORD_CLIENT_ID
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY . .
+RUN npm ci
+RUN npm run build -w apps/dashboard
+
+FROM node:20-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+COPY --from=build /app/apps/dashboard/.next/standalone ./
+COPY --from=build /app/apps/dashboard/.next/static ./apps/dashboard/.next/static
+COPY --from=build /app/apps/dashboard/public ./apps/dashboard/public
+
+EXPOSE 3000
+CMD ["node", "apps/dashboard/server.js"]

@@ -1,0 +1,173 @@
+# Rotation des journaux de chaque conteneur (10 Mo × 5 fichiers max) : les logs ne sont pas conservés
+# indéfiniment, comme annoncé dans la politique de confidentialité.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gaulia_database
+    logging: *default-logging
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - gaulia_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - gaulia
+
+  lavalink:
+    image: ghcr.io/lavalink-devs/lavalink:4
+    container_name: gaulia_lavalink
+    logging: *default-logging
+    restart: unless-stopped
+    environment:
+      LAVALINK_PASSWORD: ${LAVALINK_PASSWORD}
+      SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:-}
+      SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:-}
+      YT_CIPHER_TOKEN: ${YT_CIPHER_TOKEN:?YT_CIPHER_TOKEN doit être défini dans .env}
+      # Plafonne le tas JVM pour ne pas laisser Lavalink consommer toute la RAM de l'hôte en prod ;
+      # ajuste selon la taille de ta machine (voir README > Production).
+      _JAVA_OPTIONS: "-Xmx1g -Xms512m"
+    volumes:
+      - ./docker/lavalink/application.yml:/opt/Lavalink/application.yml:ro
+      # Pas de volume sur /opt/Lavalink/plugins : un volume nommé "frais" écrase les permissions
+      # que l'image définit déjà pour son utilisateur non-root sur ce dossier, ce qui casse le
+      # téléchargement automatique des plugins (Permission denied). Les jars (~10-20MB) sont
+      # simplement re-téléchargés à chaque recréation du conteneur, ce qui reste rapide.
+    healthcheck:
+      # Cette version de Lavalink exige le mot de passe même sur /version (401 sinon, d'où le
+      # header Authorization ci-dessous — sans lui wget échoue et Docker marque le conteneur
+      # "unhealthy" alors que Lavalink tourne très bien).
+      test:
+        [
+          "CMD",
+          "wget",
+          "--header=Authorization: ${LAVALINK_PASSWORD}",
+          "-qO-",
+          "http://localhost:2333/version",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - gaulia
+    depends_on:
+      yt-cipher:
+        condition: service_started
+    # Pas de port exposé à l'hôte par défaut : seul le service "bot" doit joindre Lavalink,
+    # via le réseau Docker interne (host "lavalink"). Décommente si tu veux y accéder depuis l'hôte :
+    # ports:
+    #   - "2333:2333"
+
+  # Serveur de déchiffrement des signatures YouTube utilisé par le plugin youtube-source de Lavalink
+  # (plugins.youtube.remoteCipher). Pas d'image publiée : construit directement depuis le dépôt Git.
+  # Image distroless (pas de shell), donc pas de healthcheck possible. Réseau interne uniquement.
+  yt-cipher:
+    build: https://github.com/kikkia/yt-cipher.git
+    container_name: gaulia_yt_cipher
+    logging: *default-logging
+    restart: unless-stopped
+    environment:
+      API_TOKEN: ${YT_CIPHER_TOKEN:?YT_CIPHER_TOKEN doit être défini dans .env}
+    networks:
+      - gaulia
+
+  # Service one-shot : applique les migrations Prisma puis s'arrête. bot/api attendent qu'il
+  # termine avec succès avant de démarrer, pour ne jamais lire/écrire un schéma pas encore migré.
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    container_name: gaulia_migrate
+    logging: *default-logging
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    working_dir: /app/packages/database
+    command: ["npx", "prisma", "migrate", "deploy"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - gaulia
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    container_name: gaulia_bot
+    logging: *default-logging
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Surcharge les valeurs .env orientées "localhost" pour pointer vers les services du réseau Docker.
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      LAVALINK_HOST: lavalink
+      LAVALINK_PORT: 2333
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      lavalink:
+        condition: service_healthy
+    networks:
+      - gaulia
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: gaulia_api
+    logging: *default-logging
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    # Exposé sur 4501 côté hôte (ton reverse proxy en amont doit pointer api.<ton-domaine> ici).
+    ports:
+      - "4501:4000"
+    networks:
+      - gaulia
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+      args:
+        # Vu par le navigateur : doit être une URL accessible depuis l'extérieur du réseau Docker
+        # (pas "http://api:4000"), donc reprise depuis .env plutôt que codée en dur ici.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_CONTACT_EMAIL: ${NEXT_PUBLIC_CONTACT_EMAIL:-}
+        # Redirection /vote vers la page de vote top.gg du bot (next.config.js).
+        DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:?DISCORD_CLIENT_ID doit être défini dans .env}
+    container_name: gaulia_dashboard
+    logging: *default-logging
+    restart: unless-stopped
+    # Exposé sur 4500 côté hôte (ton reverse proxy en amont doit pointer <ton-domaine> ici).
+    ports:
+      - "4500:3000"
+    networks:
+      - gaulia
+
+networks:
+  gaulia:
+
+volumes:
+  gaulia_postgres_data:
