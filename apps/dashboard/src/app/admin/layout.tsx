@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 
+import { TabNav } from "@/components/TabNav";
 import { TopNav } from "@/components/TopNav";
 import { useSession } from "@/lib/useSession";
 
@@ -31,17 +31,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         {session?.isOwner ? (
           <>
             <h1>Panel admin</h1>
-            <nav className="tabs">
-              {TABS.map((tab) => (
-                <Link
-                  key={tab.href}
-                  href={tab.href}
-                  className={`tab${pathname === tab.href ? " active" : ""}`}
-                >
-                  {tab.label}
-                </Link>
-              ))}
-            </nav>
+            <TabNav
+              items={TABS.map((tab) => ({ ...tab, active: pathname === tab.href }))}
+              label="Sections du panel admin"
+            />
             {children}
           </>
         ) : (

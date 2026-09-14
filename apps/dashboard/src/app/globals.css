@@ -640,6 +640,150 @@ button {
   border-bottom-color: var(--primary);
 }
 
+.tab-nav {
+  position: relative;
+}
+
+.tab-nav-measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: max-content;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+  border: none;
+  margin: 0;
+}
+
+.tab-nav-measure .tab {
+  white-space: nowrap;
+}
+
+.tab-menu {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.tab-menu-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 12px;
+  background: var(--bg-elevated);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 11px 14px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+
+[aria-expanded="true"] > .chevron {
+  transform: rotate(180deg);
+}
+
+.menu-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.menu-item {
+  display: block;
+  width: 100%;
+  padding: 11px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 15px;
+  font-weight: 500;
+  text-align: left;
+  text-decoration: none;
+}
+
+.menu-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.menu-item.active {
+  color: var(--text);
+  background: rgba(88, 101, 242, 0.15);
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.menu-item.danger {
+  color: var(--danger);
+}
+
+.menu-separator {
+  height: 1px;
+  margin: 6px 0;
+  background: var(--border);
+}
+
+.menu-header {
+  padding: 8px 12px 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-menu-trigger:focus-visible,
+.account-trigger:focus-visible,
+.menu-item:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.top-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.account-menu {
+  position: relative;
+  display: none;
+}
+
+.account-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 10px 3px 3px;
+}
+
+.account-menu .menu-list {
+  left: auto;
+  width: min(260px, calc(100vw - 32px));
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -1026,4 +1170,30 @@ button {
 .save-bar-actions {
   display: flex;
   gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .top-nav {
+    padding: 12px 16px;
+  }
+
+  .top-nav-actions {
+    display: none;
+  }
+
+  .account-menu {
+    display: block;
+  }
+
+  .container {
+    padding: 20px 16px 80px;
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  h1 {
+    font-size: 1.6em;
+  }
 }

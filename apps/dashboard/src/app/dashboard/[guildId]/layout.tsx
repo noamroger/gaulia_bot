@@ -1,8 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+
+import { TabNav } from "@/components/TabNav";
 
 const TABS = [
   { slug: "settings", label: "Paramètres" },
@@ -16,19 +17,14 @@ export default function GuildLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const params = useParams<{ guildId: string }>();
 
+  const items = TABS.map((tab) => {
+    const href = `/dashboard/${params.guildId}/${tab.slug}`;
+    return { href, label: tab.label, active: pathname?.startsWith(href) ?? false };
+  });
+
   return (
     <div className="container">
-      <div className="tabs">
-        {TABS.map((tab) => {
-          const href = `/dashboard/${params.guildId}/${tab.slug}`;
-          const active = pathname?.startsWith(href) ?? false;
-          return (
-            <Link key={tab.slug} href={href} className={`tab${active ? " active" : ""}`}>
-              {tab.label}
-            </Link>
-          );
-        })}
-      </div>
+      <TabNav items={items} label="Sections du serveur" />
       {children}
     </div>
   );
