@@ -282,6 +282,12 @@ seuls les salons où l'on peut jouer se règlent par serveur).
   (expérience, butin, quêtes, chapitre, hauts faits) découle d'évènements de jeu passés à
   `services/events/eventDispatcher.ts`. Ajouter une action revient à émettre les bons évènements :
   elle n'a rien à savoir des quêtes ni du scénario.
+- **Tutoriel intégré** : `/aventure tuto` explique le jeu en sept pages qu'on feuillette aux
+  boutons (bases, progression, économie, scénario, échanges, vie entre joueurs, rythme), avec un
+  menu pour sauter à un chapitre et l'option `sujet:` pour y arriver directement. C'est la seule
+  commande du module qui ne demande pas d'aventurier : tant qu'on n'en a pas, la page propose de
+  créer le sien d'un bouton par classe. Le contenu vit dans `data/tutorial.ts` et lit les chiffres
+  dans l'équilibrage — régler le jeu met le tutoriel à jour tout seul.
 - **Tout se joue au bouton** : chaque écran porte sa barre de navigation (Components V2) et ses
   actions — voyager depuis la carte, explorer de nouveau, se soigner quand on est amoché, lancer le
   donjon, renforcer une pièce, acheter, équiper, accepter un échange. Les commandes restent

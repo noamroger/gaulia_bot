@@ -34,6 +34,7 @@ import {
   handleUse,
 } from "../handlers/inventoryHandlers";
 import { handleQuests, handleSeal, handleStory } from "../handlers/storyHandlers";
+import { handleTutorial } from "../handlers/tutorialHandlers";
 import {
   autocompleteTradableItems,
   autocompleteTradeWishlist,
@@ -46,11 +47,13 @@ import {
 import { findItem } from "../data/items";
 import { listAdventureItems } from "@gaulia/database";
 import { EXPLORE_COOLDOWN_SECONDS } from "../data/pacing";
+import { TUTORIAL_CHOICES } from "../data/tutorial";
 
 type SubcommandHandler = (interaction: ChatInputCommandInteraction) => Promise<void>;
 
 /** Routage des sous-commandes : une entrée par sous-commande, la logique vit dans handlers/. */
 const HANDLERS: Readonly<Record<string, SubcommandHandler>> = {
+  tuto: handleTutorial,
   commencer: handleStart,
   profil: handleProfile,
   explorer: handleExplore,
@@ -89,6 +92,17 @@ const command: ChatInputCommand = {
   data: new SlashCommandBuilder()
     .setName("aventure")
     .setDescription("Ton aventure dans les Terres de Gaulia")
+    .addSubcommand((sub) =>
+      sub
+        .setName("tuto")
+        .setDescription("Comment jouer : les bases, l'histoire, les échanges")
+        .addStringOption((option) =>
+          option
+            .setName("sujet")
+            .setDescription("Aller directement à un chapitre du tutoriel")
+            .addChoices(...TUTORIAL_CHOICES),
+        ),
+    )
     .addSubcommand((sub) =>
       sub
         .setName("commencer")
@@ -339,8 +353,10 @@ const command: ChatInputCommand = {
 
   help: {
     details:
-      "Un jeu d'aventure au long cours : tu crées un aventurier, tu explores les Terres de Gaulia, tu combats, tu récoltes, tu forges, tu renforces ton équipement, tu échanges avec les autres joueurs et tu suis une histoire en sept actes. L'énergie limite le nombre d'explorations par jour et les fragments d'écho — gagnés avec les quêtes et le donjon hebdomadaire — font avancer le scénario : le terminer demande plus d'un an de jeu régulier. Jouable en message privé, et sur un serveur dans les salons autorisés par ses administrateurs.",
+      "`/aventure tuto` explique tout en quelques pages, et permet de créer son aventurier d'un bouton. Un jeu d'aventure au long cours : tu crées un aventurier, tu explores les Terres de Gaulia, tu combats, tu récoltes, tu forges, tu renforces ton équipement, tu échanges avec les autres joueurs et tu suis une histoire en sept actes. L'énergie limite le nombre d'explorations par jour et les fragments d'écho — gagnés avec les quêtes et le donjon hebdomadaire — font avancer le scénario : le terminer demande plus d'un an de jeu régulier. Jouable en message privé, et sur un serveur dans les salons autorisés par ses administrateurs.",
     examples: [
+      "aventure tuto",
+      "aventure tuto sujet:echanges",
       "aventure commencer classe:GUERRIER",
       "aventure explorer",
       "aventure histoire",

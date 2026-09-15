@@ -35,7 +35,7 @@ export async function requireCharacter(userId: string): Promise<CharacterContext
   const context = await loadCharacter(userId);
   if (!context) {
     throw new GauliaError(
-      "Tu n'as pas encore d'aventurier. Commence avec `/aventure commencer` pour choisir ta classe.",
+      "Tu n'as pas encore d'aventurier. Lance `/aventure tuto` : le tutoriel explique les bases et te laisse créer ton personnage d'un bouton (ou `/aventure commencer` si tu sais déjà où tu vas).",
     );
   }
   return context;

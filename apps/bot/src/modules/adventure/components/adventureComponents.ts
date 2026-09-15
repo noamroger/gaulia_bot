@@ -1,11 +1,13 @@
-import { listAdventureItems } from "@gaulia/database";
+import { getAdventureCharacter, listAdventureItems, type AdventureClass } from "@gaulia/database";
 import type { ButtonInteraction, StringSelectMenuInteraction } from "discord.js";
 
 import { successPayload } from "../../../core/ui/containers";
 import type { ButtonComponent, StringSelectComponent } from "../../../structures/Component";
+import { classDefinition } from "../data/classes";
 import { findItem, itemLabel } from "../data/items";
+import { findTutorialPage } from "../data/tutorial";
 import { assertAdventureAccess } from "../services/access/adventureAccess";
-import { requireCharacter } from "../services/character/characterService";
+import { requireCharacter, startAdventure } from "../services/character/characterService";
 import { computeStats } from "../services/character/statsService";
 import { grantXp } from "../services/character/progressionService";
 import { craft } from "../services/economy/craftService";
@@ -23,11 +25,13 @@ import { runDungeon } from "../services/dungeon/dungeonService";
 import { acceptTrade, closeTrade } from "../services/economy/tradeService";
 import { upgradeItem } from "../services/economy/upgradeService";
 import { travelTo } from "../services/exploration/travelService";
+import { checkAchievements } from "../services/progress/achievementService";
 import { chapterStatus, sealChapter } from "../services/progress/storyService";
 import { forgeView, inventoryView, shopView } from "../ui/economyViews";
 import { dungeonResultView, exploreView, travelView } from "../ui/exploreViews";
 import type { AdventureView } from "../ui/navigation";
 import { renderAdventureView } from "../ui/renderView";
+import { tutorialView } from "../ui/tutorialViews";
 import { gold } from "../ui/format";
 import { sealView, storyView } from "../ui/progressViews";
 import { upgradeView } from "../ui/tradeViews";
@@ -337,9 +341,74 @@ const upgradeSelect: StringSelectComponent = {
   },
 };
 
+/**
+ * Pages du tutoriel. Comme la commande, ces composants ne réclament pas d'aventurier : la garde de
+ * propriété suffit, puisqu'un nouveau venu n'a par définition pas encore de personnage.
+ */
+const tutorialPageButton: ButtonComponent = {
+  type: "button",
+  customIdPrefix: "adventure:tuto-page",
+  async execute(interaction) {
+    if (!(await guard(interaction))) return;
+
+    await interaction.deferUpdate();
+    const page = Number(interaction.customId.split(":")[3] ?? "0");
+    const character = await getAdventureCharacter(interaction.user.id);
+    await interaction.editReply(tutorialView(interaction.user.id, page, character !== null));
+  },
+};
+
+const tutorialJumpSelect: StringSelectComponent = {
+  type: "stringSelect",
+  customIdPrefix: "adventure:tuto-jump",
+  async execute(interaction) {
+    if (!(await guard(interaction))) return;
+
+    await interaction.deferUpdate();
+    const character = await getAdventureCharacter(interaction.user.id);
+    await interaction.editReply(
+      tutorialView(
+        interaction.user.id,
+        findTutorialPage(interaction.values[0] ?? ""),
+        character !== null,
+      ),
+    );
+  },
+};
+
+/** Création du personnage depuis le tutoriel : la classe voyage dans l'identifiant du bouton. */
+const tutorialStartButton: ButtonComponent = {
+  type: "button",
+  customIdPrefix: "adventure:tuto-start",
+  async execute(interaction) {
+    if (!(await guard(interaction))) return;
+
+    await interaction.deferUpdate();
+    const characterClass = (interaction.customId.split(":")[3] ?? "GUERRIER") as AdventureClass;
+    const created = await startAdventure(
+      interaction.user.id,
+      interaction.user.username,
+      characterClass,
+    );
+    await checkAchievements(created.character);
+
+    await interaction.editReply(await renderAdventureView(interaction.user, "profil"));
+    await interaction.followUp(
+      successPayload(
+        true,
+        `${classDefinition(characterClass).emoji} Ton aventure commence`,
+        "Ta fiche est prête. Clique sur **Explorer** pour faire tes premiers pas, et reviens au tutoriel quand tu veux avec `/aventure tuto`.",
+      ),
+    );
+  },
+};
+
 export default [
   exploreButton,
   navButton,
+  tutorialPageButton,
+  tutorialJumpSelect,
+  tutorialStartButton,
   travelButton,
   healButton,
   dungeonButton,

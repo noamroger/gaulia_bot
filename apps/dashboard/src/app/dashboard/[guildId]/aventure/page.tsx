@@ -125,7 +125,7 @@ export default function AdventureSettingsPage() {
         </SettingRow>
         <SettingRow
           label="Commandes"
-          hint="Tout passe par /aventure : commencer, explorer, histoire, quetes, inventaire, boutique, forge, renforcer, echanger, donjon, classement…"
+          hint="Tout passe par /aventure : tuto, commencer, explorer, histoire, quetes, inventaire, boutique, forge, renforcer, echanger, donjon, classement… Les nouveaux venus peuvent lancer /aventure tuto sans avoir de personnage."
         >
           <span className="setting-hint">Une seule commande</span>
         </SettingRow>
