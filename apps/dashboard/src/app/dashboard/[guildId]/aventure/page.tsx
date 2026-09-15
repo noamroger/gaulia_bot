@@ -125,9 +125,15 @@ export default function AdventureSettingsPage() {
         </SettingRow>
         <SettingRow
           label="Commandes"
-          hint="Tout passe par /aventure : commencer, explorer, histoire, quetes, inventaire, boutique, forge, donjon, classement…"
+          hint="Tout passe par /aventure : commencer, explorer, histoire, quetes, inventaire, boutique, forge, renforcer, echanger, donjon, classement…"
         >
           <span className="setting-hint">Une seule commande</span>
+        </SettingRow>
+        <SettingRow
+          label="Échanges entre joueurs"
+          hint="Les aventuriers peuvent s'échanger objets et pièces à partir du niveau 5. Les reliques du scénario ne s'échangent pas, et le renforcement d'un équipement reste attaché à celui qui l'a payé. Les propositions suivent les mêmes règles de salons que le reste du module."
+        >
+          <span className="setting-hint">Objets et pièces</span>
         </SettingRow>
       </SettingsSection>
 

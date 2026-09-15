@@ -50,7 +50,11 @@ export async function handleSell(interaction: ChatInputCommandInteraction): Prom
     successPayload(
       false,
       "Vente conclue",
-      `${quantity} × ${itemLabel(itemId)} vendu(s) pour ${gold(result.total)}.\nTa bourse : ${gold(result.character.gold)}.`,
+      [
+        `${quantity} × ${itemLabel(itemId)} vendu(s) pour ${gold(result.total)}.`,
+        `Ta bourse : ${gold(result.character.gold)}.`,
+        ...result.notices,
+      ].join("\n"),
     ),
   );
 }

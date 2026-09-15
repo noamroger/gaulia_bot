@@ -126,6 +126,8 @@ export interface AdventureCharacter extends AdventurePlayer {
   streak: number;
   bestStreak: number;
   lastDungeonAt: string | null;
+  upgrades: number;
+  trades: number;
 }
 
 export interface AdventureInventoryRow {
@@ -133,6 +135,22 @@ export interface AdventureInventoryRow {
   itemId: string;
   quantity: number;
   equipped: boolean;
+  /** Palier de renforcement de l'exemplaire du joueur (0 à 10). */
+  upgradeLevel: number;
+}
+
+/** Proposition d'échange encore ouverte, affichée sur la fiche du joueur. */
+export interface AdventurePendingTrade {
+  id: number;
+  initiatorId: string;
+  initiatorName: string | null;
+  targetId: string;
+  targetName: string | null;
+  offeredItems: { itemId: string; quantity: number }[];
+  offeredGold: number;
+  requestedItems: { itemId: string; quantity: number }[];
+  requestedGold: number;
+  expiresAt: string;
 }
 
 export interface AdventureQuestRow {
@@ -149,7 +167,7 @@ export interface AdventureQuestRow {
 
 export interface AdventureLogRow {
   id: number;
-  type: "STORY" | "DUNGEON" | "LEVEL_UP" | "ADMIN";
+  type: "STORY" | "DUNGEON" | "LEVEL_UP" | "TRADE" | "ADMIN";
   message: string;
   actorId: string | null;
   createdAt: string;
@@ -161,6 +179,7 @@ export interface AdventurePlayerDetail {
   quests: AdventureQuestRow[];
   achievements: { achievementId: string; unlockedAt: string }[];
   logs: AdventureLogRow[];
+  pendingTrades: AdventurePendingTrade[];
 }
 
 export interface AdventureCatalogueItem {
@@ -174,6 +193,8 @@ export interface AdventureCatalogueItem {
   price: number | null;
   sellPrice: number;
   description: string;
+  /** Faux pour les objets qui ne peuvent pas passer d'un joueur à l'autre (reliques du scénario). */
+  tradable: boolean;
 }
 
 export interface AdventureCatalogue {
@@ -187,6 +208,7 @@ export interface AdventureCatalogue {
   totalChapters: number;
   maxLevel: number;
   maxEnergy: number;
+  maxUpgrade: number;
 }
 
 /** Corps du PATCH d'intervention : seuls les champs envoyés sont appliqués. */

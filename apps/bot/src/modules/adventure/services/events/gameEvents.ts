@@ -15,6 +15,8 @@ export type GameEvent =
   | { type: "GOLD_SPENT"; amount: number }
   | { type: "POTION"; amount: number }
   | { type: "TRAVEL"; zoneId: string; amount: number }
+  | { type: "UPGRADE"; itemId: string; amount: number }
+  | { type: "TRADE"; amount: number }
   | { type: "DAILY_SET"; amount: number };
 
 export function exploreEvent(zoneId: string): GameEvent {

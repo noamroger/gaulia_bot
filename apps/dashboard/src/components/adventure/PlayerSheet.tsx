@@ -13,6 +13,7 @@ const LOG_PREFIX: Record<string, string> = {
   STORY: "📖",
   DUNGEON: "🚪",
   LEVEL_UP: "🏅",
+  TRADE: "🤝",
   ADMIN: "🛠️",
 };
 
@@ -24,7 +25,7 @@ export function PlayerSheet({
   detail: AdventurePlayerDetail;
   catalogue: AdventureCatalogue | null;
 }) {
-  const { character, items, quests, achievements, logs } = detail;
+  const { character, items, quests, achievements, logs, pendingTrades } = detail;
   const act = catalogue?.acts[character.actIndex];
   const chapter = act?.chapters[character.chapterIndex];
   const chaptersDone =
@@ -111,6 +112,14 @@ export function PlayerSheet({
             </dd>
           </div>
           <div>
+            <dt>Renforcements</dt>
+            <dd>{formatNumber(character.upgrades)}</dd>
+          </div>
+          <div>
+            <dt>Échanges conclus</dt>
+            <dd>{formatNumber(character.trades)}</dd>
+          </div>
+          <div>
             <dt>Hauts faits</dt>
             <dd>{achievements.length}</dd>
           </div>
@@ -128,6 +137,7 @@ export function PlayerSheet({
                 <tr>
                   <th>Objet</th>
                   <th className="numeric">Quantité</th>
+                  <th className="numeric">Renfort</th>
                   <th>État</th>
                 </tr>
               </thead>
@@ -136,6 +146,9 @@ export function PlayerSheet({
                   <tr key={row.id}>
                     <td>{itemName(row.itemId)}</td>
                     <td className="numeric">{formatNumber(row.quantity)}</td>
+                    <td className="numeric">
+                      {row.upgradeLevel > 0 ? `+${row.upgradeLevel}` : "—"}
+                    </td>
                     <td>{row.equipped ? "Porté" : "—"}</td>
                   </tr>
                 ))}
@@ -163,6 +176,41 @@ export function PlayerSheet({
                 </strong>
               </li>
             ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="card">
+        <h3 className="card-title">Échanges en attente ({pendingTrades.length})</h3>
+        {pendingTrades.length === 0 ? (
+          <p className="text-muted">Aucune proposition ouverte.</p>
+        ) : (
+          <ul className="data-summary">
+            {pendingTrades.map((trade) => {
+              const side = (
+                items: { itemId: string; quantity: number }[],
+                gold: number,
+              ): string => {
+                const parts = items.map((entry) => `${entry.quantity} × ${itemName(entry.itemId)}`);
+                if (gold > 0) parts.push(`${formatNumber(gold)} pièces`);
+                return parts.join(" + ") || "rien";
+              };
+              const outgoing = trade.initiatorId === character.userId;
+
+              return (
+                <li key={trade.id}>
+                  <span>
+                    #{trade.id} {outgoing ? "→ " : "← "}
+                    {outgoing
+                      ? (trade.targetName ?? trade.targetId)
+                      : (trade.initiatorName ?? trade.initiatorId)}{" "}
+                    · {side(trade.offeredItems, trade.offeredGold)} contre{" "}
+                    {side(trade.requestedItems, trade.requestedGold)}
+                  </span>
+                  <strong>{formatDateTime(trade.expiresAt)}</strong>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

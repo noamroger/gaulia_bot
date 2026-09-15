@@ -17,7 +17,8 @@ export type AdventureQuestEventType =
   | "GOLD_EARNED"
   | "GOLD_SPENT"
   | "POTION"
-  | "TRAVEL";
+  | "TRAVEL"
+  | "UPGRADE";
 
 export interface AdventureQuestTemplate {
   id: string;
@@ -122,6 +123,17 @@ export const ADVENTURE_QUEST_TEMPLATES: readonly AdventureQuestTemplate[] = [
     step: 1,
     xpFactor: 3,
     goldFactor: 3,
+  },
+  {
+    id: "d-renforcer",
+    kind: "DAILY",
+    match: { type: "UPGRADE" },
+    label: (target) => `Renforcer ${target} pièce(s) d'équipement`,
+    min: 1,
+    max: 2,
+    step: 1,
+    xpFactor: 5,
+    goldFactor: 4,
   },
   {
     id: "d-voyager",

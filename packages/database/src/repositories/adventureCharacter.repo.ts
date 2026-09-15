@@ -88,6 +88,18 @@ export async function addAdventureItem(
   });
 }
 
+/** Monte d'un palier le renforcement de l'exemplaire du joueur. */
+export async function upgradeAdventureItem(
+  userId: string,
+  itemId: string,
+  upgradeLevel: number,
+): Promise<AdventureItem> {
+  return prisma.adventureItem.update({
+    where: { userId_itemId: { userId, itemId } },
+    data: { upgradeLevel },
+  });
+}
+
 /**
  * Retire des exemplaires d'un objet. Retourne faux — sans rien modifier — si l'inventaire n'en
  * contient pas assez, ce qui sert de garde-fou aux achats, crafts et consommations.

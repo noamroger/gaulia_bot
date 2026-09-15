@@ -17,15 +17,26 @@ import {
   equipItem,
   unequipItem,
 } from "../services/inventory/inventoryService";
+import { acceptTrade, closeTrade } from "../services/economy/tradeService";
 import { chapterStatus, sealChapter } from "../services/progress/storyService";
 import { forgeView, inventoryView, shopView } from "../ui/economyViews";
 import { exploreView } from "../ui/exploreViews";
 import { gold } from "../ui/format";
 import { sealView, storyView } from "../ui/progressViews";
+import { tradeClosedView, tradeResultView } from "../ui/tradeViews";
 
 /** L'identifiant porte son propriétaire : `adventure:<action>:<userId>`. */
 function ownerOf(customId: string): string {
   return customId.split(":")[2] ?? "";
+}
+
+/**
+ * Les boutons d'échange portent un numéro de proposition, pas un propriétaire
+ * (`adventure:trade:<action>:<tradeId>`) : c'est le service qui vérifie que celui qui clique est
+ * bien concerné, puisque les deux joueurs voient le même message.
+ */
+function tradeIdOf(customId: string): number {
+  return Number(customId.split(":")[3] ?? "");
 }
 
 /**
@@ -170,4 +181,59 @@ const craftSelect: StringSelectComponent = {
   },
 };
 
-export default [exploreButton, sealButton, itemSelect, buySelect, craftSelect];
+const tradeAcceptButton: ButtonComponent = {
+  type: "button",
+  customIdPrefix: "adventure:trade:accept",
+  async execute(interaction) {
+    await assertAdventureAccess(interaction);
+    await interaction.deferUpdate();
+
+    const result = await acceptTrade(tradeIdOf(interaction.customId), interaction.user.id);
+    await interaction.editReply(
+      tradeResultView(result.trade, result.initiator, result.target, result.lostUpgrades),
+    );
+  },
+};
+
+const tradeDeclineButton: ButtonComponent = {
+  type: "button",
+  customIdPrefix: "adventure:trade:decline",
+  async execute(interaction) {
+    await assertAdventureAccess(interaction);
+    await interaction.deferUpdate();
+
+    const trade = await closeTrade(
+      tradeIdOf(interaction.customId),
+      interaction.user.id,
+      "DECLINED",
+    );
+    await interaction.editReply(tradeClosedView(trade, "DECLINED"));
+  },
+};
+
+const tradeCancelButton: ButtonComponent = {
+  type: "button",
+  customIdPrefix: "adventure:trade:cancel",
+  async execute(interaction) {
+    await assertAdventureAccess(interaction);
+    await interaction.deferUpdate();
+
+    const trade = await closeTrade(
+      tradeIdOf(interaction.customId),
+      interaction.user.id,
+      "CANCELLED",
+    );
+    await interaction.editReply(tradeClosedView(trade, "CANCELLED"));
+  },
+};
+
+export default [
+  exploreButton,
+  sealButton,
+  itemSelect,
+  buySelect,
+  craftSelect,
+  tradeAcceptButton,
+  tradeDeclineButton,
+  tradeCancelButton,
+];

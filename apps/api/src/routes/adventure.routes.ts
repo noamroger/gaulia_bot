@@ -8,9 +8,12 @@ import {
   ADVENTURE_MAX_GOLD,
   ADVENTURE_MAX_ITEM_QUANTITY,
   ADVENTURE_MAX_LEVEL,
+  ADVENTURE_MAX_UPGRADE,
   ADVENTURE_TOTAL_CHAPTERS,
   adventureQuestLabel,
   applyAdventureXp,
+  isAdventureItemTradable,
+  listPendingAdventureTrades,
   findAdventureItem,
   getAdventurePlayerDetail,
   listAdventurePlayers,
@@ -85,6 +88,7 @@ function catalogue() {
       price: item.price ?? null,
       sellPrice: item.sellPrice,
       description: item.description,
+      tradable: isAdventureItemTradable(item),
     })),
     acts: ADVENTURE_ACTS.map((act) => ({
       id: act.id,
@@ -100,16 +104,34 @@ function catalogue() {
     totalChapters: ADVENTURE_TOTAL_CHAPTERS,
     maxLevel: ADVENTURE_MAX_LEVEL,
     maxEnergy: ADVENTURE_ENERGY_MAX,
+    maxUpgrade: ADVENTURE_MAX_UPGRADE,
   };
 }
 
-/** Ajoute à chaque quête son libellé en toutes lettres, que seul le catalogue partagé connaît. */
-function withQuestLabels(detail: AdventurePlayerDetail) {
+/**
+ * Enrichit la fiche : libellés de quêtes (que seul le catalogue partagé connaît) et propositions
+ * d'échange encore ouvertes, utiles pour comprendre une réclamation d'objet disparu.
+ */
+async function withDetails(detail: AdventurePlayerDetail) {
+  const trades = await listPendingAdventureTrades(detail.character.userId);
+
   return {
     ...detail,
     quests: detail.quests.map((quest) => ({
       ...quest,
       label: adventureQuestLabel(quest.questId, quest.target),
+    })),
+    pendingTrades: trades.map((trade) => ({
+      id: trade.id,
+      initiatorId: trade.initiatorId,
+      initiatorName: trade.initiator.username,
+      targetId: trade.targetId,
+      targetName: trade.target.username,
+      offeredItems: trade.offeredItems,
+      offeredGold: trade.offeredGold,
+      requestedItems: trade.requestedItems,
+      requestedGold: trade.requestedGold,
+      expiresAt: trade.expiresAt,
     })),
   };
 }
@@ -154,7 +176,7 @@ export default async function adventureRoutes(app: FastifyInstance): Promise<voi
     if (!detail) {
       return reply.status(404).send({ error: "Ce joueur n'a pas d'aventurier." });
     }
-    return withQuestLabels(detail);
+    return withDetails(detail);
   });
 
   app.patch("/admin/adventure/players/:userId", async (request, reply) => {
@@ -222,7 +244,14 @@ export default async function adventureRoutes(app: FastifyInstance): Promise<voi
 
     const refreshed = await getAdventurePlayerDetail(userId);
     return refreshed
-      ? withQuestLabels(refreshed)
-      : { character: updated, items: [], quests: [], achievements: [], logs: [] };
+      ? withDetails(refreshed)
+      : {
+          character: updated,
+          items: [],
+          quests: [],
+          achievements: [],
+          logs: [],
+          pendingTrades: [],
+        };
   });
 }

@@ -286,6 +286,21 @@ seuls les salons où l'on peut jouer se règlent par serveur).
   à répartir, équipement en trois emplacements, forge, boutique, donjon hebdomadaire, quêtes
   quotidiennes et hebdomadaires validées automatiquement, série de jours consécutifs, hauts faits
   et titres, classement global.
+- **Renforcement** (`/aventure renforcer`) : chaque pièce d'équipement se monte jusqu'à **+10**
+  contre de l'or et des matériaux, de plus en plus rares selon la rareté de la pièce (lingots →
+  écailles de drake → cœurs élémentaires → éclats d'écho). Chaque palier ajoute 12 % aux bonus de
+  la pièce. Coût déterministe, aucune loterie de destruction. C'est le débouché des matériaux de
+  haut niveau. Le renforcement est attaché à **l'exemplaire du joueur** : il ne suit pas l'objet
+  lors d'un échange ou d'une revente, ce qui évite un marché de pièces déjà montées.
+- **Échanges entre joueurs** (`/aventure echange proposer`) : un aventurier propose objets et/ou pièces,
+  demande objets et/ou pièces en retour, et l'autre accepte d'un bouton. Rien n'est prélevé à la
+  proposition : les deux sacs sont revérifiés à l'acceptation, et le transfert se fait dans une
+  seule transaction. Une proposition expire au bout de 15 minutes, chacun en a 5 ouvertes au
+  maximum, et les échanges s'ouvrent au niveau 5. **Tout n'est pas échangeable** : le catalogue
+  porte un indicateur `tradable`, faux pour les reliques du scénario — il suffit de le poser sur
+  un objet pour le rendre incessible. Les sous-commandes d'échange sont regroupées sous
+  `/aventure echange …` : Discord plafonne une commande à 25 options de premier niveau, et les
+  groupes laissent la place aux prochaines mécaniques.
 - **Scénario** : 7 actes × 5 chapitres. Un chapitre se termine quand ses objectifs sont remplis,
   que le niveau requis est atteint, puis qu'il est **scellé** avec des *fragments d'écho*.
 - **Durée de vie** : les fragments ne s'obtiennent qu'en temps réel (lot quotidien, lot
@@ -297,11 +312,11 @@ seuls les salons où l'on peut jouer se règlent par serveur).
   **Aventure** du dashboard choisit entre liste blanche (par défaut, vide → interdit partout) et
   liste noire (autorisé partout sauf…). La règle s'applique à tout le monde, administrateurs
   compris.
-- **Où vit quoi** : le contenu propre au jeu (zones, bestiaire, quêtes, recettes, hauts faits,
-  classes) est dans `apps/bot/src/modules/adventure/data/` ; le catalogue d'objets, le scénario et
-  l'équilibrage sont dans `packages/database/src/data/adventure*.ts`, parce que l'API et le panel
-  admin en ont besoin pour nommer un inventaire, afficher un avancement et offrir de l'expérience
-  exactement comme le jeu la distribue.
+- **Où vit quoi** : le contenu propre au jeu (zones, bestiaire, recettes, hauts faits, classes) est
+  dans `apps/bot/src/modules/adventure/data/` ; le catalogue d'objets, le scénario, les quêtes,
+  l'équilibrage et les coûts de renforcement sont dans `packages/database/src/data/adventure*.ts`,
+  parce que l'API et le panel admin en ont besoin pour nommer un inventaire, afficher un
+  avancement et offrir de l'expérience exactement comme le jeu la distribue.
 
 ## Le dashboard et l'API
 
@@ -354,7 +369,8 @@ serveur particulier.
   mouvement `ADMIN_ADJUST` avec l'auteur, jamais une valeur absolue.
 - Onglet **Aventure** (`/admin/aventure`) : liste de tous les aventuriers (classe, niveau, acte et
   chapitre atteints, bourse, fragments, dernière partie), fiche complète d'un joueur (progression,
-  caractéristiques, inventaire, quêtes en cours, journal) et interventions dans sa partie —
+  caractéristiques, inventaire avec le palier de renforcement de chaque pièce, quêtes en cours,
+  échanges en attente, journal) et interventions dans sa partie —
   expérience, pièces, fragments d'écho, énergie, points de caractéristique, niveau et objets
   donnés ou retirés (`PATCH /admin/adventure/players/:userId`). L'expérience offerte passe par la
   même règle que le jeu (les niveaux montent normalement), et **chaque intervention est inscrite

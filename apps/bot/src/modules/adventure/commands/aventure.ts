@@ -34,6 +34,15 @@ import {
   handleUse,
 } from "../handlers/inventoryHandlers";
 import { handleQuests, handleSeal, handleStory } from "../handlers/storyHandlers";
+import {
+  autocompleteTradableItems,
+  autocompleteTradeWishlist,
+  autocompleteUpgradable,
+  handleTradeAnswer,
+  handleTradeList,
+  handleTradeOffer,
+  handleUpgrade,
+} from "../handlers/tradeHandlers";
 import { findItem } from "../data/items";
 import { listAdventureItems } from "@gaulia/database";
 import { EXPLORE_COOLDOWN_SECONDS } from "../data/pacing";
@@ -55,6 +64,11 @@ const HANDLERS: Readonly<Record<string, SubcommandHandler>> = {
   vendre: handleSell,
   forge: handleForge,
   forger: handleCraft,
+  renforcer: handleUpgrade,
+  // Les sous-commandes d'un groupe sont routées sous « <groupe> <sous-commande> ».
+  "echange proposer": handleTradeOffer,
+  "echange liste": handleTradeList,
+  "echange repondre": handleTradeAnswer,
   quetes: handleQuests,
   histoire: handleStory,
   sceller: handleSeal,
@@ -186,6 +200,97 @@ const command: ChatInputCommand = {
         ),
     )
     .addSubcommand((sub) =>
+      sub
+        .setName("renforcer")
+        .setDescription("Améliore une pièce d'équipement avec des ressources")
+        .addStringOption((option) =>
+          option
+            .setName("objet")
+            .setDescription("Pièce à renforcer")
+            .setRequired(true)
+            .setAutocomplete(true),
+        )
+        .addBooleanOption((option) =>
+          option.setName("apercu").setDescription("Afficher le coût sans rien dépenser"),
+        ),
+    )
+    .addSubcommandGroup((group) =>
+      group
+        .setName("echange")
+        .setDescription("Échanges d'objets et de pièces entre aventuriers")
+        .addSubcommand((sub) =>
+          sub
+            .setName("proposer")
+            .setDescription("Propose un échange à un autre aventurier")
+            .addUserOption((option) =>
+              option.setName("joueur").setDescription("Avec qui échanger").setRequired(true),
+            )
+            .addStringOption((option) =>
+              option.setName("objet").setDescription("Objet que tu donnes").setAutocomplete(true),
+            )
+            .addIntegerOption((option) =>
+              option
+                .setName("quantite")
+                .setDescription("Quantité donnée")
+                .setMinValue(1)
+                .setMaxValue(999),
+            )
+            .addIntegerOption((option) =>
+              option
+                .setName("or")
+                .setDescription("Pièces que tu donnes")
+                .setMinValue(0)
+                .setMaxValue(100_000_000),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("objet_demande")
+                .setDescription("Objet que tu demandes en retour")
+                .setAutocomplete(true),
+            )
+            .addIntegerOption((option) =>
+              option
+                .setName("quantite_demandee")
+                .setDescription("Quantité demandée")
+                .setMinValue(1)
+                .setMaxValue(999),
+            )
+            .addIntegerOption((option) =>
+              option
+                .setName("or_demande")
+                .setDescription("Pièces que tu demandes")
+                .setMinValue(0)
+                .setMaxValue(100_000_000),
+            ),
+        )
+        .addSubcommand((sub) =>
+          sub.setName("liste").setDescription("Tes propositions d'échange en cours"),
+        )
+        .addSubcommand((sub) =>
+          sub
+            .setName("repondre")
+            .setDescription("Accepte, refuse ou annule une proposition par son numéro")
+            .addIntegerOption((option) =>
+              option
+                .setName("numero")
+                .setDescription("Numéro de la proposition")
+                .setRequired(true)
+                .setMinValue(1),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("reponse")
+                .setDescription("Que faire de cette proposition")
+                .setRequired(true)
+                .addChoices(
+                  { name: "Accepter", value: "accepter" },
+                  { name: "Refuser (proposition reçue)", value: "refuser" },
+                  { name: "Annuler (proposition envoyée)", value: "annuler" },
+                ),
+            ),
+        ),
+    )
+    .addSubcommand((sub) =>
       sub.setName("quetes").setDescription("Tes quêtes du jour et de la semaine"),
     )
     .addSubcommand((sub) =>
@@ -234,24 +339,28 @@ const command: ChatInputCommand = {
 
   help: {
     details:
-      "Un jeu d'aventure au long cours : tu crées un aventurier, tu explores les Terres de Gaulia, tu combats, tu récoltes, tu forges et tu suis une histoire en sept actes. L'énergie limite le nombre d'explorations par jour et les fragments d'écho — gagnés avec les quêtes et le donjon hebdomadaire — font avancer le scénario : le terminer demande plus d'un an de jeu régulier. Jouable en message privé, et sur un serveur dans les salons autorisés par ses administrateurs.",
+      "Un jeu d'aventure au long cours : tu crées un aventurier, tu explores les Terres de Gaulia, tu combats, tu récoltes, tu forges, tu renforces ton équipement, tu échanges avec les autres joueurs et tu suis une histoire en sept actes. L'énergie limite le nombre d'explorations par jour et les fragments d'écho — gagnés avec les quêtes et le donjon hebdomadaire — font avancer le scénario : le terminer demande plus d'un an de jeu régulier. Jouable en message privé, et sur un serveur dans les salons autorisés par ses administrateurs.",
     examples: [
       "aventure commencer classe:GUERRIER",
       "aventure explorer",
       "aventure histoire",
       "aventure quetes",
       "aventure donjon lancer:true",
+      "aventure renforcer objet:Épée de fer apercu:true",
+      "aventure echange proposer joueur:@Léa objet:Écaille de drake quantite:5 or_demande:2000",
     ],
   },
 
   async execute(interaction) {
+    const group = interaction.options.getSubcommandGroup(false);
     const subcommand = interaction.options.getSubcommand();
-    const handler = HANDLERS[subcommand];
+    const handler = HANDLERS[group ? `${group} ${subcommand}` : subcommand];
     if (!handler) throw new GauliaError("Cette sous-commande n'existe pas.");
     await handler(interaction);
   },
 
   async autocomplete(interaction) {
+    const group = interaction.options.getSubcommandGroup(false);
     const subcommand = interaction.options.getSubcommand();
 
     if (subcommand === "acheter") {
@@ -262,8 +371,25 @@ const command: ChatInputCommand = {
       await autocompleteRecipes(interaction);
       return;
     }
+    // L'objet demandé se cherche dans tout le catalogue : on ne le possède pas encore.
+    if (
+      subcommand === "echanger" &&
+      interaction.options.getFocused(true).name === "objet_demande"
+    ) {
+      await autocompleteTradeWishlist(interaction);
+      return;
+    }
 
     const items = await listAdventureItems(interaction.user.id);
+
+    if (subcommand === "renforcer") {
+      await autocompleteUpgradable(interaction, items);
+      return;
+    }
+    if (group === "echange") {
+      await autocompleteTradableItems(interaction, items);
+      return;
+    }
 
     if (subcommand === "equiper") {
       await autocompleteInventory(

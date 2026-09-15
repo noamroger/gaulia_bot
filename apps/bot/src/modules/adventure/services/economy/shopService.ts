@@ -17,6 +17,12 @@ export interface TradeResult {
   notices: string[];
 }
 
+/** Palier de renforcement perdu en cédant le dernier exemplaire d'une pièce (0 si rien à perdre). */
+function lostUpgradeLevel(items: AdventureItem[], itemId: string, quantity: number): number {
+  const row = items.find((entry) => entry.itemId === itemId);
+  return row && row.upgradeLevel > 0 && row.quantity === quantity ? row.upgradeLevel : 0;
+}
+
 /** Achat chez le marchand : contrôle du niveau, du prix et de la bourse. */
 export async function buyItem(
   character: AdventureCharacter,
@@ -70,6 +76,10 @@ export async function sellItem(
     throw new GauliaError("Déséquipe cette pièce avant de la vendre.");
   }
 
+  // Le renforcement vit sur la ligne d'inventaire : céder le dernier exemplaire l'efface.
+  const lost = lostUpgradeLevel(items, itemId, quantity);
+  const warning = `⚠️ Le renforcement +${lost} de ${itemLabel(itemId)} est parti avec la pièce.`;
+
   if (!(await removeAdventureItem(character.userId, itemId, quantity))) {
     throw new GauliaError(`Tu ne possèdes pas ${quantity} × ${itemLabel(itemId)}.`);
   }
@@ -79,5 +89,5 @@ export async function sellItem(
     gold: character.gold + total,
   });
 
-  return { character: updated, quantity, total, notices: [] };
+  return { character: updated, quantity, total, notices: lost > 0 ? [warning] : [] };
 }

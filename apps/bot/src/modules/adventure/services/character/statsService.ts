@@ -1,5 +1,7 @@
 import type { AdventureCharacter, AdventureItem } from "@gaulia/database";
 
+import { adventureUpgradeMultiplier } from "@gaulia/database";
+
 import { findItem, type ItemBonus, type ItemSlot } from "../../data/items";
 
 /** Caractéristiques effectives, équipement compris : tout le jeu passe par ces valeurs. */
@@ -32,12 +34,15 @@ function sumBonuses(items: AdventureItem[]): ItemBonus {
     if (!row.equipped) continue;
     const bonus = findItem(row.itemId)?.bonus;
     if (!bonus) continue;
-    total.attack += bonus.attack ?? 0;
-    total.defense += bonus.defense ?? 0;
-    total.power += bonus.power ?? 0;
-    total.maxHp += bonus.maxHp ?? 0;
-    total.crit += bonus.crit ?? 0;
-    total.dodge += bonus.dodge ?? 0;
+
+    // Le renforcement multiplie les bonus de la pièce, jamais les caractéristiques de base.
+    const factor = adventureUpgradeMultiplier(row.upgradeLevel);
+    total.attack += Math.round((bonus.attack ?? 0) * factor);
+    total.defense += Math.round((bonus.defense ?? 0) * factor);
+    total.power += Math.round((bonus.power ?? 0) * factor);
+    total.maxHp += Math.round((bonus.maxHp ?? 0) * factor);
+    total.crit += (bonus.crit ?? 0) * factor;
+    total.dodge += (bonus.dodge ?? 0) * factor;
   }
 
   return total;

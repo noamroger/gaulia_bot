@@ -1,5 +1,6 @@
 import {
   deleteAdventureQuestsBefore,
+  deleteAdventureTradesBefore,
   purgeExpiredCommandUsage,
   purgeExpiredShardMetrics,
 } from "@gaulia/database";
@@ -7,20 +8,21 @@ import {
 import { logger } from "../logger";
 
 const RETENTION_JOB_INTERVAL_MS = 6 * 60 * 60_000;
-/** Les lots de quêtes d'aventure passés ne servent qu'à l'affichage du jour : 30 jours suffisent. */
-const ADVENTURE_QUEST_RETENTION_DAYS = 30;
+/** Quêtes passées et échanges clos ne servent qu'à l'historique récent : 30 jours suffisent. */
+const ADVENTURE_RETENTION_DAYS = 30;
 
 async function runRetentionPurge(): Promise<void> {
   try {
-    const questCutoff = new Date(Date.now() - ADVENTURE_QUEST_RETENTION_DAYS * 24 * 3_600_000);
-    const [commandUsage, shardMetrics, adventureQuests] = await Promise.all([
+    const cutoff = new Date(Date.now() - ADVENTURE_RETENTION_DAYS * 24 * 3_600_000);
+    const [commandUsage, shardMetrics, adventureQuests, adventureTrades] = await Promise.all([
       purgeExpiredCommandUsage(),
       purgeExpiredShardMetrics(),
-      deleteAdventureQuestsBefore(questCutoff),
+      deleteAdventureQuestsBefore(cutoff),
+      deleteAdventureTradesBefore(cutoff),
     ]);
-    if (commandUsage > 0 || shardMetrics > 0 || adventureQuests > 0) {
+    if (commandUsage > 0 || shardMetrics > 0 || adventureQuests > 0 || adventureTrades > 0) {
       logger.info(
-        { commandUsage, shardMetrics, adventureQuests },
+        { commandUsage, shardMetrics, adventureQuests, adventureTrades },
         "Données expirées supprimées",
       );
     }

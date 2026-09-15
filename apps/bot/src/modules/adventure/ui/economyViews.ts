@@ -1,9 +1,16 @@
 import { StringSelectMenuBuilder } from "discord.js";
-import type { AdventureCharacter, AdventureItem } from "@gaulia/database";
+import {
+  adventureUpgradeCost,
+  adventureUpgradeSuffix,
+  ADVENTURE_MAX_UPGRADE,
+  type AdventureCharacter,
+  type AdventureItem,
+} from "@gaulia/database";
 
 import { Colors } from "../../../client/Constants";
 import { buildContainer, toV2Payload, type V2MessagePayload } from "../../../core/ui/containers";
 import {
+  findItem,
   itemLabel,
   RARITY_EMOJIS,
   SLOT_LABELS,
@@ -51,7 +58,8 @@ export function inventoryView(
         const equipped = entry.row.equipped ? " · **porté**" : "";
         const slot = entry.item.slot ? ` (${SLOT_LABELS[entry.item.slot]})` : "";
         const quantity = entry.row.quantity > 1 ? ` ×${entry.row.quantity}` : "";
-        return `${RARITY_EMOJIS[entry.item.rarity]} ${itemLabel(entry.item.id)}${quantity}${slot}${equipped}`;
+        const upgrade = adventureUpgradeSuffix(entry.row.upgradeLevel);
+        return `${RARITY_EMOJIS[entry.item.rarity]} ${itemLabel(entry.item.id)}${upgrade}${quantity}${slot}${equipped}`;
       })
       .join("\n");
 
@@ -131,6 +139,32 @@ export function shopView(character: AdventureCharacter): V2MessagePayload {
   return withSelect(payload, select);
 }
 
+/** Rappel des pièces renforçables et du coût du prochain palier, sous les recettes. */
+function upgradeSection(items: AdventureItem[]): string {
+  const rows = items.flatMap((row) => {
+    const item = findItem(row.itemId);
+    if (!item?.slot || row.upgradeLevel >= ADVENTURE_MAX_UPGRADE) return [];
+
+    const cost = adventureUpgradeCost(item, row.upgradeLevel + 1);
+    if (!cost) return [];
+
+    const materials = cost.materials
+      .map((material) => `${material.quantity} × ${itemLabel(material.itemId)}`)
+      .join(" · ");
+    return [
+      `${itemLabel(item.id)}${adventureUpgradeSuffix(row.upgradeLevel)} → +${row.upgradeLevel + 1} : ${gold(cost.gold)} · ${materials}`,
+    ];
+  });
+
+  return [
+    "**Renforcement**",
+    rows.length > 0
+      ? rows.slice(0, 5).join("\n")
+      : "Aucune pièce d'équipement à renforcer dans ton sac.",
+    "`/aventure renforcer objet:<pièce>` — le renforcement reste attaché à ton exemplaire et ne suit pas un échange.",
+  ].join("\n");
+}
+
 export function forgeView(character: AdventureCharacter, items: AdventureItem[]): V2MessagePayload {
   const recipes = recipesForLevel(character.level);
   const owned = new Map(items.map((row) => [row.itemId, row.quantity]));
@@ -154,6 +188,7 @@ export function forgeView(character: AdventureCharacter, items: AdventureItem[])
       "## ⚒️ Forge",
       `Ta bourse : ${gold(character.gold)}`,
       lines || "Aucune recette accessible à ton niveau pour l'instant.",
+      upgradeSection(items),
     ]),
   );
 

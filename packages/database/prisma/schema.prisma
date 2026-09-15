@@ -357,6 +357,8 @@ model AdventureCharacter {
   victories     Int @default(0)
   defeats       Int @default(0)
   dungeonClears Int @default(0)
+  upgrades      Int @default(0)
+  trades        Int @default(0)
   streak        Int @default(0)
   bestStreak    Int @default(0)
 
@@ -368,10 +370,12 @@ model AdventureCharacter {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  items        AdventureItem[]
-  quests       AdventureQuest[]
-  achievements AdventureAchievement[]
-  logs         AdventureLog[]
+  items          AdventureItem[]
+  quests         AdventureQuest[]
+  achievements   AdventureAchievement[]
+  logs           AdventureLog[]
+  tradesSent     AdventureTrade[]       @relation("AdventureTradeInitiator")
+  tradesReceived AdventureTrade[]       @relation("AdventureTradeTarget")
 
   @@index([level, totalXp])
   @@map("adventure_characters")
@@ -380,14 +384,17 @@ model AdventureCharacter {
 /// Ligne d'inventaire. `itemId` référence le catalogue de code (modules/adventure/data/items.ts) :
 /// ajouter un objet ne demande pas de migration.
 model AdventureItem {
-  id        Int                @id @default(autoincrement())
-  userId    String
-  character AdventureCharacter @relation(fields: [userId], references: [userId], onDelete: Cascade)
-  itemId    String
-  quantity  Int                @default(1)
+  id           Int                @id @default(autoincrement())
+  userId       String
+  character    AdventureCharacter @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  itemId       String
+  quantity     Int                @default(1)
   /// Vrai pour la pièce portée dans son emplacement (une seule par emplacement, garanti par le service).
-  equipped  Boolean            @default(false)
-  updatedAt DateTime           @updatedAt
+  equipped     Boolean            @default(false)
+  /// Palier de renforcement de l'exemplaire de ce joueur (0 à 10, voir data/adventureUpgrades.ts).
+  /// Il ne suit pas l'objet lors d'un échange : il récompense celui qui a dépensé les ressources.
+  upgradeLevel Int                @default(0)
+  updatedAt    DateTime           @updatedAt
 
   @@unique([userId, itemId])
   @@index([userId])
@@ -433,6 +440,7 @@ enum AdventureLogType {
   STORY
   DUNGEON
   LEVEL_UP
+  TRADE
   ADMIN
 }
 
@@ -450,4 +458,42 @@ model AdventureLog {
 
   @@index([userId, createdAt])
   @@map("adventure_logs")
+}
+
+enum AdventureTradeStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+  EXPIRED
+}
+
+/// Proposition d'échange entre deux aventuriers. Les lots sont stockés en JSON (validés par
+/// `adventureTradeItemsSchema`) : ajouter un objet au catalogue ne demande aucune migration. Rien
+/// n'est prélevé à la proposition — tout est vérifié et transféré au moment de l'acceptation, ce
+/// qui évite d'immobiliser des ressources dans une offre qui n'aboutira peut-être jamais.
+model AdventureTrade {
+  id          Int                  @id @default(autoincrement())
+  initiatorId String
+  initiator   AdventureCharacter   @relation("AdventureTradeInitiator", fields: [initiatorId], references: [userId], onDelete: Cascade)
+  targetId    String
+  target      AdventureCharacter   @relation("AdventureTradeTarget", fields: [targetId], references: [userId], onDelete: Cascade)
+  status      AdventureTradeStatus @default(PENDING)
+
+  /// Ce que l'initiateur donne, et ce qu'il demande en retour.
+  offeredItems   Json @default("[]")
+  offeredGold    Int  @default(0)
+  requestedItems Json @default("[]")
+  requestedGold  Int  @default(0)
+
+  /// Salon où la proposition a été faite, pour que la réponse arrive au même endroit.
+  channelId  String?
+  expiresAt  DateTime
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([targetId, status])
+  @@index([initiatorId, status])
+  @@index([status, expiresAt])
+  @@map("adventure_trades")
 }

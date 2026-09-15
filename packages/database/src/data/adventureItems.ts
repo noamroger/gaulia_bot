@@ -47,6 +47,16 @@ export interface AdventureItemDefinition {
   price?: number;
   /** Prix de revente au marchand. */
   sellPrice: number;
+  /**
+   * Échangeable entre joueurs. Vrai par défaut : seuls les objets marqués explicitement ici sont
+   * bloqués (les reliques du scénario, qui n'ont de sens que pour celui qui les a gagnées).
+   */
+  tradable?: boolean;
+}
+
+/** Un objet non marqué est échangeable : la liste des exceptions reste ainsi courte et lisible. */
+export function isAdventureItemTradable(item: AdventureItemDefinition): boolean {
+  return item.tradable !== false;
 }
 
 export const ADVENTURE_RARITY_EMOJIS: Readonly<Record<AdventureItemRarity, string>> = {
@@ -673,6 +683,7 @@ export const ADVENTURE_ITEMS: readonly AdventureItemDefinition[] = [
     rarity: "LEGENDAIRE",
     description: "Son appel disperse les brumes des Bois-Bas.",
     sellPrice: 0,
+    tradable: false,
   },
   {
     id: "relique-clef-tombes",
@@ -682,6 +693,7 @@ export const ADVENTURE_ITEMS: readonly AdventureItemDefinition[] = [
     rarity: "LEGENDAIRE",
     description: "Elle ouvre ce qui n'aurait jamais dû être refermé.",
     sellPrice: 0,
+    tradable: false,
   },
   {
     id: "relique-braise-eternelle",
@@ -691,6 +703,7 @@ export const ADVENTURE_ITEMS: readonly AdventureItemDefinition[] = [
     rarity: "LEGENDAIRE",
     description: "Prise au cœur des Forges Noires, elle ne s'éteint pas.",
     sellPrice: 0,
+    tradable: false,
   },
   {
     id: "relique-coeur-gel",
@@ -700,6 +713,7 @@ export const ADVENTURE_ITEMS: readonly AdventureItemDefinition[] = [
     rarity: "LEGENDAIRE",
     description: "Le pouls figé du Haut-Givre.",
     sellPrice: 0,
+    tradable: false,
   },
   {
     id: "relique-oeil-tempete",
@@ -709,6 +723,7 @@ export const ADVENTURE_ITEMS: readonly AdventureItemDefinition[] = [
     rarity: "LEGENDAIRE",
     description: "Un calme parfait, enfermé dans une sphère.",
     sellPrice: 0,
+    tradable: false,
   },
   {
     id: "relique-voile-astral",
@@ -718,6 +733,7 @@ export const ADVENTURE_ITEMS: readonly AdventureItemDefinition[] = [
     rarity: "LEGENDAIRE",
     description: "Tissé entre deux nuits, il ne pèse rien.",
     sellPrice: 0,
+    tradable: false,
   },
   {
     id: "relique-derniere-voix",
@@ -727,6 +743,7 @@ export const ADVENTURE_ITEMS: readonly AdventureItemDefinition[] = [
     rarity: "LEGENDAIRE",
     description: "Ce que les Terres avaient à dire, enfin audible.",
     sellPrice: 0,
+    tradable: false,
   },
 ] as const;
 
