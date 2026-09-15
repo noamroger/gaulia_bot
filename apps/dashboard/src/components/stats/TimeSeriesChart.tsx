@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 
 export interface SeriesPoint {
   key: string;
@@ -67,6 +67,12 @@ export function TimeSeriesChart({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  // Les dégradés SVG sont référencés par id : il doit rester unique quand plusieurs graphiques
+  // cohabitent sur la page. useId encadre sa valeur de caractères spéciaux, retirés ici pour que
+  // la référence url(#…) reste un identifiant simple.
+  const gradientId = useId().replace(/[^a-zA-Z0-9-]/g, "");
+  const lineGradient = `${gradientId}-line`;
+  const areaGradient = `${gradientId}-area`;
 
   useEffect(() => {
     const element = wrapperRef.current;
@@ -179,6 +185,17 @@ export function TimeSeriesChart({
           onBlur={() => setHoverIndex(null)}
           onKeyDown={onKeyDown}
         >
+          <defs>
+            <linearGradient id={lineGradient} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="var(--series-1)" />
+              <stop offset="100%" stopColor="var(--series-2)" />
+            </linearGradient>
+            <linearGradient id={areaGradient} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--series-2)" stopOpacity={0.28} />
+              <stop offset="100%" stopColor="var(--series-1)" stopOpacity={0.02} />
+            </linearGradient>
+          </defs>
+
           {Array.from({ length: tickCount + 1 }, (_, tick) => {
             const value = domain.min + domain.step * tick;
             const y = yAt(value);
@@ -217,11 +234,11 @@ export function TimeSeriesChart({
             </text>
           ))}
 
-          <path d={areaPath} fill="var(--series-1)" fillOpacity={0.1} />
+          <path d={areaPath} fill={`url(#${areaGradient})`} />
           <path
             d={linePath}
             fill="none"
-            stroke="var(--series-1)"
+            stroke={`url(#${lineGradient})`}
             strokeWidth={2}
             strokeLinejoin="round"
             strokeLinecap="round"

@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { LiveStats } from "@/components/home/LiveStats";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export const metadata: Metadata = {
   title: "Gaulia — Bot Discord de modération, musique et jeux",
@@ -161,6 +162,7 @@ export default function HomePage() {
             <a href="#fonctionnalites" className="landing-nav-link">
               Fonctionnalités
             </a>
+            <ThemeToggle />
             <Link href="/dashboard" className="button-secondary">
               Tableau de bord
             </Link>

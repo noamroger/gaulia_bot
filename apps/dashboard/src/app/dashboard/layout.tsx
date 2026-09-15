@@ -9,7 +9,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { session } = useSession();
 
   return (
-    <div>
+    <div className="app-shell">
       <TopNav session={session} />
       {children}
     </div>

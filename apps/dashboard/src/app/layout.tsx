@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { DEFAULT_THEME, THEME_STORAGE_KEY } from "@/lib/theme";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -9,13 +12,18 @@ export const metadata: Metadata = {
   description: "Gère la modération, l'automod et le statut premium de tes serveurs Gaulia.",
 };
 
+/** Applique le thème mémorisé avant le premier rendu, pour éviter un flash de la mauvaise palette. */
+const THEME_SCRIPT = `try{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="fr">
+    <html lang="fr" data-theme={DEFAULT_THEME} suppressHydrationWarning>
       <body>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         {children}
         <footer className="site-footer">
           <Link href="/privacy">Politique de confidentialité</Link>
+          <ThemeToggle />
         </footer>
       </body>
     </html>

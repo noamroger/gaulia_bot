@@ -26,7 +26,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }, [loading, session, router]);
 
   return (
-    <div>
+    <div className="app-shell">
       <TopNav session={session} />
       <div className="container container-wide">
         {session?.isOwner ? (

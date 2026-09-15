@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { api } from "@/lib/api";
 import { userAvatarUrl } from "@/lib/discordCdn";
 import { formatNumber } from "@/lib/format";
@@ -39,11 +40,15 @@ export function TopNav({ session }: { session: Session | null }) {
   return (
     <nav className="top-nav">
       <Link href="/dashboard" className="brand">
+        <span className="brand-mark" aria-hidden="true">
+          G
+        </span>
         Gaulia
       </Link>
       {session && (
         <>
           <div className="top-nav-actions">
+            <ThemeToggle />
             {session.isOwner && (
               <Link href="/admin" className="text-muted">
                 Admin
@@ -134,6 +139,9 @@ export function TopNav({ session }: { session: Session | null }) {
                   </li>
                 )}
                 <li className="menu-separator" role="separator" />
+                <li>
+                  <ThemeToggle variant="menu" />
+                </li>
                 <li>
                   <button type="button" className="menu-item danger" onClick={() => void logout()}>
                     Déconnexion

@@ -1,17 +1,90 @@
+/* Thème sombre par défaut. Le thème clair s'obtient via data-theme="light" sur <html> (posé par
+   le script de layout.tsx puis par ThemeToggle) : seuls les tokens ci-dessous changent, aucune
+   règle plus bas ne code une couleur en dur. La palette de marque (indigo → violet) est celle de
+   la page d'accueil, reprise sur tout le dashboard. */
 :root {
+  color-scheme: dark;
+
+  --brand-1: #5865f2;
+  --brand-2: #8b5cf6;
+  --brand-3: #c084fc;
+  --brand-gradient: linear-gradient(135deg, var(--brand-1), var(--brand-2));
+  --brand-gradient-wide: linear-gradient(90deg, var(--brand-1), var(--brand-3));
+  --brand-text-gradient: linear-gradient(90deg, #8f98ff, #c084fc);
+  --brand-glow: rgba(88, 101, 242, 0.35);
+  --accent-soft: rgba(88, 101, 242, 0.15);
+  --accent-border: rgba(88, 101, 242, 0.45);
+  --accent-text: #c7ccff;
+
   --bg: #0e0f13;
   --bg-elevated: #17191f;
+  --surface-gradient: linear-gradient(180deg, rgba(23, 25, 31, 0.92), rgba(23, 25, 31, 0.6));
+  --nav-bg: rgba(14, 15, 19, 0.72);
   --border: #262a33;
+  --hover-surface: rgba(255, 255, 255, 0.04);
+  --grid-line: rgba(255, 255, 255, 0.04);
   --text: #e7e9ee;
   --text-muted: #9aa1ad;
   --primary: #5865f2;
   --primary-hover: #4752c4;
   --danger: #ed4245;
+  --danger-soft: rgba(237, 66, 69, 0.08);
+  --danger-border: rgba(237, 66, 69, 0.4);
   --success: #57f287;
+  --success-soft: rgba(87, 242, 135, 0.15);
+  --success-border: rgba(87, 242, 135, 0.4);
+  --muted-soft: rgba(154, 161, 173, 0.15);
   --warning: #fee75c;
   --series-1: #5865f2;
+  --series-2: #c084fc;
   --chart-grid: #232730;
   --chart-axis: #3a3f4b;
+
+  --glow-1: rgba(88, 101, 242, 0.28);
+  --glow-2: rgba(192, 132, 252, 0.1);
+  --shadow-card: 0 16px 36px rgba(0, 0, 0, 0.35);
+  --shadow-menu: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-tooltip: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --brand-text-gradient: linear-gradient(90deg, #4f46e5, #9333ea);
+  --brand-glow: rgba(88, 101, 242, 0.28);
+  --accent-soft: rgba(88, 101, 242, 0.1);
+  --accent-border: rgba(88, 101, 242, 0.35);
+  --accent-text: #4338ca;
+
+  --bg: #f4f5fb;
+  --bg-elevated: #ffffff;
+  --surface-gradient: linear-gradient(180deg, #ffffff, rgba(255, 255, 255, 0.55));
+  --nav-bg: rgba(244, 245, 251, 0.78);
+  --border: #e1e4ee;
+  --hover-surface: rgba(17, 20, 30, 0.05);
+  --grid-line: rgba(17, 20, 30, 0.05);
+  --text: #171a21;
+  --text-muted: #5d6474;
+  --primary: #4f5bd5;
+  --primary-hover: #3f49b8;
+  --danger: #c62828;
+  --danger-soft: rgba(198, 40, 40, 0.08);
+  --danger-border: rgba(198, 40, 40, 0.35);
+  --success: #14804a;
+  --success-soft: rgba(20, 128, 74, 0.12);
+  --success-border: rgba(20, 128, 74, 0.35);
+  --muted-soft: rgba(93, 100, 116, 0.12);
+  --warning: #a16207;
+  --series-1: #5865f2;
+  --series-2: #9333ea;
+  --chart-grid: #e6e9f2;
+  --chart-axis: #b9bfd0;
+
+  --glow-1: rgba(88, 101, 242, 0.16);
+  --glow-2: rgba(192, 132, 252, 0.16);
+  --shadow-card: 0 14px 30px rgba(24, 28, 48, 0.08);
+  --shadow-menu: 0 12px 28px rgba(24, 28, 48, 0.16);
+  --shadow-tooltip: 0 6px 18px rgba(24, 28, 48, 0.14);
 }
 
 * {
@@ -23,6 +96,25 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Halo de marque en haut des pages du dashboard (la page d'accueil a le sien, .landing-backdrop). */
+.app-shell {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+}
+
+.app-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 420px;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(65% 70% at 50% 0%, var(--glow-1), transparent 72%),
+    radial-gradient(35% 45% at 92% 8%, var(--glow-2), transparent 70%);
 }
 
 a {
@@ -40,6 +132,24 @@ button {
   padding: 24px 20px 80px;
 }
 
+/* Titres de page en dégradé de marque (dashboard, admin, page légale, carte de connexion). */
+.container > h1,
+.legal > h1,
+.card > h1 {
+  width: fit-content;
+  max-width: 100%;
+  background: var(--brand-text-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  letter-spacing: -0.02em;
+}
+
+/* `width: fit-content` (pour que le dégradé épouse le texte) sort le titre du centrage de la carte. */
+.card > h1 {
+  margin-inline: auto;
+}
+
 .container-wide {
   max-width: 1200px;
 }
@@ -49,6 +159,7 @@ button {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 20px;
+  box-shadow: var(--shadow-card);
 }
 
 .toolbar {
@@ -95,7 +206,7 @@ button {
 }
 
 .segmented button[aria-pressed="true"] {
-  background: var(--bg-elevated);
+  background: var(--accent-soft);
   color: var(--text);
 }
 
@@ -112,10 +223,20 @@ button {
 }
 
 .stat-tile {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 16px 18px;
+  overflow: hidden;
+}
+
+.stat-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: var(--brand-gradient-wide);
 }
 
 .stat-label {
@@ -125,8 +246,12 @@ button {
 
 .stat-value {
   font-size: 26px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.1;
+  background: var(--brand-text-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .stat-hint {
@@ -215,13 +340,13 @@ button {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  background: var(--bg);
+  background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px 10px;
   font-size: 12px;
   white-space: nowrap;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-tooltip);
 }
 
 .chart-tooltip strong {
@@ -286,7 +411,7 @@ button {
   display: block;
   height: 100%;
   min-width: 2px;
-  background: var(--series-1);
+  background: linear-gradient(90deg, var(--series-1), var(--series-2));
   border-radius: 0 4px 4px 0;
   transition: filter 0.15s ease;
 }
@@ -306,14 +431,14 @@ button {
   right: 0;
   bottom: calc(100% + 6px);
   pointer-events: none;
-  background: var(--bg);
+  background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 6px 10px;
   font-size: 12px;
   color: var(--text);
   white-space: nowrap;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-tooltip);
   opacity: 0;
   transition: opacity 0.12s ease;
   z-index: 1;
@@ -382,19 +507,22 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: var(--primary);
-  color: white;
+  background: var(--brand-gradient);
+  color: #fff;
   border: none;
   border-radius: 8px;
   padding: 10px 18px;
   font-weight: 600;
   font-size: 14px;
   text-decoration: none;
-  transition: background 0.15s ease;
+  transition:
+    filter 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .button-primary:hover {
-  background: var(--primary-hover);
+  filter: brightness(1.08);
+  box-shadow: 0 6px 18px var(--brand-glow);
 }
 
 .button-secondary {
@@ -408,6 +536,11 @@ button {
   padding: 9px 16px;
   font-weight: 500;
   font-size: 14px;
+  transition: border-color 0.15s ease;
+}
+
+.button-secondary:hover:not(:disabled) {
+  border-color: var(--accent-border);
 }
 
 .button-danger {
@@ -465,13 +598,13 @@ button {
 }
 
 .notice-error {
-  border-color: rgba(237, 66, 69, 0.4);
-  background: rgba(237, 66, 69, 0.08);
+  border-color: var(--danger-border);
+  background: var(--danger-soft);
 }
 
 .notice-success {
-  border-color: rgba(87, 242, 135, 0.4);
-  background: rgba(87, 242, 135, 0.08);
+  border-color: var(--success-border);
+  background: var(--success-soft);
 }
 
 .data-result {
@@ -503,6 +636,11 @@ button {
 }
 
 .site-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px;
   border-top: 1px solid var(--border);
   padding: 20px;
   text-align: center;
@@ -512,6 +650,42 @@ button {
 
 .site-footer a {
   color: var(--text-muted);
+}
+
+/* ─── Bascule clair / sombre ─────────────────────────────────────────────── */
+
+.theme-toggle {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.theme-toggle:hover {
+  color: var(--text);
+  border-color: var(--accent-border);
+}
+
+.theme-toggle:focus-visible,
+.theme-menu-item:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* `.menu-item` est déclaré plus bas en display:block : on renforce la spécificité pour l'emporter. */
+.menu-item.theme-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .landing {
@@ -527,8 +701,8 @@ button {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(60% 55% at 50% 0%, rgba(88, 101, 242, 0.28), transparent 70%),
-    radial-gradient(30% 35% at 88% 18%, rgba(192, 132, 252, 0.1), transparent 70%);
+    radial-gradient(60% 55% at 50% 0%, var(--glow-1), transparent 70%),
+    radial-gradient(30% 35% at 88% 18%, var(--glow-2), transparent 70%);
 }
 
 .landing-backdrop::after {
@@ -536,8 +710,8 @@ button {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
   background-size: 48px 48px;
   -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 30%, transparent 75%);
   mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 30%, transparent 75%);
@@ -547,10 +721,10 @@ button {
   position: sticky;
   top: 0;
   z-index: 30;
-  background: rgba(14, 15, 19, 0.72);
+  background: var(--nav-bg);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border);
 }
 
 .landing-nav-inner {
@@ -572,7 +746,8 @@ button {
   text-decoration: none;
 }
 
-.landing-logo {
+.landing-logo,
+.brand-mark {
   display: grid;
   place-items: center;
   width: 30px;
@@ -581,8 +756,8 @@ button {
   font-size: 15px;
   font-weight: 800;
   color: #fff;
-  background: linear-gradient(135deg, #5865f2, #8b5cf6);
-  box-shadow: 0 4px 14px rgba(88, 101, 242, 0.45);
+  background: var(--brand-gradient);
+  box-shadow: 0 4px 14px var(--brand-glow);
 }
 
 .landing-nav-links {
@@ -624,10 +799,10 @@ button {
   display: inline-flex;
   align-items: center;
   padding: 4px 12px;
-  border: 1px solid rgba(88, 101, 242, 0.45);
+  border: 1px solid var(--accent-border);
   border-radius: 999px;
-  background: rgba(88, 101, 242, 0.12);
-  color: #c7ccff;
+  background: var(--accent-soft);
+  color: var(--accent-text);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -641,8 +816,9 @@ button {
   letter-spacing: -0.03em;
 }
 
-.landing-gradient {
-  background: linear-gradient(90deg, #8f98ff, #c084fc);
+.landing-gradient,
+.gradient-text {
+  background: var(--brand-text-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -670,16 +846,21 @@ button {
 }
 
 .landing-actions .button-primary {
-  box-shadow: 0 8px 24px rgba(88, 101, 242, 0.35);
+  box-shadow: 0 8px 24px var(--brand-glow);
 }
 
+/* L'aperçu reproduit un salon Discord : il reste sombre en thème clair, comme une capture. */
 .landing-preview {
+  --preview-bg: #0e0f13;
+  --preview-elevated: #17191f;
+  --preview-border: #262a33;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
-  background: var(--bg-elevated);
+  background: var(--preview-elevated);
+  color: #e7e9ee;
   box-shadow:
-    0 30px 80px rgba(0, 0, 0, 0.55),
+    0 30px 80px rgba(0, 0, 0, 0.35),
     0 0 0 1px rgba(88, 101, 242, 0.08);
 }
 
@@ -688,14 +869,14 @@ button {
   align-items: center;
   gap: 6px;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--preview-border);
   font-size: 14px;
   font-weight: 600;
 }
 
 .preview-hash {
   font-size: 18px;
-  color: var(--text-muted);
+  color: #9aa1ad;
 }
 
 .preview-messages {
@@ -719,7 +900,7 @@ button {
   border-radius: 50%;
   font-weight: 700;
   color: #fff;
-  background: linear-gradient(135deg, #5865f2, #8b5cf6);
+  background: var(--brand-gradient);
 }
 
 .preview-avatar.is-user {
@@ -739,7 +920,7 @@ button {
 .preview-badge {
   padding: 1px 5px;
   border-radius: 4px;
-  background: var(--primary);
+  background: var(--brand-1);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
@@ -748,14 +929,14 @@ button {
 .preview-time {
   font-size: 12px;
   font-weight: 400;
-  color: var(--text-muted);
+  color: #9aa1ad;
 }
 
 .preview-container {
   padding: 12px 14px;
-  border-left: 4px solid var(--primary);
+  border-left: 4px solid var(--brand-1);
   border-radius: 8px;
-  background: var(--bg);
+  background: var(--preview-bg);
   font-size: 14px;
   line-height: 1.55;
 }
@@ -795,7 +976,7 @@ button {
 }
 
 .preview-button.is-danger {
-  background: var(--danger);
+  background: #ed4245;
 }
 
 .landing-stats-grid {
@@ -804,7 +985,7 @@ button {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 16px;
-  background: linear-gradient(180deg, rgba(23, 25, 31, 0.92), rgba(23, 25, 31, 0.6));
+  background: var(--surface-gradient);
 }
 
 .landing-stat {
@@ -825,6 +1006,10 @@ button {
   font-weight: 700;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+  background: var(--brand-text-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .landing-stat-label {
@@ -903,7 +1088,8 @@ button {
 }
 
 .landing-card:hover {
-  border-color: rgba(88, 101, 242, 0.5);
+  border-color: var(--accent-border);
+  box-shadow: 0 12px 28px var(--brand-glow);
   transform: translateY(-2px);
 }
 
@@ -937,10 +1123,10 @@ button {
   place-items: center;
   width: 42px;
   height: 42px;
-  border: 1px solid rgba(88, 101, 242, 0.3);
+  border: 1px solid var(--accent-border);
   border-radius: 11px;
-  background: rgba(88, 101, 242, 0.14);
-  color: #aab2ff;
+  background: var(--accent-soft);
+  color: var(--accent-text);
 }
 
 .step-number {
@@ -952,17 +1138,16 @@ button {
   font-size: 15px;
   font-weight: 700;
   color: #fff;
-  background: linear-gradient(135deg, #5865f2, #8b5cf6);
+  background: var(--brand-gradient);
 }
 
 .landing-cta {
   margin-top: 96px;
   padding: 56px 24px;
-  border: 1px solid rgba(88, 101, 242, 0.35);
+  border: 1px solid var(--accent-border);
   border-radius: 20px;
   background:
-    radial-gradient(80% 120% at 50% 0%, rgba(88, 101, 242, 0.25), transparent 70%),
-    var(--bg-elevated);
+    radial-gradient(80% 120% at 50% 0%, var(--glow-1), transparent 70%), var(--bg-elevated);
   text-align: center;
 }
 
@@ -1105,7 +1290,8 @@ button {
 }
 
 .guild-card:hover {
-  border-color: var(--primary);
+  border-color: var(--accent-border);
+  box-shadow: 0 12px 28px var(--brand-glow);
   transform: translateY(-2px);
 }
 
@@ -1128,7 +1314,8 @@ button {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: var(--primary);
+  background: var(--brand-gradient);
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1171,14 +1358,23 @@ button {
 }
 
 .top-nav {
+  position: sticky;
+  top: 0;
+  z-index: 25;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
+  padding: 12px 20px;
+  background: var(--nav-bg);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
 }
 
 .top-nav .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-weight: 700;
   font-size: 18px;
   text-decoration: none;
@@ -1200,9 +1396,17 @@ button {
   border-bottom: 2px solid transparent;
 }
 
+.tab:hover {
+  color: var(--text);
+}
+
 .tab.active {
   color: var(--text);
-  border-bottom-color: var(--primary);
+  border-bottom-color: transparent;
+  background-image: var(--brand-gradient-wide);
+  background-repeat: no-repeat;
+  background-position: bottom;
+  background-size: 100% 2px;
 }
 
 .tab-nav {
@@ -1268,7 +1472,7 @@ button {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-menu);
 }
 
 .menu-item {
@@ -1286,14 +1490,14 @@ button {
 }
 
 .menu-item:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--hover-surface);
   color: var(--text);
 }
 
 .menu-item.active {
   color: var(--text);
-  background: rgba(88, 101, 242, 0.15);
-  box-shadow: inset 3px 0 0 var(--primary);
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--brand-2);
 }
 
 .menu-item.danger {
@@ -1390,12 +1594,12 @@ button {
 }
 
 .badge-success {
-  background: rgba(87, 242, 135, 0.15);
+  background: var(--success-soft);
   color: var(--success);
 }
 
 .badge-muted {
-  background: rgba(154, 161, 173, 0.15);
+  background: var(--muted-soft);
   color: var(--text-muted);
 }
 
@@ -1455,13 +1659,14 @@ button {
   height: 16px;
   left: 3px;
   top: 3px;
-  background: white;
+  background: #fff;
   border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   transition: transform 0.15s ease;
 }
 
 .switch input:checked + .switch-track {
-  background: var(--primary);
+  background: var(--brand-gradient);
 }
 
 .switch input:checked + .switch-track::before {
@@ -1565,7 +1770,7 @@ button {
   gap: 4px;
   padding: 3px 4px 3px 10px;
   border-radius: 999px;
-  background: rgba(88, 101, 242, 0.15);
+  background: var(--accent-soft);
   font-size: 13px;
 }
 
@@ -1611,8 +1816,8 @@ button {
 }
 
 .filter-chip[aria-pressed="true"] {
-  background: rgba(88, 101, 242, 0.15);
-  border-color: rgba(88, 101, 242, 0.45);
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
   color: var(--text);
 }
 
@@ -1716,10 +1921,10 @@ button {
   flex-wrap: wrap;
   gap: 12px;
   background: var(--bg-elevated);
-  border: 1px solid var(--border);
+  border: 1px solid var(--accent-border);
   border-radius: 12px;
   padding: 12px 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-menu);
   z-index: 10;
 }
 
@@ -1924,6 +2129,10 @@ button {
   font-size: 32px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  background: var(--brand-text-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .amount-up {
@@ -2022,7 +2231,7 @@ button {
 
 .credits-chip:hover {
   color: var(--text);
-  border-color: var(--primary);
+  border-color: var(--accent-border);
 }
 
 .menu-header-muted {
