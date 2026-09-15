@@ -288,6 +288,10 @@ Fiche complète du bot, en quatre onglets navigables aux boutons Components V2 (
   est publique : aucun détail par serveur ou par membre n'y transite.
 - **Catalogue** : compté à chaud depuis `client.commands` / `client.components`, donc toujours à
   jour sans rien déclarer.
+- **Rien n'est gardé « depuis toujours »** : l'onglet Commandes affiche le jour courant, 30 jours
+  et 90 jours, cette dernière fenêtre étant `COMMAND_USAGE_RETENTION_DAYS` — la durée de
+  conservation appliquée par le job de rétention de l'API. Le total est recalculé sur la fenêtre
+  plutôt que lu dans `totalAllTime`, pour rester juste même entre deux purges.
 - **Où c'est rangé** : `modules/general/services/botinfo/` (collecte dans `botStatsService.ts`,
   vues dans `botinfoUi.ts`), la commande dans `commands/botinfo.ts` et les deux boutons dans
   `components/botinfo.ts`. Ajouter un onglet = ajouter une entrée à `BOT_INFO_VIEWS` et sa

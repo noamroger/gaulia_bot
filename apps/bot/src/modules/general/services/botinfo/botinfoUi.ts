@@ -6,7 +6,7 @@ import { env } from "../../../../config/env";
 import { buildContainer, toV2Payload, type V2MessagePayload } from "../../../../core/ui/containers";
 import { formatDurationMs } from "../../../../core/utils/duration";
 import type { BotInfoSnapshot, ShardLine } from "./botStatsService";
-import { USAGE_WINDOW_DAYS } from "./botStatsService";
+import { USAGE_HISTORY_DAYS, USAGE_WINDOW_DAYS } from "./botStatsService";
 
 /** Vues de `/botinfo`, toutes atteignables d'un bouton : une entrée ici = un onglet. */
 export type BotInfoView = "apercu" | "technique" | "shards" | "commandes";
@@ -183,10 +183,10 @@ function commandsView(snapshot: BotInfoSnapshot): string[] {
     section("Utilisation", [
       `Aujourd'hui : ${formatNumber(today)}`,
       `${USAGE_WINDOW_DAYS} derniers jours : ${formatNumber(usage.totalInRange)}`,
-      `Depuis toujours : ${formatNumber(usage.totalAllTime)}`,
+      `${USAGE_HISTORY_DAYS} derniers jours : ${formatNumber(snapshot.usageHistoryTotal)}`,
     ]),
     section(`Top ${usage.topCommands.length || ""}`.trim(), top),
-    "-# Seuls des compteurs par commande sont conservés, jamais qui a lancé quoi.",
+    `-# Seuls des compteurs par commande sont conservés, ${USAGE_HISTORY_DAYS} jours au maximum, jamais qui a lancé quoi.`,
   ];
 }
 

@@ -3,6 +3,8 @@ import os from "node:os";
 import path from "node:path";
 
 import {
+  COMMAND_USAGE_RETENTION_DAYS,
+  countCommandUsageSince,
   getBotContentStats,
   getCommandUsageSummary,
   listShardStatuses,
@@ -19,6 +21,11 @@ import { env } from "../../../../config/env";
 const SHARD_STALE_AFTER_MS = 90_000;
 /** Fenêtre d'analyse des statistiques d'utilisation des commandes. */
 export const USAGE_WINDOW_DAYS = 30;
+/**
+ * Fenêtre longue affichée par `/botinfo` : la durée de conservation elle-même, au-delà de laquelle
+ * les compteurs sont purgés (apps/api/src/jobs/retentionJob.ts). Rien n'est gardé « depuis toujours ».
+ */
+export const USAGE_HISTORY_DAYS = COMMAND_USAGE_RETENTION_DAYS;
 const TOP_COMMANDS = 5;
 
 export interface ShardLine {
@@ -94,6 +101,8 @@ export interface BotInfoSnapshot {
     components: number;
   };
   usage: CommandUsageSummary;
+  /** Total sur toute la durée de conservation, recalculé et non lu dans `usage.totalAllTime`. */
+  usageHistoryTotal: number;
   content: BotContentStats;
 }
 
@@ -151,13 +160,15 @@ async function describeOwner(client: GauliaClient): Promise<{
  * shard), le reste de ce process et du catalogue chargé en mémoire.
  */
 export async function collectBotInfo(client: GauliaClient): Promise<BotInfoSnapshot> {
-  const [shardRows, usage, content, databaseLatencyMs, application] = await Promise.all([
-    listShardStatuses(),
-    getCommandUsageSummary(USAGE_WINDOW_DAYS, [], TOP_COMMANDS),
-    getBotContentStats(),
-    measureDatabaseLatency().catch(() => null),
-    describeOwner(client),
-  ]);
+  const [shardRows, usage, usageHistoryTotal, content, databaseLatencyMs, application] =
+    await Promise.all([
+      listShardStatuses(),
+      getCommandUsageSummary(USAGE_WINDOW_DAYS, [], TOP_COMMANDS),
+      countCommandUsageSince(USAGE_HISTORY_DAYS),
+      getBotContentStats(),
+      measureDatabaseLatency().catch(() => null),
+      describeOwner(client),
+    ]);
 
   const now = Date.now();
   const currentShardId = client.shard?.ids[0] ?? 0;
@@ -228,6 +239,7 @@ export async function collectBotInfo(client: GauliaClient): Promise<BotInfoSnaps
       components: client.components.size,
     },
     usage,
+    usageHistoryTotal,
     content,
   };
 }
