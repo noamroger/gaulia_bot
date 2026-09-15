@@ -42,6 +42,16 @@
 
   --glow-1: rgba(88, 101, 242, 0.28);
   --glow-2: rgba(192, 132, 252, 0.1);
+  --app-glow-1: rgba(88, 101, 242, 0.38);
+  --app-glow-2: rgba(192, 132, 252, 0.2);
+  --app-glow-3: rgba(124, 92, 246, 0.18);
+  --app-tint: linear-gradient(170deg, rgba(88, 101, 242, 0.09), rgba(192, 132, 252, 0.07));
+  --card-tint: linear-gradient(
+    155deg,
+    rgba(88, 101, 242, 0.12),
+    rgba(192, 132, 252, 0.05) 45%,
+    transparent 78%
+  );
   --shadow-card: 0 16px 36px rgba(0, 0, 0, 0.35);
   --shadow-menu: 0 8px 24px rgba(0, 0, 0, 0.5);
   --shadow-tooltip: 0 4px 16px rgba(0, 0, 0, 0.4);
@@ -82,6 +92,16 @@
 
   --glow-1: rgba(88, 101, 242, 0.16);
   --glow-2: rgba(192, 132, 252, 0.16);
+  --app-glow-1: rgba(88, 101, 242, 0.24);
+  --app-glow-2: rgba(192, 132, 252, 0.24);
+  --app-glow-3: rgba(124, 92, 246, 0.16);
+  --app-tint: linear-gradient(170deg, rgba(88, 101, 242, 0.07), rgba(192, 132, 252, 0.06));
+  --card-tint: linear-gradient(
+    155deg,
+    rgba(88, 101, 242, 0.07),
+    rgba(192, 132, 252, 0.035) 45%,
+    transparent 78%
+  );
   --shadow-card: 0 14px 30px rgba(24, 28, 48, 0.08);
   --shadow-menu: 0 12px 28px rgba(24, 28, 48, 0.16);
   --shadow-tooltip: 0 6px 18px rgba(24, 28, 48, 0.14);
@@ -98,7 +118,9 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-/* Halo de marque en haut des pages du dashboard (la page d'accueil a le sien, .landing-backdrop). */
+/* Halo de marque des pages du dashboard (la page d'accueil a le sien, .landing-backdrop).
+   Fixé au viewport : la teinte accompagne le scroll au lieu de laisser la page redevenir noire
+   sous la première hauteur d'écran. */
 .app-shell {
   position: relative;
   isolation: isolate;
@@ -107,14 +129,15 @@ body {
 
 .app-shell::before {
   content: "";
-  position: absolute;
-  inset: 0 0 auto;
-  height: 420px;
+  position: fixed;
+  inset: 0;
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(65% 70% at 50% 0%, var(--glow-1), transparent 72%),
-    radial-gradient(35% 45% at 92% 8%, var(--glow-2), transparent 70%);
+    radial-gradient(80% 55% at 50% -8%, var(--app-glow-1), transparent 68%),
+    radial-gradient(50% 45% at 100% 2%, var(--app-glow-2), transparent 70%),
+    radial-gradient(55% 50% at 0% 100%, var(--app-glow-3), transparent 72%),
+    radial-gradient(60% 45% at 100% 100%, var(--app-glow-2), transparent 72%), var(--app-tint);
 }
 
 a {
@@ -155,7 +178,7 @@ button {
 }
 
 .card {
-  background: var(--bg-elevated);
+  background: var(--card-tint), var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 20px;

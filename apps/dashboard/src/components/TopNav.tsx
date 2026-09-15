@@ -48,12 +48,12 @@ export function TopNav({ session }: { session: Session | null }) {
       {session && (
         <>
           <div className="top-nav-actions">
-            <ThemeToggle />
             {session.isOwner && (
               <Link href="/admin" className="text-muted">
                 Admin
               </Link>
             )}
+            <ThemeToggle />
             {credits && (
               <Link
                 href="/dashboard"
