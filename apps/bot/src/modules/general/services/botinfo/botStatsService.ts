@@ -10,15 +10,10 @@ import {
   type BotContentStats,
   type CommandUsageSummary,
 } from "@gaulia/database";
-import {
-  ApplicationCommandOptionType,
-  version as discordJsVersion,
-  type APIApplicationCommandOption,
-} from "discord.js";
+import { version as discordJsVersion } from "discord.js";
 
 import type { GauliaClient } from "../../../../client/GauliaClient";
 import { env } from "../../../../config/env";
-import type { Command } from "../../../../structures/Command";
 
 /** Au-delà, le shard n'a plus écrit de heartbeat : il est considéré hors ligne (même seuil que l'API). */
 const SHARD_STALE_AFTER_MS = 90_000;
@@ -52,14 +47,6 @@ export interface LavalinkNodeLine {
   lavalinkLoad: number;
 }
 
-export interface ModuleLine {
-  category: string;
-  commands: number;
-  /** Chemins invocables du module : `/aventure` en compte autant qu'il a de sous-commandes. */
-  invocations: number;
-  usages: number;
-}
-
 export interface BotInfoSnapshot {
   fetchedAt: Date;
   identity: {
@@ -71,7 +58,7 @@ export interface BotInfoSnapshot {
     /** Nombre de serveurs renvoyé par Discord, indépendant des heartbeats. */
     approximateGuildCount: number | null;
   };
-  /** Somme des shards en ligne ; `null` si aucun heartbeat n'est encore enregistré. */
+  /** Somme des shards en ligne uniquement : un shard muet fausserait les totaux. */
   totals: {
     guildCount: number;
     memberCount: number;
@@ -98,20 +85,13 @@ export interface BotInfoSnapshot {
     cpuCount: number;
     loadAverage: number;
     systemMemoryMb: number;
-    environment: string;
     databaseLatencyMs: number | null;
     lavalink: LavalinkNodeLine[];
   };
   shards: ShardLine[];
   catalogue: {
     total: number;
-    chatInput: number;
-    contextMenu: number;
-    /** Sous-commandes réellement invocables (une commande sans sous-commande compte pour une). */
-    invocations: number;
-    options: number;
     components: number;
-    modules: ModuleLine[];
   };
   usage: CommandUsageSummary;
   content: BotContentStats;
@@ -127,82 +107,6 @@ function botVersion(): string {
   } catch {
     return "inconnue";
   }
-}
-
-/** Compte les chemins invocables d'une commande (`/a`, `/a b`, `/a b c`) et leurs options. */
-function countUsages(options: readonly APIApplicationCommandOption[]): {
-  invocations: number;
-  options: number;
-} {
-  let invocations = 0;
-  let count = 0;
-
-  for (const option of options) {
-    if (
-      option.type === ApplicationCommandOptionType.Subcommand ||
-      option.type === ApplicationCommandOptionType.SubcommandGroup
-    ) {
-      const nested = countUsages(option.options ?? []);
-      invocations += Math.max(1, nested.invocations);
-      count += nested.options;
-    } else {
-      count += 1;
-    }
-  }
-
-  return { invocations, options: count };
-}
-
-function describeCatalogue(
-  client: GauliaClient,
-  usage: CommandUsageSummary,
-): BotInfoSnapshot["catalogue"] {
-  const usagesByCategory = new Map(usage.categories.map((row) => [row.category, row.count]));
-  const commandsByCategory = new Map<string, { commands: number; invocations: number }>();
-  let chatInput = 0;
-  let contextMenu = 0;
-  let invocations = 0;
-  let options = 0;
-
-  for (const command of client.commands.values() as IterableIterator<Command>) {
-    const category = command.category ?? "general";
-    const paths =
-      command.type === "chatInput"
-        ? Math.max(1, countUsages(command.data.toJSON().options ?? []).invocations)
-        : 1;
-
-    const module = commandsByCategory.get(category) ?? { commands: 0, invocations: 0 };
-    commandsByCategory.set(category, {
-      commands: module.commands + 1,
-      invocations: module.invocations + paths,
-    });
-
-    invocations += paths;
-    if (command.type === "chatInput") {
-      chatInput += 1;
-      options += countUsages(command.data.toJSON().options ?? []).options;
-    } else {
-      contextMenu += 1;
-    }
-  }
-
-  const modules = [...commandsByCategory]
-    .map(([category, module]) => ({
-      category,
-      ...module,
-      usages: usagesByCategory.get(category) ?? 0,
-    }))
-    .sort((a, b) => b.usages - a.usages || b.commands - a.commands);
-
-  return {
-    total: client.commands.size,
-    chatInput,
-    contextMenu,
-    invocations,
-    options,
-    components: client.components.size,
-    modules,
-  };
 }
 
 function describeLavalink(client: GauliaClient): LavalinkNodeLine[] {
@@ -315,12 +219,14 @@ export async function collectBotInfo(client: GauliaClient): Promise<BotInfoSnaps
       cpuCount: os.cpus().length,
       loadAverage: os.loadavg()[0] ?? 0,
       systemMemoryMb: Math.round(os.totalmem() / 1_048_576),
-      environment: env.NODE_ENV,
       databaseLatencyMs: databaseLatencyMs === null ? null : Math.round(databaseLatencyMs),
       lavalink: describeLavalink(client),
     },
     shards,
-    catalogue: describeCatalogue(client, usage),
+    catalogue: {
+      total: client.commands.size,
+      components: client.components.size,
+    },
     usage,
     content,
   };

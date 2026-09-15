@@ -20,13 +20,12 @@ const command: ChatInputCommand = {
           { name: "Technique", value: "technique" },
           { name: "Shards", value: "shards" },
           { name: "Commandes", value: "commandes" },
-          { name: "Modules", value: "modules" },
         ),
     ),
 
   help: {
     details:
-      "Tout ce qu'il y a à savoir sur Gaulia, en cinq onglets navigables aux boutons : l'aperçu (identité, serveurs, membres, état), la fiche technique (versions, mémoire, base de données, Lavalink), le détail des shards, les statistiques d'utilisation des commandes sur 30 jours et l'activité de chaque module. Les totaux proviennent des heartbeats envoyés par tous les shards, pas seulement de celui qui te répond.",
+      "Tout ce qu'il y a à savoir sur Gaulia, en quatre onglets navigables aux boutons : l'aperçu (identité, serveurs, membres, état), la fiche technique (versions, mémoire, base de données, Lavalink), le détail des shards et les statistiques d'utilisation des commandes sur 30 jours. Les totaux proviennent des heartbeats envoyés par tous les shards, pas seulement de celui qui te répond.",
     examples: ["botinfo", "botinfo vue:shards"],
   },
 

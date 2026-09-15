@@ -1,4 +1,4 @@
-import { GatewayIntentBits, Partials } from "discord.js";
+import { GatewayIntentBits, Partials, PermissionFlagsBits, PermissionsBitField } from "discord.js";
 
 export const GAULIA_INTENTS = [
   GatewayIntentBits.Guilds,
@@ -13,6 +13,43 @@ export const GAULIA_INTENTS = [
 ];
 
 export const GAULIA_PARTIALS = [Partials.Message, Partials.Channel, Partials.GuildMember];
+
+/** Permissions demandées par le lien d'invitation : le strict nécessaire de chaque module. */
+const INVITE_PERMISSIONS = new PermissionsBitField([
+  PermissionFlagsBits.ViewChannel,
+  PermissionFlagsBits.SendMessages,
+  PermissionFlagsBits.SendMessagesInThreads,
+  PermissionFlagsBits.EmbedLinks,
+  PermissionFlagsBits.AttachFiles,
+  PermissionFlagsBits.ReadMessageHistory,
+  PermissionFlagsBits.AddReactions,
+  PermissionFlagsBits.UseExternalEmojis,
+  // Modération : purge, kick, ban, timeout, et automod natif (qui exige « Gérer le serveur »).
+  PermissionFlagsBits.ManageMessages,
+  PermissionFlagsBits.KickMembers,
+  PermissionFlagsBits.BanMembers,
+  PermissionFlagsBits.ModerateMembers,
+  PermissionFlagsBits.ManageGuild,
+  // Musique.
+  PermissionFlagsBits.Connect,
+  PermissionFlagsBits.Speak,
+]);
+
+/**
+ * Lien d'ajout du bot. Les deux scopes sont obligatoires : sans `applications.commands` Discord
+ * refuse l'autorisation (« no scope were provided ») et les commandes slash ne sont pas installées.
+ */
+export function botInviteUrl(clientId: string): string {
+  const params = new URLSearchParams({
+    client_id: clientId,
+    scope: "bot applications.commands",
+    permissions: INVITE_PERMISSIONS.bitfield.toString(),
+  });
+  return `https://discord.com/oauth2/authorize?${params.toString()}`;
+}
+
+/** Site de l'auteur du bot, affiché dans `/botinfo`. */
+export const OWNER_WEBSITE_URL = "https://noamroger.fr";
 
 /** Couleurs d'accent utilisées par les containers Components V2. */
 export const Colors = {
