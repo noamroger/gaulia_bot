@@ -271,6 +271,32 @@ la fonctionnalité correspondante est simplement inactive et le reste du bot tou
 - Le compte de crédits et l'historique de votes d'un utilisateur partent avec ses données lors
   d'une suppression RGPD (onglet **Données** du panel admin).
 
+## Commande `/botinfo`
+
+Fiche complète du bot, en cinq onglets navigables aux boutons Components V2 (`apercu`,
+`technique`, `shards`, `commandes`, `modules`), utilisable en serveur comme en message privé.
+`/botinfo vue:<onglet>` ouvre directement l'onglet voulu.
+
+- **D'où viennent les chiffres** : un process de shard ne connaît que SES serveurs
+  (`client.guilds.cache` est scopé au shard), donc tous les totaux globaux sont recalculés depuis
+  les heartbeats en base — exactement la source du `GET /admin/stats` de l'API. Le reste (mémoire,
+  versions, cache, latence WebSocket) décrit le process qui répond, et l'onglet **Shards** montre
+  les deux à la fois, le shard courant étant marqué `➤`.
+- **Statistiques de contenu** : `getBotContentStats()`
+  (`packages/database/src/repositories/botStats.repo.ts`) agrège en une passe les serveurs,
+  les serveurs premium, les sanctions, les configurations automod et musique, les aventuriers et
+  les votes top.gg. Uniquement des totaux : la commande est publique, aucun détail par serveur ou
+  par membre n'y transite.
+- **Catalogue** : compté à chaud depuis `client.commands` / `client.components`, donc toujours à
+  jour sans rien déclarer — y compris les « chemins invocables » (`/aventure echange proposer`
+  compte pour un) et les options de chaque commande.
+- **Où c'est rangé** : `modules/general/services/botinfo/` (collecte dans `botStatsService.ts`,
+  vues dans `botinfoUi.ts`), la commande dans `commands/botinfo.ts` et les deux boutons dans
+  `components/botinfo.ts`. Ajouter un onglet = ajouter une entrée à `BOT_INFO_VIEWS` et sa
+  fonction de rendu ; le composant `botinfo:vue` sait déjà l'afficher.
+- Le message est public mais les boutons appartiennent à celui qui a lancé la commande : un autre
+  membre qui clique reçoit un message éphémère l'invitant à lancer son propre `/botinfo`.
+
 ## Module aventure
 
 Un jeu de rôle textuel au long cours, greffé sur le bot. Un joueur = **un aventurier unique**,

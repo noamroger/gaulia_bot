@@ -11,6 +11,7 @@ export * from "./repositories/credits.repo";
 export * from "./repositories/shardStatus.repo";
 export * from "./repositories/shardMetrics.repo";
 export * from "./repositories/commandUsage.repo";
+export * from "./repositories/botStats.repo";
 export * from "./repositories/dataErasure.repo";
 export * from "./repositories/moderationSettings.repo";
 export * from "./repositories/adventureSettings.repo";
