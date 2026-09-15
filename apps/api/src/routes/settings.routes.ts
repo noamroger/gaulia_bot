@@ -1,9 +1,12 @@
 import {
+  ADVENTURE_MAX_CHANNELS,
   BLINDTEST_PRESET_CATEGORIES,
+  getAdventureSettings,
   getModerationSettings,
   getMusicSettings,
   getOrCreateGuild,
   updateGuild,
+  updateAdventureSettings,
   updateModerationSettings,
   updateMusicSettings,
   warnEscalationSchema,
@@ -29,15 +32,19 @@ const updateSettingsSchema = z.object({
   funChannelIds: z.array(snowflakeSchema).max(100).optional(),
   blindtestChannelIds: z.array(snowflakeSchema).max(100).optional(),
   blindtestDisabledCategories: z.array(z.string().max(50)).max(100).optional(),
+  adventureEnabled: z.boolean().optional(),
+  adventureChannelMode: z.enum(["ALLOWLIST", "BLOCKLIST"]).optional(),
+  adventureChannelIds: z.array(snowflakeSchema).max(ADVENTURE_MAX_CHANNELS).optional(),
 });
 
 const PRESET_IDS = new Set(BLINDTEST_PRESET_CATEGORIES.map((category) => category.id));
 
 async function loadSettings(guildId: string) {
   const guild = await getOrCreateGuild(guildId);
-  const [moderation, music] = await Promise.all([
+  const [moderation, music, adventure] = await Promise.all([
     getModerationSettings(guildId),
     getMusicSettings(guildId),
+    getAdventureSettings(guildId),
   ]);
 
   return {
@@ -54,6 +61,9 @@ async function loadSettings(guildId: string) {
     funChannelIds: guild.funChannelIds,
     blindtestChannelIds: music.blindtestChannelIds,
     blindtestDisabledCategories: music.blindtestDisabledCategories,
+    adventureEnabled: adventure.enabled,
+    adventureChannelMode: adventure.channelMode,
+    adventureChannelIds: adventure.channelIds,
   };
 }
 
@@ -100,6 +110,7 @@ export default async function settingsRoutes(app: FastifyInstance): Promise<void
           body.musicChannelId,
           ...(body.funChannelIds ?? []),
           ...(body.blindtestChannelIds ?? []),
+          ...(body.adventureChannelIds ?? []),
         ],
         resources.channels,
       );
@@ -134,6 +145,15 @@ export default async function settingsRoutes(app: FastifyInstance): Promise<void
           blindtestDisabledCategories: body.blindtestDisabledCategories && [
             ...new Set(body.blindtestDisabledCategories.filter((id) => PRESET_IDS.has(id))),
           ],
+        }),
+      );
+
+      await updateAdventureSettings(
+        guildId,
+        definedOnly({
+          enabled: body.adventureEnabled,
+          channelMode: body.adventureChannelMode,
+          channelIds: body.adventureChannelIds && [...new Set(body.adventureChannelIds)],
         }),
       );
 

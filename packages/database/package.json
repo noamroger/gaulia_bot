@@ -11,7 +11,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "blindtest:presets": "node scripts/generate-blindtest-presets.mjs"
+    "blindtest:presets": "node scripts/generate-blindtest-presets.mjs",
+    "adventure:pacing": "tsx scripts/adventure-pacing.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",

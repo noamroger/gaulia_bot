@@ -23,6 +23,7 @@ const CATEGORY_LABELS: Readonly<Record<string, string>> = {
   automod: "Automod",
   music: "Musique",
   fun: "Fun",
+  adventure: "Aventure",
   premium: "Premium",
 };
 

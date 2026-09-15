@@ -12,6 +12,7 @@ import { GauliaError, handleInteractionError } from "../core/errors";
 import { hasPermissionLevel, PermissionLevel } from "../core/permissions/permissionLevel";
 import { warningPayload } from "../core/ui/containers";
 import { resolveComponent } from "../handlers/componentHandler";
+import { assertAdventureAccess } from "../modules/adventure/services/access/adventureAccess";
 import { assertFunChannel } from "../modules/fun/services/funAccess";
 import { isBlindtestRunning } from "../modules/music/services/blindtest";
 import { assertMusicAccess, MUSIC_COMMAND_ACCESS } from "../modules/music/services/musicAccess";
@@ -87,6 +88,11 @@ async function passesCommandGuards(
 
   if (command.category === "fun" && interaction.inCachedGuild()) {
     await assertFunChannel(interaction.member, interaction.channel, interaction.channelId);
+  }
+
+  // L'aventure n'est jouable qu'en message privé ou dans les salons autorisés par le serveur.
+  if (command.category === "adventure") {
+    await assertAdventureAccess(interaction);
   }
 
   void recordCommandUsage(interaction.commandName, command.category ?? "other").catch(

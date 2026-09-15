@@ -8,6 +8,7 @@ import { env } from "./config/env";
 import { startRetentionJob } from "./jobs/retentionJob";
 import { logger } from "./logger";
 import adminRoutes from "./routes/admin.routes";
+import adventureRoutes from "./routes/adventure.routes";
 import automodRoutes from "./routes/automod.routes";
 import authRoutes from "./routes/auth.routes";
 import blindtestRoutes from "./routes/blindtest.routes";
@@ -65,6 +66,7 @@ async function main(): Promise<void> {
   await app.register(creditsRoutes);
   await app.register(statsRoutes);
   await app.register(adminRoutes);
+  await app.register(adventureRoutes);
   await app.register(topggRoutes);
 
   await app.listen({ host: "0.0.0.0", port: env.API_PORT });

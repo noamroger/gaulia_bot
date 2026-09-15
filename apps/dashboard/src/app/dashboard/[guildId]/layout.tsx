@@ -10,6 +10,7 @@ const TABS = [
   { slug: "automod", label: "Automod" },
   { slug: "music", label: "Musique" },
   { slug: "fun", label: "Fun" },
+  { slug: "aventure", label: "Aventure" },
   { slug: "premium", label: "Premium" },
 ];
 

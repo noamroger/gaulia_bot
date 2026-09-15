@@ -41,6 +41,7 @@ model Guild {
   musicSettings      MusicSettings?
   moderationSettings ModerationSettings?
   blindtestPlaylists BlindtestPlaylist[]
+  adventureSettings  AdventureSettings?
 
   @@map("guilds")
 }
@@ -285,4 +286,168 @@ model TopggVote {
 
   @@index([userId, createdAt])
   @@map("topgg_votes")
+}
+
+// ─── Module aventure ────────────────────────────────────────────────────────
+// Le personnage est global (un seul par utilisateur Discord, jouable en DM comme sur n'importe
+// quel serveur autorisé) : seul l'accès aux salons se règle par serveur, via AdventureSettings.
+
+/// Comment interpréter `channelIds` : liste blanche (seuls ces salons) ou liste noire (tous sauf).
+enum AdventureChannelMode {
+  ALLOWLIST
+  BLOCKLIST
+}
+
+/// Accès au module aventure sur un serveur. Par défaut : liste blanche vide, donc l'aventure est
+/// injouable dans les salons du serveur tant qu'un salon n'a pas été autorisé (les DM, eux, sont
+/// toujours ouverts).
+model AdventureSettings {
+  guildId     String               @id
+  guild       Guild                @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  enabled     Boolean              @default(true)
+  channelMode AdventureChannelMode @default(ALLOWLIST)
+  channelIds  String[]             @default([])
+  updatedAt   DateTime             @updatedAt
+
+  @@map("adventure_settings")
+}
+
+enum AdventureClass {
+  GUERRIER
+  MAGE
+  RODEUR
+}
+
+/// Personnage d'un joueur. `hp` et `energy` sont des valeurs figées à `regenAt` : la régénération
+/// réelle est calculée à la lecture (voir services/character/vitalsService.ts côté bot), ce qui
+/// évite toute tâche de fond pour des milliers de joueurs.
+model AdventureCharacter {
+  userId         String         @id
+  /// Dénormalisé à chaque partie pour que le panel admin affiche autre chose qu'un identifiant.
+  username       String?
+  characterClass AdventureClass
+
+  level      Int @default(1)
+  /// Expérience accumulée dans le niveau courant (remise à zéro à chaque passage de niveau).
+  xp         Int @default(0)
+  /// Expérience totale gagnée depuis la création, jamais décrémentée : sert aux classements.
+  totalXp    Int @default(0)
+  statPoints Int @default(0)
+  might      Int @default(0)
+  agility    Int @default(0)
+  spirit     Int @default(0)
+
+  hp       Int
+  energy   Int
+  /// Dernier instant où PV et énergie ont été recalculés.
+  regenAt  DateTime @default(now())
+  gold     Int      @default(0)
+  /// Fragments d'écho : monnaie de scénario, gagnée par les quêtes et les donjons, dépensée pour
+  /// sceller un chapitre. C'est la ressource qui donne au scénario sa durée de vie.
+  echoes   Int      @default(0)
+
+  zoneId          String @default("clairiere")
+  actIndex        Int    @default(0)
+  chapterIndex    Int    @default(0)
+  /// Compteurs des objectifs du chapitre courant, validés par `chapterProgressSchema`.
+  chapterProgress Json   @default("{}")
+  storyEndedAt    DateTime?
+
+  explorations  Int @default(0)
+  victories     Int @default(0)
+  defeats       Int @default(0)
+  dungeonClears Int @default(0)
+  streak        Int @default(0)
+  bestStreak    Int @default(0)
+
+  lastPlayedAt  DateTime?
+  /// Jour (UTC) du dernier passage compté dans la série quotidienne.
+  lastStreakDay DateTime?
+  lastDungeonAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items        AdventureItem[]
+  quests       AdventureQuest[]
+  achievements AdventureAchievement[]
+  logs         AdventureLog[]
+
+  @@index([level, totalXp])
+  @@map("adventure_characters")
+}
+
+/// Ligne d'inventaire. `itemId` référence le catalogue de code (modules/adventure/data/items.ts) :
+/// ajouter un objet ne demande pas de migration.
+model AdventureItem {
+  id        Int                @id @default(autoincrement())
+  userId    String
+  character AdventureCharacter @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  itemId    String
+  quantity  Int                @default(1)
+  /// Vrai pour la pièce portée dans son emplacement (une seule par emplacement, garanti par le service).
+  equipped  Boolean            @default(false)
+  updatedAt DateTime           @updatedAt
+
+  @@unique([userId, itemId])
+  @@index([userId])
+  @@map("adventure_items")
+}
+
+enum AdventureQuestKind {
+  DAILY
+  WEEKLY
+}
+
+/// Quête d'un lot quotidien ou hebdomadaire. `periodStart` identifie le lot (jour UTC ou lundi
+/// UTC) : un nouveau lot est tiré à la première commande de la période, les anciens restent comme
+/// historique et sont purgés par le job de rétention.
+model AdventureQuest {
+  id          Int                @id @default(autoincrement())
+  userId      String
+  character   AdventureCharacter @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  kind        AdventureQuestKind
+  questId     String
+  target      Int
+  progress    Int                @default(0)
+  claimedAt   DateTime?
+  periodStart DateTime
+
+  @@unique([userId, kind, questId, periodStart])
+  @@index([userId, kind, periodStart])
+  @@map("adventure_quests")
+}
+
+/// Haut fait débloqué (catalogue de code, voir data/achievements.ts).
+model AdventureAchievement {
+  userId        String
+  character     AdventureCharacter @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  achievementId String
+  unlockedAt    DateTime           @default(now())
+
+  @@id([userId, achievementId])
+  @@map("adventure_achievements")
+}
+
+enum AdventureLogType {
+  STORY
+  DUNGEON
+  LEVEL_UP
+  ADMIN
+}
+
+/// Journal du personnage : moments marquants (chapitres, donjons, niveaux) et interventions du
+/// panel admin, qui restent ainsi traçables pour le joueur comme pour le propriétaire du bot.
+model AdventureLog {
+  id        Int                @id @default(autoincrement())
+  userId    String
+  character AdventureCharacter @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  type      AdventureLogType
+  message   String
+  /// Propriétaire à l'origine d'une intervention admin, null pour un évènement de jeu.
+  actorId   String?
+  createdAt DateTime           @default(now())
+
+  @@index([userId, createdAt])
+  @@map("adventure_logs")
 }

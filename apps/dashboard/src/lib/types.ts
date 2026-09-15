@@ -84,6 +84,121 @@ export interface GuildSettings {
   /** Salons où /blindtest peut être lancé ; vide = tous les salons. */
   blindtestChannelIds: string[];
   blindtestDisabledCategories: string[];
+  /** Module aventure : actif sur le serveur, et salons où il est jouable. */
+  adventureEnabled: boolean;
+  adventureChannelMode: AdventureChannelMode;
+  adventureChannelIds: string[];
+}
+
+/** « ALLOWLIST » : jouable uniquement dans les salons listés ; « BLOCKLIST » : partout sauf eux. */
+export type AdventureChannelMode = "ALLOWLIST" | "BLOCKLIST";
+
+export type AdventureClass = "GUERRIER" | "MAGE" | "RODEUR";
+
+/** Une ligne de la liste des joueurs du panel admin. */
+export interface AdventurePlayer {
+  userId: string;
+  username: string | null;
+  characterClass: AdventureClass;
+  level: number;
+  totalXp: number;
+  gold: number;
+  echoes: number;
+  actIndex: number;
+  chapterIndex: number;
+  storyEndedAt: string | null;
+  explorations: number;
+  dungeonClears: number;
+  lastPlayedAt: string | null;
+  createdAt: string;
+}
+
+export interface AdventureCharacter extends AdventurePlayer {
+  xp: number;
+  statPoints: number;
+  might: number;
+  agility: number;
+  spirit: number;
+  hp: number;
+  energy: number;
+  victories: number;
+  defeats: number;
+  streak: number;
+  bestStreak: number;
+  lastDungeonAt: string | null;
+}
+
+export interface AdventureInventoryRow {
+  id: number;
+  itemId: string;
+  quantity: number;
+  equipped: boolean;
+}
+
+export interface AdventureQuestRow {
+  id: number;
+  kind: "DAILY" | "WEEKLY";
+  questId: string;
+  /** Libellé complet calculé par l'API (« Explorer 12 fois »). */
+  label: string;
+  target: number;
+  progress: number;
+  claimedAt: string | null;
+  periodStart: string;
+}
+
+export interface AdventureLogRow {
+  id: number;
+  type: "STORY" | "DUNGEON" | "LEVEL_UP" | "ADMIN";
+  message: string;
+  actorId: string | null;
+  createdAt: string;
+}
+
+export interface AdventurePlayerDetail {
+  character: AdventureCharacter;
+  items: AdventureInventoryRow[];
+  quests: AdventureQuestRow[];
+  achievements: { achievementId: string; unlockedAt: string }[];
+  logs: AdventureLogRow[];
+}
+
+export interface AdventureCatalogueItem {
+  id: string;
+  name: string;
+  emoji: string;
+  kind: "EQUIPEMENT" | "CONSOMMABLE" | "MATERIAU" | "TRESOR" | "RELIQUE";
+  rarity: "COMMUNE" | "RARE" | "EPIQUE" | "LEGENDAIRE";
+  slot: string | null;
+  level: number | null;
+  price: number | null;
+  sellPrice: number;
+  description: string;
+}
+
+export interface AdventureCatalogue {
+  items: AdventureCatalogueItem[];
+  acts: {
+    id: string;
+    title: string;
+    emoji: string;
+    chapters: { id: string; title: string; levelRequirement: number; echoCost: number }[];
+  }[];
+  totalChapters: number;
+  maxLevel: number;
+  maxEnergy: number;
+}
+
+/** Corps du PATCH d'intervention : seuls les champs envoyés sont appliqués. */
+export interface AdventureIntervention {
+  xp?: number;
+  gold?: number;
+  echoes?: number;
+  energy?: number;
+  statPoints?: number;
+  level?: number;
+  items?: { itemId: string; quantity: number }[];
+  reason?: string;
 }
 
 export interface BlindtestPreset {
@@ -196,6 +311,7 @@ export interface GuildDataSummary {
   automodConfig: boolean;
   musicSettings: boolean;
   blindtestPlaylists: number;
+  adventureSettings: boolean;
   premiumEntitlements: number;
 }
 
@@ -208,6 +324,8 @@ export interface UserDataSummary {
   premiumEntitlements: number;
   creditBalance: number;
   topggVotes: number;
+  /** Niveau du personnage d'aventure supprimé avec le compte, null s'il n'y en a pas. */
+  adventureLevel: number | null;
 }
 
 export interface AdminShard {

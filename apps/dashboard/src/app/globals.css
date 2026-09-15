@@ -2261,3 +2261,42 @@ button {
   font-weight: 500;
   padding-top: 0;
 }
+
+/* ─── Panel admin : aventure ─────────────────────────────────────────────── */
+
+.adventure-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.adventure-sheet .kpi-grid {
+  margin-bottom: 0;
+}
+
+.intervention-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.intervention-form .card-subtitle {
+  margin-bottom: 0;
+}
+
+.intervention-form .field {
+  margin-bottom: 0;
+  min-width: 150px;
+}
+
+.intervention-form .field > span:first-child {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.intervention-form .save-bar-actions {
+  justify-content: flex-end;
+}

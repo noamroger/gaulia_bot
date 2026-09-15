@@ -13,12 +13,31 @@ export * from "./repositories/shardMetrics.repo";
 export * from "./repositories/commandUsage.repo";
 export * from "./repositories/dataErasure.repo";
 export * from "./repositories/moderationSettings.repo";
+export * from "./repositories/adventureSettings.repo";
+export * from "./repositories/adventureCharacter.repo";
+export * from "./repositories/adventureQuest.repo";
+export * from "./repositories/adventureAdmin.repo";
 export * from "./schemas/automod";
 export * from "./schemas/blindtest";
 export * from "./schemas/moderation";
+export * from "./schemas/adventure";
 export * from "./data/blindtestPresets";
+export * from "./data/adventureItems";
+export * from "./data/adventurePacing";
+export * from "./data/adventureQuests";
+export * from "./data/adventureStory";
 
 export type {
+  AdventureAchievement,
+  AdventureChannelMode,
+  AdventureCharacter,
+  AdventureClass,
+  AdventureItem,
+  AdventureLog,
+  AdventureLogType,
+  AdventureQuest,
+  AdventureQuestKind,
+  AdventureSettings,
   BlindtestPlaylist,
   CommandUsageDaily,
   CreditAccount,

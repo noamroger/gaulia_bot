@@ -49,6 +49,10 @@ function GuildSummary({ summary }: { summary: GuildDataSummary }) {
         <strong>{formatNumber(summary.blindtestPlaylists)}</strong>
       </li>
       <li>
+        <span>Réglages de l&apos;aventure</span>
+        <strong>{summary.adventureSettings ? "Oui" : "Non"}</strong>
+      </li>
+      <li>
         <span>Droits premium en cache</span>
         <strong>{formatNumber(summary.premiumEntitlements)}</strong>
       </li>
@@ -86,6 +90,12 @@ function UserSummary({ summary }: { summary: UserDataSummary }) {
       <li>
         <span>Votes top.gg enregistrés (supprimés)</span>
         <strong>{formatNumber(summary.topggVotes)}</strong>
+      </li>
+      <li>
+        <span>Personnage d&apos;aventure (supprimé avec sa progression)</span>
+        <strong>
+          {summary.adventureLevel === null ? "Aucun" : `Niveau ${summary.adventureLevel}`}
+        </strong>
       </li>
     </ul>
   );

@@ -35,10 +35,17 @@ gaulia_bot/
 └─ docker-compose.yml
 ```
 
-Dans `apps/bot`, chaque module (`moderation`, `automod`, `music`, `premium`) suit la même structure
-interne : `commands/`, `services/`, `events/`, `components/` (selon besoin). Les commandes et
-events du bot sont chargés dynamiquement au démarrage — pas besoin de les enregistrer manuellement
-ailleurs.
+Dans `apps/bot`, chaque module (`moderation`, `automod`, `music`, `fun`, `premium`, `adventure`)
+suit la même structure interne : `commands/`, `services/`, `events/`, `components/` (selon besoin).
+Les commandes et events du bot sont chargés dynamiquement au démarrage — pas besoin de les
+enregistrer manuellement ailleurs.
+
+`adventure` est le plus gros module : ses services sont rangés par domaine
+(`services/{access,character,combat,dungeon,economy,events,exploration,inventory,progress}/`), son
+contenu de jeu est isolé dans `data/`, ses vues Components V2 dans `ui/` et une fonction par
+sous-commande dans `handlers/`. Attention : seuls `commands/` et `components/` sont des noms
+réservés (le chargeur y cherche des commandes et des composants, à n'importe quelle profondeur) —
+d'où le dossier `handlers/` pour les sous-commandes.
 
 **Comment le bot, l'API et le dashboard communiquent :**
 
@@ -264,6 +271,38 @@ la fonctionnalité correspondante est simplement inactive et le reste du bot tou
 - Le compte de crédits et l'historique de votes d'un utilisateur partent avec ses données lors
   d'une suppression RGPD (onglet **Données** du panel admin).
 
+## Module aventure
+
+Un jeu de rôle textuel au long cours, greffé sur le bot. Un joueur = **un aventurier unique**,
+partagé entre tous les serveurs et les messages privés (la progression n'est pas par serveur :
+seuls les salons où l'on peut jouer se règlent par serveur).
+
+- **Boucle de jeu** : `/aventure explorer` consomme de l'énergie et tire une rencontre dans la
+  région courante — combat résolu d'un bloc, trouvaille, ou simple ambiance. Tout le reste
+  (expérience, butin, quêtes, chapitre, hauts faits) découle d'évènements de jeu passés à
+  `services/events/eventDispatcher.ts`. Ajouter une action revient à émettre les bons évènements :
+  elle n'a rien à savoir des quêtes ni du scénario.
+- **Progression** : 100 niveaux, trois classes (guerrier, mage, rôdeur), points de caractéristique
+  à répartir, équipement en trois emplacements, forge, boutique, donjon hebdomadaire, quêtes
+  quotidiennes et hebdomadaires validées automatiquement, série de jours consécutifs, hauts faits
+  et titres, classement global.
+- **Scénario** : 7 actes × 5 chapitres. Un chapitre se termine quand ses objectifs sont remplis,
+  que le niveau requis est atteint, puis qu'il est **scellé** avec des *fragments d'écho*.
+- **Durée de vie** : les fragments ne s'obtiennent qu'en temps réel (lot quotidien, lot
+  hebdomadaire, donjon de la semaine, trouvailles rares) — environ 14 par semaine au mieux, pour un
+  scénario qui en coûte 755. Terminer l'histoire demande donc **au moins un an**, sans grind : la
+  régularité compte, pas le nombre d'heures d'affilée. `npm run adventure:pacing -w packages/database`
+  rejoue la simulation pour vérifier ce rythme après chaque retouche d'équilibrage.
+- **Où l'on peut jouer** : toujours en message privé avec Gaulia ; sur un serveur, l'onglet
+  **Aventure** du dashboard choisit entre liste blanche (par défaut, vide → interdit partout) et
+  liste noire (autorisé partout sauf…). La règle s'applique à tout le monde, administrateurs
+  compris.
+- **Où vit quoi** : le contenu propre au jeu (zones, bestiaire, quêtes, recettes, hauts faits,
+  classes) est dans `apps/bot/src/modules/adventure/data/` ; le catalogue d'objets, le scénario et
+  l'équilibrage sont dans `packages/database/src/data/adventure*.ts`, parce que l'API et le panel
+  admin en ont besoin pour nommer un inventaire, afficher un avancement et offrir de l'expérience
+  exactement comme le jeu la distribue.
+
 ## Le dashboard et l'API
 
 **Périmètre v1** : consultation/édition de la configuration (salons de logs, automod, historique de
@@ -313,6 +352,13 @@ serveur particulier.
   l'édition directe de la cellule d'une ligne. Les deux passent par
   `PATCH /admin/credits/:userId` (`delta` ou `balance`), qui journalise systématiquement un
   mouvement `ADMIN_ADJUST` avec l'auteur, jamais une valeur absolue.
+- Onglet **Aventure** (`/admin/aventure`) : liste de tous les aventuriers (classe, niveau, acte et
+  chapitre atteints, bourse, fragments, dernière partie), fiche complète d'un joueur (progression,
+  caractéristiques, inventaire, quêtes en cours, journal) et interventions dans sa partie —
+  expérience, pièces, fragments d'écho, énergie, points de caractéristique, niveau et objets
+  donnés ou retirés (`PATCH /admin/adventure/players/:userId`). L'expérience offerte passe par la
+  même règle que le jeu (les niveaux montent normalement), et **chaque intervention est inscrite
+  dans le journal du joueur**, visible par lui avec `/aventure journal`.
 - Le dashboard (`apps/dashboard/src/app/admin/`) réutilise le même login que le reste — pas de
   système d'auth séparé à maintenir.
 
