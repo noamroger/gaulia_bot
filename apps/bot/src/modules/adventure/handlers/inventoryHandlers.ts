@@ -12,14 +12,14 @@ import {
   unequipItem,
 } from "../services/inventory/inventoryService";
 import { inventoryView } from "../ui/economyViews";
+import { renderAdventureView } from "../ui/renderView";
 import { playerContext } from "./context";
 
 const MAX_CHOICES = 25;
 
 export async function handleInventory(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
-  const { character, items } = await playerContext(interaction);
-  await interaction.editReply(inventoryView(character, describeInventory(items)));
+  await interaction.editReply(await renderAdventureView(interaction.user, "sac"));
 }
 
 export async function handleEquip(interaction: ChatInputCommandInteraction): Promise<void> {

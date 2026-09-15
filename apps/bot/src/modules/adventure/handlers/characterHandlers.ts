@@ -1,33 +1,16 @@
 import type { AdventureClass } from "@gaulia/database";
-import {
-  getAdventureRank,
-  listAdventureAchievements,
-  listAdventureLogs,
-  listTopAdventurers,
-  updateAdventureCharacter,
-} from "@gaulia/database";
+import { getAdventureRank, updateAdventureCharacter } from "@gaulia/database";
 import type { ChatInputCommandInteraction } from "discord.js";
 
 import { GauliaError } from "../../../core/errors";
 import { successPayload } from "../../../core/ui/containers";
-import { ACHIEVEMENTS } from "../data/achievements";
 import { CLASSES, classDefinition } from "../data/classes";
 import { startAdventure } from "../services/character/characterService";
-import { checkAchievements, currentTitle } from "../services/progress/achievementService";
+import { checkAchievements } from "../services/progress/achievementService";
 import { chapterStatus } from "../services/progress/storyService";
-import {
-  achievementsView,
-  leaderboardView,
-  mapView,
-  profileView,
-  statsView,
-} from "../ui/characterViews";
-import { journalView } from "../ui/progressViews";
+import { profileView, statsView } from "../ui/characterViews";
+import { renderAdventureView } from "../ui/renderView";
 import { playerContext } from "./context";
-import { zonesForAct } from "../data/zones";
-
-const LEADERBOARD_SIZE = 10;
-const JOURNAL_SIZE = 15;
 
 export async function handleStart(interaction: ChatInputCommandInteraction): Promise<void> {
   const chosen = interaction.options.getString("classe", true) as AdventureClass;
@@ -52,22 +35,34 @@ export async function handleStart(interaction: ChatInputCommandInteraction): Pro
     successPayload(
       true,
       `${definition.emoji} Bienvenue dans les Terres de Gaulia`,
-      `Tu commences ${definition.name.toLowerCase()} : *${definition.passive}*\n\nPars avec \`/aventure explorer\`, suis ton histoire avec \`/aventure histoire\`, et consulte tes quêtes du jour avec \`/aventure quetes\`.`,
+      `Tu commences ${definition.name.toLowerCase()} : *${definition.passive}*\n\nTout se pilote aux boutons sous tes messages — ou à la commande, si tu préfères : \`/aventure explorer\`, \`/aventure histoire\`, \`/aventure quetes\`.`,
     ),
   );
 }
 
 export async function handleProfile(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
-  const { character, items } = await playerContext(interaction);
+  await interaction.editReply(await renderAdventureView(interaction.user, "profil"));
+}
 
-  await interaction.editReply(
-    profileView(character, items, {
-      title: await currentTitle(character.userId),
-      rank: await getAdventureRank(character),
-      chapter: chapterStatus(character),
-    }),
-  );
+export async function handleMap(interaction: ChatInputCommandInteraction): Promise<void> {
+  await interaction.deferReply();
+  await interaction.editReply(await renderAdventureView(interaction.user, "carte"));
+}
+
+export async function handleLeaderboard(interaction: ChatInputCommandInteraction): Promise<void> {
+  await interaction.deferReply();
+  await interaction.editReply(await renderAdventureView(interaction.user, "classement"));
+}
+
+export async function handleAchievements(interaction: ChatInputCommandInteraction): Promise<void> {
+  await interaction.deferReply();
+  await interaction.editReply(await renderAdventureView(interaction.user, "hauts-faits"));
+}
+
+export async function handleJournal(interaction: ChatInputCommandInteraction): Promise<void> {
+  await interaction.deferReply();
+  await interaction.editReply(await renderAdventureView(interaction.user, "journal"));
 }
 
 export async function handleImprove(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -100,52 +95,6 @@ export async function handleImprove(interaction: ChatInputCommandInteraction): P
   });
 
   await interaction.editReply(statsView(updated, items));
-}
-
-export async function handleLeaderboard(interaction: ChatInputCommandInteraction): Promise<void> {
-  await interaction.deferReply();
-  const { character } = await playerContext(interaction);
-
-  await interaction.editReply(
-    leaderboardView(await listTopAdventurers(LEADERBOARD_SIZE), {
-      userId: character.userId,
-      rank: await getAdventureRank(character),
-    }),
-  );
-}
-
-export async function handleAchievements(interaction: ChatInputCommandInteraction): Promise<void> {
-  await interaction.deferReply();
-  const { character } = await playerContext(interaction);
-
-  const unlockedIds = new Set(
-    (await listAdventureAchievements(character.userId)).map((entry) => entry.achievementId),
-  );
-
-  await interaction.editReply(
-    achievementsView(
-      ACHIEVEMENTS.filter((entry) => unlockedIds.has(entry.id)).map(
-        ({ id, emoji, name, description }) => ({ id, emoji, name, description }),
-      ),
-      ACHIEVEMENTS.filter((entry) => !unlockedIds.has(entry.id)).map(
-        ({ emoji, name, description }) => ({ emoji, name, description }),
-      ),
-    ),
-  );
-}
-
-export async function handleJournal(interaction: ChatInputCommandInteraction): Promise<void> {
-  await interaction.deferReply();
-  const { character } = await playerContext(interaction);
-  await interaction.editReply(
-    journalView(character, await listAdventureLogs(character.userId, JOURNAL_SIZE)),
-  );
-}
-
-export async function handleMap(interaction: ChatInputCommandInteraction): Promise<void> {
-  await interaction.deferReply();
-  const { character } = await playerContext(interaction);
-  await interaction.editReply(mapView(character, zonesForAct(character.actIndex)));
 }
 
 /** Choix de classe proposés par la commande `/aventure commencer`. */

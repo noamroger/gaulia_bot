@@ -5,7 +5,7 @@ import { findItem, itemLabel, shopItems } from "../data/items";
 import { RECIPES } from "../data/recipes";
 import { craft } from "../services/economy/craftService";
 import { buyItem, sellItem } from "../services/economy/shopService";
-import { forgeView, shopView } from "../ui/economyViews";
+import { renderAdventureView } from "../ui/renderView";
 import { formatNumber, gold } from "../ui/format";
 import { playerContext } from "./context";
 
@@ -13,8 +13,7 @@ const MAX_CHOICES = 25;
 
 export async function handleShop(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
-  const { character } = await playerContext(interaction);
-  await interaction.editReply(shopView(character));
+  await interaction.editReply(await renderAdventureView(interaction.user, "boutique"));
 }
 
 export async function handleBuy(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -61,8 +60,7 @@ export async function handleSell(interaction: ChatInputCommandInteraction): Prom
 
 export async function handleForge(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
-  const { character, items } = await playerContext(interaction);
-  await interaction.editReply(forgeView(character, items));
+  await interaction.editReply(await renderAdventureView(interaction.user, "forge"));
 }
 
 export async function handleCraft(interaction: ChatInputCommandInteraction): Promise<void> {

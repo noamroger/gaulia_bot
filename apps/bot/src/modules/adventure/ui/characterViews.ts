@@ -1,3 +1,4 @@
+import { ButtonBuilder, ButtonStyle } from "discord.js";
 import type { AdventureCharacter, AdventureItem } from "@gaulia/database";
 
 import { Colors } from "../../../client/Constants";
@@ -6,11 +7,12 @@ import { classDefinition } from "../data/classes";
 import { itemLabel, SLOT_LABELS, type ItemSlot } from "../data/items";
 import { ENERGY_MAX, xpToNextLevel } from "../data/pacing";
 import { TOTAL_CHAPTERS } from "../data/story";
-import { requireZone } from "../data/zones";
+import { requireZone, type ZoneDefinition } from "../data/zones";
 import { computeStats, equippedIn } from "../services/character/statsService";
 import { xpRatio } from "../services/character/progressionService";
 import type { ChapterStatus } from "../services/progress/storyService";
 import { checkbox, counter, formatNumber, progressBar } from "./format";
+import { appendRow, exploreButton, navigationRow, viewButton } from "./navigation";
 
 const SLOTS: ItemSlot[] = ["arme", "armure", "talisman"];
 
@@ -49,7 +51,21 @@ export function profileView(
     `🔥 Série de **${character.streak} jour(s)** (record : ${character.bestStreak}) · 🗺️ ${formatNumber(character.explorations)} explorations · ⚔️ ${formatNumber(character.victories)} victoires · 🚪 ${character.dungeonClears} donjons`,
   ];
 
-  return toV2Payload(false, buildContainer(Colors.Primary, lines));
+  const payload = toV2Payload(false, buildContainer(Colors.Primary, lines));
+  appendRow(payload, [
+    exploreButton(character.userId),
+    viewButton(character.userId, "sac"),
+    viewButton(character.userId, "carte"),
+    viewButton(character.userId, "histoire"),
+    viewButton(character.userId, "quetes"),
+  ]);
+  return navigationRow(payload, character.userId, [
+    "boutique",
+    "forge",
+    "donjon",
+    "echanges",
+    "hauts-faits",
+  ]);
 }
 
 export function statsView(character: AdventureCharacter, items: AdventureItem[]): V2MessagePayload {
@@ -79,7 +95,7 @@ export function leaderboardView(
     return `${medals[index] ?? `\`${index + 1}.\``} ${highlight}${entry.username ?? "Aventurier"}${highlight} — ${definition.emoji} niveau ${entry.level} · acte ${entry.actIndex + 1} · ${formatNumber(entry.totalXp)} XP`;
   });
 
-  return toV2Payload(
+  const payload = toV2Payload(
     false,
     buildContainer(Colors.Primary, [
       "## 🏅 Les plus grands aventuriers",
@@ -87,9 +103,11 @@ export function leaderboardView(
       `Ton rang : **#${formatNumber(viewer.rank)}**`,
     ]),
   );
+  return navigationRow(payload, viewer.userId, ["profil", "hauts-faits", "journal"]);
 }
 
 export function achievementsView(
+  userId: string,
   unlocked: { id: string; emoji: string; name: string; description: string }[],
   locked: { emoji: string; name: string; description: string }[],
 ): V2MessagePayload {
@@ -111,23 +129,58 @@ export function achievementsView(
         .join("\n"),
     );
   }
-  return toV2Payload(false, buildContainer(Colors.Premium, lines));
+  const payload = toV2Payload(false, buildContainer(Colors.Premium, lines));
+  return navigationRow(payload, userId, ["profil", "classement", "journal"]);
 }
 
-/** Carte des régions, avec un bouton par zone accessible (au plus cinq). */
-export function mapView(
-  character: AdventureCharacter,
-  zones: { id: string; emoji: string; name: string; description: string; minLevel: number }[],
-): V2MessagePayload {
+/**
+ * Carte des régions ouvertes. La position courante est annoncée en tête et rappelée sur sa ligne :
+ * un bouton par région permet de voyager sans retaper de commande, celui de la région actuelle
+ * restant désactivé pour marquer où l'on se trouve.
+ */
+export function mapView(character: AdventureCharacter, zones: ZoneDefinition[]): V2MessagePayload {
+  const current = zones.find((zone) => zone.id === character.zoneId);
+
   const lines = [
     "## 🗺️ Les Terres de Gaulia",
+    current
+      ? `> 📍 **Tu es à ${current.emoji} ${current.name}**\n> *${current.description}*`
+      : "> 📍 **Position inconnue**",
     zones
       .map((zone) => {
-        const here = zone.id === character.zoneId ? " ← *tu es ici*" : "";
-        return `${zone.emoji} **${zone.name}** — niveau conseillé ${zone.minLevel}${here}\n${zone.description}`;
+        const here = zone.id === character.zoneId;
+        const marker = here ? "📍 " : "";
+        const suffix = here ? " · **tu es ici**" : "";
+        return `${marker}${zone.emoji} **${zone.name}** — niveau conseillé ${zone.minLevel}${suffix}`;
       })
-      .join("\n\n"),
-    "Voyage avec `/aventure voyager region:<nom>`.",
+      .join("\n"),
+    "Choisis ta destination d'un bouton, ou `/aventure voyager region:<nom>`.",
   ];
-  return toV2Payload(false, buildContainer(Colors.Primary, lines));
+
+  const payload = toV2Payload(false, buildContainer(Colors.Primary, lines));
+
+  // Quatre boutons par rangée : au-delà, Discord tronque l'intitulé des régions les plus longues.
+  for (let index = 0; index < zones.length; index += 4) {
+    appendRow(
+      payload,
+      zones
+        .slice(index, index + 4)
+        .map((zone) => travelButton(character.userId, zone, zone.id === character.zoneId)),
+    );
+  }
+
+  return navigationRow(payload, character.userId, ["profil", "sac", "histoire"]);
+}
+
+/**
+ * Bouton de voyage. Celui de la région courante est désactivé et marqué d'une épingle : c'est le
+ * repère le plus lisible pour savoir où l'on se trouve, bien plus qu'une mention dans le texte.
+ */
+function travelButton(userId: string, zone: ZoneDefinition, here: boolean): ButtonBuilder {
+  return new ButtonBuilder()
+    .setCustomId(`adventure:travel:${userId}:${zone.id}`)
+    .setLabel(zone.name.slice(0, 80))
+    .setEmoji(here ? "📍" : zone.emoji)
+    .setStyle(here ? ButtonStyle.Success : ButtonStyle.Secondary)
+    .setDisabled(here);
 }

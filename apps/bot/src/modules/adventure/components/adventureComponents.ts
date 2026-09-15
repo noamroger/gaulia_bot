@@ -6,23 +6,31 @@ import type { ButtonComponent, StringSelectComponent } from "../../../structures
 import { findItem, itemLabel } from "../data/items";
 import { assertAdventureAccess } from "../services/access/adventureAccess";
 import { requireCharacter } from "../services/character/characterService";
+import { computeStats } from "../services/character/statsService";
 import { grantXp } from "../services/character/progressionService";
 import { craft } from "../services/economy/craftService";
 import { buyItem } from "../services/economy/shopService";
 import { dispatchGameEvents } from "../services/events/eventDispatcher";
 import { explore } from "../services/exploration/exploreService";
 import {
+  bestHealingItem,
   consumeItem,
   describeInventory,
   equipItem,
   unequipItem,
 } from "../services/inventory/inventoryService";
+import { runDungeon } from "../services/dungeon/dungeonService";
 import { acceptTrade, closeTrade } from "../services/economy/tradeService";
+import { upgradeItem } from "../services/economy/upgradeService";
+import { travelTo } from "../services/exploration/travelService";
 import { chapterStatus, sealChapter } from "../services/progress/storyService";
 import { forgeView, inventoryView, shopView } from "../ui/economyViews";
-import { exploreView } from "../ui/exploreViews";
+import { dungeonResultView, exploreView, travelView } from "../ui/exploreViews";
+import type { AdventureView } from "../ui/navigation";
+import { renderAdventureView } from "../ui/renderView";
 import { gold } from "../ui/format";
 import { sealView, storyView } from "../ui/progressViews";
+import { upgradeView } from "../ui/tradeViews";
 import { tradeClosedView, tradeResultView } from "../ui/tradeViews";
 
 /** L'identifiant porte son propriétaire : `adventure:<action>:<userId>`. */
@@ -227,8 +235,115 @@ const tradeCancelButton: ButtonComponent = {
   },
 };
 
+/**
+ * Navigation : un seul composant sait afficher toutes les vues consultables (`adventure:nav:
+ * <userId>:<vue>`). Ajouter un bouton vers une nouvelle vue ne demande donc aucun composant
+ * supplémentaire, seulement une entrée dans `AdventureView`.
+ */
+const navButton: ButtonComponent = {
+  type: "button",
+  customIdPrefix: "adventure:nav",
+  async execute(interaction) {
+    if (!(await guard(interaction))) return;
+
+    await interaction.deferUpdate();
+    const view = (interaction.customId.split(":")[3] ?? "profil") as AdventureView;
+    await interaction.editReply(await renderAdventureView(interaction.user, view));
+  },
+};
+
+/** Voyage depuis la carte : la région visée est portée par l'identifiant du bouton. */
+const travelButton: ButtonComponent = {
+  type: "button",
+  customIdPrefix: "adventure:travel",
+  async execute(interaction) {
+    if (!(await guard(interaction))) return;
+
+    await interaction.deferUpdate();
+    const zoneId = interaction.customId.split(":")[3] ?? "";
+    const { character, items } = await requireCharacter(interaction.user.id);
+    const result = await travelTo(character, items, zoneId);
+
+    await interaction.editReply(travelView(result.character, result.zone, result.notices));
+  },
+};
+
+/** Soin rapide après un combat : boit la potion la plus économe qui comble les dégâts. */
+const healButton: ButtonComponent = {
+  type: "button",
+  customIdPrefix: "adventure:heal",
+  async execute(interaction) {
+    if (!(await guard(interaction))) return;
+
+    await interaction.deferUpdate();
+    const { character, items } = await requireCharacter(interaction.user.id);
+    const missing = computeStats(character, items).maxHp - character.hp;
+
+    const potion = bestHealingItem(items, missing, character.level);
+    if (!potion) {
+      await interaction.followUp(
+        successPayload(
+          true,
+          "Aucune potion",
+          "Ton sac est vide de quoi te soigner. La boutique en vend, la forge en fabrique.",
+        ),
+      );
+      return;
+    }
+
+    const result = await consumeItem(character, items, potion.item.id);
+    const dispatched = await dispatchGameEvents(result.character, result.items, [
+      { type: "POTION", amount: 1 },
+    ]);
+
+    await interaction.editReply(await renderAdventureView(interaction.user, "profil"));
+    await interaction.followUp(
+      successPayload(
+        true,
+        `${itemLabel(potion.item.id)} bue`,
+        [`❤️ +${result.healed} PV`, ...dispatched.notices].join("\n"),
+      ),
+    );
+  },
+};
+
+/** Lancement du donjon depuis sa fiche, sans repasser par `/aventure donjon lancer:true`. */
+const dungeonButton: ButtonComponent = {
+  type: "button",
+  customIdPrefix: "adventure:dungeon",
+  async execute(interaction) {
+    if (!(await guard(interaction))) return;
+
+    await interaction.deferUpdate();
+    const { character, items } = await requireCharacter(interaction.user.id);
+    await interaction.editReply(dungeonResultView(await runDungeon(character, items)));
+  },
+};
+
+/** Renforcement depuis la forge : la pièce choisie monte d'un palier. */
+const upgradeSelect: StringSelectComponent = {
+  type: "stringSelect",
+  customIdPrefix: "adventure:upgrade",
+  async execute(interaction) {
+    if (!(await guard(interaction))) return;
+
+    await interaction.deferUpdate();
+    const itemId = interaction.values[0] ?? "";
+    const { character, items } = await requireCharacter(interaction.user.id);
+    const result = await upgradeItem(character, items, itemId);
+
+    await interaction.editReply(await renderAdventureView(interaction.user, "forge"));
+    await interaction.followUp(upgradeView(result.character, result.plan, true));
+  },
+};
+
 export default [
   exploreButton,
+  navButton,
+  travelButton,
+  healButton,
+  dungeonButton,
+  upgradeSelect,
   sealButton,
   itemSelect,
   buySelect,

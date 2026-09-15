@@ -1,20 +1,18 @@
 import type { ChatInputCommandInteraction } from "discord.js";
 
-import { ensureQuestSets } from "../services/progress/questService";
-import { chapterStatus, sealChapter } from "../services/progress/storyService";
-import { questsView, sealView, storyView } from "../ui/progressViews";
+import { sealChapter } from "../services/progress/storyService";
+import { sealView } from "../ui/progressViews";
+import { renderAdventureView } from "../ui/renderView";
 import { playerContext } from "./context";
 
 export async function handleQuests(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
-  const { character } = await playerContext(interaction);
-  await interaction.editReply(questsView(character, await ensureQuestSets(character)));
+  await interaction.editReply(await renderAdventureView(interaction.user, "quetes"));
 }
 
 export async function handleStory(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
-  const { character } = await playerContext(interaction);
-  await interaction.editReply(storyView(character, chapterStatus(character)));
+  await interaction.editReply(await renderAdventureView(interaction.user, "histoire"));
 }
 
 export async function handleSeal(interaction: ChatInputCommandInteraction): Promise<void> {

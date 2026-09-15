@@ -282,6 +282,15 @@ seuls les salons où l'on peut jouer se règlent par serveur).
   (expérience, butin, quêtes, chapitre, hauts faits) découle d'évènements de jeu passés à
   `services/events/eventDispatcher.ts`. Ajouter une action revient à émettre les bons évènements :
   elle n'a rien à savoir des quêtes ni du scénario.
+- **Tout se joue au bouton** : chaque écran porte sa barre de navigation (Components V2) et ses
+  actions — voyager depuis la carte, explorer de nouveau, se soigner quand on est amoché, lancer le
+  donjon, renforcer une pièce, acheter, équiper, accepter un échange. Les commandes restent
+  disponibles pour qui préfère taper.
+  Côté code, une seule vue existe par écran : `ui/renderView.ts` les rend toutes, et le composant
+  `adventure:nav:<joueur>:<vue>` sait afficher n'importe laquelle. Rendre une vue navigable ne
+  demande donc qu'une entrée dans `AdventureView` (`ui/navigation.ts`), sans nouveau composant.
+  Chaque identifiant porte son propriétaire : un membre ne peut pas cliquer sur le message d'un
+  autre.
 - **Progression** : 100 niveaux, trois classes (guerrier, mage, rôdeur), points de caractéristique
   à répartir, équipement en trois emplacements, forge, boutique, donjon hebdomadaire, quêtes
   quotidiennes et hebdomadaires validées automatiquement, série de jours consécutifs, hauts faits

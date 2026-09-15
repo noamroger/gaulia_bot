@@ -12,6 +12,7 @@ import {
 import { itemLabel } from "../data/items";
 import { tradeSides, type TradeSide } from "../services/economy/tradeService";
 import { formatDuration, formatNumber } from "./format";
+import { navigationRow } from "./navigation";
 
 function sideLines(side: TradeSide): string {
   const parts = side.items.map((entry) => `${entry.quantity} × ${itemLabel(entry.itemId)}`);
@@ -76,7 +77,9 @@ export function tradeResultView(
     `Bourses : ${trade.initiator.username ?? "l'un"} ${formatNumber(initiator.gold)} 🪙 · ${trade.target.username ?? "l'autre"} ${formatNumber(target.gold)} 🪙`,
   ];
   if (lostUpgrades.length > 0) lines.push(`⚠️ ${lostUpgrades.join("\n⚠️ ")}`);
-  return toV2Payload(false, buildContainer(Colors.Success, lines));
+
+  const payload = toV2Payload(false, buildContainer(Colors.Success, lines));
+  return navigationRow(payload, trade.targetId, ["sac", "profil"]);
 }
 
 export function tradeClosedView(
@@ -98,7 +101,7 @@ export function tradeListView(
   trades: AdventureTradeWithParties[],
 ): V2MessagePayload {
   if (trades.length === 0) {
-    return toV2Payload(
+    const empty = toV2Payload(
       false,
       buildContainer(Colors.Neutral, [
         "## 🤝 Échanges",
@@ -106,6 +109,7 @@ export function tradeListView(
         `Propose un échange avec \`/aventure echange proposer\` (à partir du niveau ${ADVENTURE_TRADE_MIN_LEVEL}).`,
       ]),
     );
+    return navigationRow(empty, userId, ["profil", "sac", "boutique"]);
   }
 
   const rows = trades.map((trade) => {
@@ -122,7 +126,7 @@ export function tradeListView(
     ].join("\n");
   });
 
-  return toV2Payload(
+  const payload = toV2Payload(
     false,
     buildContainer(Colors.Premium, [
       "## 🤝 Échanges en cours",
@@ -130,6 +134,7 @@ export function tradeListView(
       "Réponds depuis le message de la proposition, ou avec `/aventure echange repondre`.",
     ]),
   );
+  return navigationRow(payload, userId, ["profil", "sac", "boutique"]);
 }
 
 /** Détail d'un renforcement : coût, effet et ce qui manque éventuellement. */
@@ -164,5 +169,9 @@ export function upgradeView(
           : "✅ Tu as tout ce qu'il faut : `/aventure renforcer objet:<pièce>` pour lancer la forge.",
       ];
 
-  return toV2Payload(false, buildContainer(applied ? Colors.Success : Colors.Primary, lines));
+  const payload = toV2Payload(
+    false,
+    buildContainer(applied ? Colors.Success : Colors.Primary, lines),
+  );
+  return navigationRow(payload, character.userId, ["forge", "sac", "profil"]);
 }

@@ -23,7 +23,7 @@ import { resolveCombat, type CombatResult } from "../combat/combatEngine";
 import { drawEncounter, rollMonsterLoot } from "../combat/encounterService";
 import { dispatchGameEvents } from "../events/eventDispatcher";
 import type { GameEvent } from "../events/gameEvents";
-import { grantItems } from "../inventory/inventoryService";
+import { grantItems, healingItems } from "../inventory/inventoryService";
 import { formatDuration } from "../../ui/format";
 
 export interface ExploreOutcome {
@@ -39,6 +39,8 @@ export interface ExploreOutcome {
   echoFound: boolean;
   levelsGained: number;
   notices: string[];
+  /** Vrai si une potion du sac rendrait des points de vie : commande l'affichage du bouton de soin. */
+  canHeal: boolean;
 }
 
 /** Multiplicateur de butin : série de jours consécutifs, et flair du rôdeur. */
@@ -142,9 +144,11 @@ export async function explore(
   }
 
   const dispatched = await dispatchGameEvents(updated, items, events);
+  const healed = dispatched.character;
 
   return {
-    character: dispatched.character,
+    character: healed,
+    canHeal: healed.hp < stats.maxHp && healingItems(items).length > 0,
     zone,
     kind: encounter.kind,
     monster,

@@ -7,18 +7,12 @@ import { findItem, ITEMS } from "../data/items";
 import {
   acceptTrade,
   closeTrade,
-  listTrades,
   proposeTrade,
   requirePendingTrade,
 } from "../services/economy/tradeService";
 import { planUpgrade, upgradableItems, upgradeItem } from "../services/economy/upgradeService";
-import {
-  tradeClosedView,
-  tradeListView,
-  tradeOfferView,
-  tradeResultView,
-  upgradeView,
-} from "../ui/tradeViews";
+import { renderAdventureView } from "../ui/renderView";
+import { tradeClosedView, tradeOfferView, tradeResultView, upgradeView } from "../ui/tradeViews";
 import { playerContext } from "./context";
 
 const MAX_CHOICES = 25;
@@ -59,8 +53,7 @@ export async function handleTradeOffer(interaction: ChatInputCommandInteraction)
 
 export async function handleTradeList(interaction: ChatInputCommandInteraction): Promise<void> {
   await interaction.deferReply();
-  const { character } = await playerContext(interaction);
-  await interaction.editReply(tradeListView(character.userId, await listTrades(character.userId)));
+  await interaction.editReply(await renderAdventureView(interaction.user, "echanges"));
 }
 
 /** Réponse par numéro de proposition, quand le message d'origine n'est plus à portée de clic. */

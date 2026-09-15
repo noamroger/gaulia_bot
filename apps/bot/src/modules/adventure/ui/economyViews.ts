@@ -20,7 +20,7 @@ import {
 import { recipesForLevel } from "../data/recipes";
 import type { InventoryEntry } from "../services/inventory/inventoryService";
 import { formatNumber, gold } from "./format";
-import { withSelect } from "./shared";
+import { appendRow, exploreButton, navigationRow, withSelect } from "./navigation";
 
 const MAX_SELECT_OPTIONS = 25;
 
@@ -76,6 +76,9 @@ export function inventoryView(
     ]),
   );
 
+  navigationRow(payload, character.userId, ["profil", "boutique", "forge", "echanges"]);
+  appendRow(payload, [exploreButton(character.userId)]);
+
   const usable = entries.filter(
     (entry) => entry.item.slot !== undefined || entry.item.kind === "CONSOMMABLE",
   );
@@ -121,6 +124,8 @@ export function shopView(character: AdventureCharacter): V2MessagePayload {
     ]),
   );
 
+  navigationRow(payload, character.userId, ["profil", "sac", "forge"]);
+
   const buyable = available.filter((item) => (item.level ?? 1) <= character.level);
   if (buyable.length === 0) return payload;
 
@@ -137,6 +142,45 @@ export function shopView(character: AdventureCharacter): V2MessagePayload {
     );
 
   return withSelect(payload, select);
+}
+
+/** Menu de renforcement : une ligne par pièce améliorable, avec le coût du prochain palier. */
+function withUpgradeSelect(
+  payload: V2MessagePayload,
+  character: AdventureCharacter,
+  items: AdventureItem[],
+): V2MessagePayload {
+  const options = items.flatMap((row) => {
+    const item = findItem(row.itemId);
+    if (!item?.slot || row.upgradeLevel >= ADVENTURE_MAX_UPGRADE) return [];
+
+    const cost = adventureUpgradeCost(item, row.upgradeLevel + 1);
+    if (!cost) return [];
+
+    return [
+      {
+        label: `${item.name} +${row.upgradeLevel} → +${row.upgradeLevel + 1}`.slice(0, 100),
+        value: item.id,
+        description: `${formatNumber(cost.gold)} pièces · ${cost.materials
+          .map(
+            (material) =>
+              `${material.quantity} × ${findItem(material.itemId)?.name ?? material.itemId}`,
+          )
+          .join(" · ")}`.slice(0, 100),
+        emoji: item.emoji,
+      },
+    ];
+  });
+
+  if (options.length === 0) return payload;
+
+  return withSelect(
+    payload,
+    new StringSelectMenuBuilder()
+      .setCustomId(`adventure:upgrade:${character.userId}`)
+      .setPlaceholder("Renforcer une pièce d'équipement…")
+      .addOptions(options.slice(0, MAX_SELECT_OPTIONS)),
+  );
 }
 
 /** Rappel des pièces renforçables et du coût du prochain palier, sous les recettes. */
@@ -191,6 +235,9 @@ export function forgeView(character: AdventureCharacter, items: AdventureItem[])
       upgradeSection(items),
     ]),
   );
+
+  navigationRow(payload, character.userId, ["profil", "sac", "boutique"]);
+  withUpgradeSelect(payload, character, items);
 
   if (recipes.length === 0) return payload;
 

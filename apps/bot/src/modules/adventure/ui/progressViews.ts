@@ -12,6 +12,7 @@ import { TOTAL_CHAPTERS } from "../data/story";
 import type { QuestSets } from "../services/progress/questService";
 import type { ChapterStatus, SealResult } from "../services/progress/storyService";
 import { checkbox, counter, formatNumber, progressBar } from "./format";
+import { appendRow, exploreButton, navigationRow, viewButton } from "./navigation";
 
 function questLines(title: string, views: QuestSets["daily"], resetLabel: string): string {
   const rows = views
@@ -27,7 +28,7 @@ export function questsView(character: AdventureCharacter, sets: QuestSets): V2Me
   const dailyDone = sets.daily.every((view) => view.row.claimedAt !== null);
   const weeklyDone = sets.weekly.every((view) => view.row.claimedAt !== null);
 
-  return toV2Payload(
+  const payload = toV2Payload(
     false,
     buildContainer(Colors.Primary, [
       "## 📜 Carnet de quêtes",
@@ -41,6 +42,13 @@ export function questsView(character: AdventureCharacter, sets: QuestSets): V2Me
       "Les quêtes se valident toutes seules : joue, elles se cochent.",
     ]),
   );
+
+  appendRow(payload, [
+    exploreButton(character.userId),
+    viewButton(character.userId, "donjon"),
+    viewButton(character.userId, "histoire"),
+  ]);
+  return navigationRow(payload, character.userId, ["profil", "sac", "carte"]);
 }
 
 export function storyView(
@@ -48,13 +56,14 @@ export function storyView(
   status: ChapterStatus | null,
 ): V2MessagePayload {
   if (!status) {
-    return toV2Payload(
+    const ending = toV2Payload(
       false,
       buildContainer(Colors.Premium, [
         "## 🏆 Ton histoire est écrite",
         "Tu as entendu la dernière voix des Terres. Les gardiens restent affrontables, et les Terres se souviendront de ton nom.",
       ]),
     );
+    return navigationRow(ending, character.userId, ["profil", "donjon", "classement"]);
   }
 
   const objectives = status.objectives
@@ -94,6 +103,12 @@ export function storyView(
     ]);
   }
 
+  appendRow(payload, [
+    exploreButton(character.userId),
+    viewButton(character.userId, "carte"),
+    viewButton(character.userId, "donjon"),
+    viewButton(character.userId, "quetes"),
+  ]);
   return payload;
 }
 
@@ -131,11 +146,12 @@ export function journalView(character: AdventureCharacter, logs: AdventureLog[])
     })
     .join("\n");
 
-  return toV2Payload(
+  const payload = toV2Payload(
     false,
     buildContainer(Colors.Neutral, [
       `## 📓 Journal de ${character.username ?? "l'aventurier"}`,
       rows || "Ton journal est encore vierge.",
     ]),
   );
+  return navigationRow(payload, character.userId, ["profil", "histoire", "hauts-faits"]);
 }

@@ -76,6 +76,28 @@ export async function unequipItem(userId: string, itemId: string): Promise<Adven
   return listAdventureItems(userId);
 }
 
+/**
+ * Potions du sac qui rendent des points de vie, de la plus faible à la plus forte : le bouton
+ * « Se soigner » prend la première qui suffit, pour ne pas gâcher un élixir sur une égratignure.
+ */
+export function healingItems(items: AdventureItem[]): InventoryEntry[] {
+  return describeInventory(items)
+    .filter((entry) => (entry.item.effect?.hp ?? 0) > 0)
+    .sort((a, b) => (a.item.effect?.hp ?? 0) - (b.item.effect?.hp ?? 0));
+}
+
+/** Meilleure potion à boire pour combler `missing` points de vie (la plus économe qui suffit). */
+export function bestHealingItem(
+  items: AdventureItem[],
+  missing: number,
+  level: number,
+): InventoryEntry | undefined {
+  const usable = healingItems(items).filter((entry) => (entry.item.level ?? 1) <= level);
+  return (
+    usable.find((entry) => (entry.item.effect?.hp ?? 0) >= missing) ?? usable[usable.length - 1]
+  );
+}
+
 export interface ConsumeResult {
   character: AdventureCharacter;
   items: AdventureItem[];

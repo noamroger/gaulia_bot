@@ -1,10 +1,11 @@
 import type { ChatInputCommandInteraction } from "discord.js";
 
 import { ZONES } from "../data/zones";
-import { dungeonStatus, runDungeon } from "../services/dungeon/dungeonService";
+import { runDungeon } from "../services/dungeon/dungeonService";
 import { explore } from "../services/exploration/exploreService";
 import { travelTo } from "../services/exploration/travelService";
-import { dungeonResultView, dungeonStatusView, exploreView, travelView } from "../ui/exploreViews";
+import { dungeonResultView, exploreView, travelView } from "../ui/exploreViews";
+import { renderAdventureView } from "../ui/renderView";
 import { playerContext } from "./context";
 
 export async function handleExplore(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -30,7 +31,7 @@ export async function handleDungeon(interaction: ChatInputCommandInteraction): P
   const { character, items } = await playerContext(interaction);
 
   if (!launch) {
-    await interaction.editReply(dungeonStatusView(character, dungeonStatus(character)));
+    await interaction.editReply(await renderAdventureView(interaction.user, "donjon"));
     return;
   }
 
