@@ -271,6 +271,32 @@ la fonctionnalité correspondante est simplement inactive et le reste du bot tou
 - Le compte de crédits et l'historique de votes d'un utilisateur partent avec ses données lors
   d'une suppression RGPD (onglet **Données** du panel admin).
 
+### Source du premium et remboursement au prorata
+
+Un serveur peut être premium de deux façons — l'abonnement Discord payant (entitlement) ou des
+crédits échangés — et l'onglet **Premium** du dashboard dit toujours laquelle, avec sa date.
+
+- `describePremium()` (`packages/database/src/repositories/premium.repo.ts`) détaille le statut
+  source par source : c'est ce que renvoie `GET /guilds/:guildId/premium`. Quand les deux
+  coexistent, l'abonnement payant prime à l'affichage — il ne s'interrompt pas, lui.
+- L'abonnement affiche son **prochain renouvellement** (`premiumExpiresAt`), le premium offert son
+  **expiration** (`premiumGrantedUntil`), sans renouvellement automatique.
+- **Souscrire un abonnement pendant une période offerte reconvertit le reste en crédits.**
+  `refundUnusedGrantedPremium()` est appelée à la création d'un entitlement
+  (`handleEntitlementCreate`, côté bot) : elle rembourse chaque contributeur au prorata du temps
+  restant (il reste la moitié de la fenêtre → la moitié de sa mise revient), referme la fenêtre
+  dans la même transaction, et journalise un mouvement `PREMIUM_REFUND`. Sans cela les deux
+  premiums brûleraient en parallèle et les crédits seraient perdus.
+- `Guild.premiumGrantedAt` marque le début de la fenêtre en cours : deux échanges successifs la
+  prolongent sans en changer le début, donc la période reste remboursable d'un bloc. Un octroi posé
+  à la main depuis le panel admin n'a pas de date de début ni de crédits dépensés : il n'est jamais
+  remboursé ni refermé.
+- La conversion est déclenchée par la **création** d'un entitlement uniquement, jamais par une mise
+  à jour ni par la resynchronisation du démarrage — sinon un octroi manuel disparaîtrait au
+  prochain redémarrage du bot. Refermer la fenêtre rend l'opération idempotente.
+- L'API refuse un échange de crédits sur un serveur déjà abonné : ils seraient consommés en
+  parallèle sans rien apporter. Le dashboard désactive les offres et l'explique.
+
 ## Commande `/botinfo`
 
 Fiche complète du bot, en quatre onglets navigables aux boutons Components V2 (`apercu`,

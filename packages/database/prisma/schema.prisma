@@ -21,6 +21,9 @@ model Guild {
   /// Premium offert en échange de crédits (voir CreditAccount) : indépendant de `premium`, qui
   /// reflète les entitlements Discord. Le serveur est premium si l'un OU l'autre est actif.
   premiumGrantedUntil DateTime?
+  /// Début de la fenêtre de premium offert en cours : sert à calculer la part non consommée,
+  /// remboursée en crédits si le serveur souscrit ensuite l'abonnement Discord payant.
+  premiumGrantedAt    DateTime?
   /// Faux dès que le bot quitte le serveur (guildDelete) ; permet à l'API/dashboard de ne lister
   /// que les serveurs où le bot est réellement présent, sans perdre l'historique associé.
   botPresent          Boolean  @default(true)
@@ -251,6 +254,8 @@ enum CreditTransactionType {
   PREMIUM_REDEEM
   /// Ajout ou retrait manuel depuis le panel admin
   ADMIN_ADJUST
+  /// Remboursement au prorata du premium offert non consommé, lors du passage à l'abonnement payant
+  PREMIUM_REFUND
 }
 
 /// Journal des mouvements de crédits : chaque ligne explique une variation du solde, ce qui rend

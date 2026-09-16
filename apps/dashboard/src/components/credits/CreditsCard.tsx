@@ -8,6 +8,7 @@ const TRANSACTION_LABELS: Record<CreditTransactionType, string> = {
   VOTE: "Vote top.gg",
   PREMIUM_REDEEM: "Échange premium",
   ADMIN_ADJUST: "Ajustement administrateur",
+  PREMIUM_REFUND: "Remboursement premium",
 };
 
 /**

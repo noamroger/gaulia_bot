@@ -263,24 +263,36 @@ export interface PremiumOffer {
   durationLabel: string;
 }
 
+/** D'où vient le premium : abonnement Discord payant, ou crédits échangés. */
+export type PremiumSource = "SUBSCRIPTION" | "CREDITS";
+
 export interface PremiumStatus {
   premium: boolean;
-  premiumExpiresAt: string | null;
-  /** Échéance du premium offert contre des crédits (null si aucun). */
-  premiumGrantedUntil: string | null;
+  /** Source affichée quand les deux coexistent : l'abonnement payant prime. */
+  source: PremiumSource | null;
+  subscription: {
+    active: boolean;
+    /** Prochain renouvellement, null si Discord n'annonce pas d'échéance. */
+    renewsAt: string | null;
+  };
+  credits: {
+    active: boolean;
+    startedAt: string | null;
+    expiresAt: string | null;
+  };
   /** Solde de crédits de l'utilisateur connecté. */
-  credits: number;
+  balance: number;
   offers: PremiumOffer[];
 }
 
 export interface PremiumRedeemResult {
   premium: boolean;
   premiumGrantedUntil: string;
-  credits: number;
+  balance: number;
   offerId: PremiumOffer["id"];
 }
 
-export type CreditTransactionType = "VOTE" | "PREMIUM_REDEEM" | "ADMIN_ADJUST";
+export type CreditTransactionType = "VOTE" | "PREMIUM_REDEEM" | "ADMIN_ADJUST" | "PREMIUM_REFUND";
 
 export interface CreditTransaction {
   id: number;

@@ -630,6 +630,11 @@ button {
   background: var(--success-soft);
 }
 
+.notice-info {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+
 .data-result {
   margin-top: 16px;
   display: flex;
@@ -1624,6 +1629,26 @@ button {
 .badge-muted {
   background: var(--muted-soft);
   color: var(--text-muted);
+}
+
+/** Source du premium (abonnement Discord ou crédits), affichée à côté du statut. */
+.badge-accent {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.premium-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.premium-detail {
+  margin: 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .table {

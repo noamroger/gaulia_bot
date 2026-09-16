@@ -16,6 +16,64 @@ function formatDate(value: string): string {
   });
 }
 
+/** Statut premium détaillé : d'où il vient, et jusqu'à quand il court. */
+function StatusCard({ status }: { status: PremiumStatus }) {
+  if (!status.premium) {
+    return (
+      <div className="card">
+        <span className="badge badge-muted">Inactif</span>
+        <p className="text-muted" style={{ marginTop: 10 }}>
+          Utilise <code>/premium upgrade</code> sur Discord pour souscrire l&apos;abonnement, ou
+          échange tes crédits ci-dessous.
+        </p>
+      </div>
+    );
+  }
+
+  const subscription = status.source === "SUBSCRIPTION";
+
+  return (
+    <div className="card">
+      <div className="premium-status">
+        <span className="badge badge-success">Actif</span>
+        <span className="badge badge-accent">
+          {subscription ? "Abonnement Discord" : "Crédits"}
+        </span>
+      </div>
+
+      <div className="premium-detail text-muted">
+        {subscription ? (
+          <>
+            <span>Payé directement sur Discord, sur ton moyen de paiement habituel.</span>
+            <span>
+              {status.subscription.renewsAt
+                ? `Prochain renouvellement le ${formatDate(status.subscription.renewsAt)}.`
+                : "Renouvellement automatique : Discord n'annonce pas encore de date."}
+            </span>
+          </>
+        ) : (
+          <>
+            <span>Offert en échange de crédits gagnés en votant pour Gaulia sur top.gg.</span>
+            <span>
+              {status.credits.expiresAt
+                ? `Expire le ${formatDate(status.credits.expiresAt)}, sans renouvellement automatique.`
+                : "Aucune échéance enregistrée."}
+            </span>
+          </>
+        )}
+      </div>
+
+      {/* Les deux sources peuvent coexister le temps qu'un octroi manuel arrive à échéance. */}
+      {subscription && status.credits.active && status.credits.expiresAt && (
+        <p className="notice notice-info">
+          Du premium offert court aussi jusqu&apos;au {formatDate(status.credits.expiresAt)}.
+          C&apos;est l&apos;abonnement qui prime : tu ne paies pas deux fois.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function PremiumPage() {
   const params = useParams<{ guildId: string }>();
   const [status, setStatus] = useState<PremiumStatus | null>(null);
@@ -50,16 +108,21 @@ export default function PremiumPage() {
           ? {
               ...current,
               premium: true,
-              premiumGrantedUntil: result.premiumGrantedUntil,
-              credits: result.credits,
+              source: current.subscription.active ? current.source : "CREDITS",
+              credits: {
+                active: true,
+                startedAt: current.credits.startedAt ?? new Date().toISOString(),
+                expiresAt: result.premiumGrantedUntil,
+              },
+              balance: result.balance,
             }
           : current,
       );
       // Le badge de la barre de navigation lit le solde partagé : on le synchronise ici.
-      setCreditBalance(result.credits);
+      setCreditBalance(result.balance);
       setConfirming(null);
       setSuccess(
-        `Premium activé jusqu'au ${formatDate(result.premiumGrantedUntil)}. Il reste ${formatNumber(result.credits)} crédit(s) sur ton compte.`,
+        `Premium activé jusqu'au ${formatDate(result.premiumGrantedUntil)}. Il reste ${formatNumber(result.balance)} crédit(s) sur ton compte.`,
       );
     } catch (redeemError) {
       setError(
@@ -80,46 +143,32 @@ export default function PremiumPage() {
     return <p className="text-muted">Chargement…</p>;
   }
 
+  // Échanger pendant un abonnement payant brûlerait les crédits en parallèle : l'API le refuse.
+  const subscribed = status.subscription.active;
+
   return (
     <section className="settings-page">
       <h2>Statut premium</h2>
-      <div className="card">
-        {status.premium ? (
-          <>
-            <span className="badge badge-success">Actif</span>
-            {status.premiumGrantedUntil && (
-              <p className="text-muted" style={{ marginTop: 10 }}>
-                Premium offert (crédits) jusqu&apos;au {formatDate(status.premiumGrantedUntil)}.
-              </p>
-            )}
-            {status.premiumExpiresAt && (
-              <p className="text-muted" style={{ marginTop: 10 }}>
-                Abonnement : renouvellement le {formatDate(status.premiumExpiresAt)}.
-              </p>
-            )}
-          </>
-        ) : (
-          <>
-            <span className="badge badge-muted">Inactif</span>
-            <p className="text-muted" style={{ marginTop: 10 }}>
-              Utilise <code>/premium upgrade</code> sur Discord pour activer Gaulia Premium sur ce
-              serveur, ou échange tes crédits ci-dessous.
-            </p>
-          </>
-        )}
-      </div>
+      <StatusCard status={status} />
 
       <h2 style={{ marginTop: 32 }}>Premium offert contre des crédits</h2>
       <div className="card">
         <p className="card-subtitle" style={{ marginTop: 0 }}>
-          Tu disposes de <strong>{formatNumber(status.credits)} crédit(s)</strong>. Chaque vote pour
+          Tu disposes de <strong>{formatNumber(status.balance)} crédit(s)</strong>. Chaque vote pour
           Gaulia sur top.gg en rapporte 10, et un vote est possible toutes les 12 heures. Les durées
           échangées s&apos;ajoutent à un premium offert déjà en cours.
         </p>
 
+        {subscribed && (
+          <p className="notice notice-info">
+            Ce serveur a déjà un abonnement payant : inutile d&apos;échanger des crédits, ils
+            seraient consommés en parallèle sans rien ajouter.
+          </p>
+        )}
+
         <div className="offer-grid">
           {status.offers.map((offer) => {
-            const affordable = status.credits >= offer.cost;
+            const affordable = status.balance >= offer.cost;
             return (
               <div key={offer.id} className="offer-card">
                 <div>
@@ -131,7 +180,7 @@ export default function PremiumPage() {
                 <button
                   type="button"
                   className="button-primary"
-                  disabled={!affordable || pending}
+                  disabled={!affordable || pending || subscribed}
                   onClick={() => {
                     setConfirming(offer);
                     setError(null);
@@ -140,7 +189,7 @@ export default function PremiumPage() {
                 >
                   {affordable
                     ? "Échanger"
-                    : `Il manque ${formatNumber(offer.cost - status.credits)} crédits`}
+                    : `Il manque ${formatNumber(offer.cost - status.balance)} crédits`}
                 </button>
               </div>
             );
@@ -151,8 +200,9 @@ export default function PremiumPage() {
           <div className="confirm-box" role="alertdialog" aria-label="Confirmer l'échange">
             <p style={{ margin: 0 }}>
               Échanger <strong>{formatNumber(confirming.cost)} crédits</strong> contre{" "}
-              <strong>{confirming.durationLabel}</strong> de premium sur ce serveur ? Les crédits
-              dépensés ne sont pas récupérables.
+              <strong>{confirming.durationLabel}</strong> de premium sur ce serveur ? Si le serveur
+              souscrit l&apos;abonnement payant avant la fin de cette période, la part non consommée
+              te sera recréditée.
             </p>
             <div className="toolbar" style={{ margin: "12px 0 0" }}>
               <button

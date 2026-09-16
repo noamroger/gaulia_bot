@@ -4,6 +4,7 @@ import {
   listActiveEntitlements,
   listPremiumGrantedGuildIds,
   markEntitlementDeleted,
+  refundUnusedGrantedPremium,
   setGuildPremium,
   upsertEntitlement,
 } from "@gaulia/database";
@@ -110,6 +111,46 @@ export async function handleEntitlementUpsert(entitlement: Entitlement): Promise
   const endsAt = entitlement.endsTimestamp ? new Date(entitlement.endsTimestamp) : null;
   const active = isActivePremiumEntitlement(entitlement.skuId, endsAt);
   await applyPremiumState(entitlement.guildId, active, endsAt);
+}
+
+/**
+ * Souscription d'un abonnement payant. En plus de la mise à jour du statut, le premium offert
+ * encore en cours est reconverti en crédits au prorata du temps restant : sans cela il brûlerait
+ * en parallèle de l'abonnement, sans rien apporter à celui qui l'a payé de ses votes.
+ *
+ * Seule la CRÉATION d'un entitlement déclenche cette conversion, jamais une mise à jour ni la
+ * resynchronisation du démarrage : un octroi posé à la main depuis le panel admin sur un serveur
+ * déjà abonné ne doit pas disparaître au prochain redémarrage du bot.
+ */
+export async function handleEntitlementCreate(
+  client: GauliaClient,
+  entitlement: Entitlement,
+): Promise<void> {
+  await handleEntitlementUpsert(entitlement);
+
+  if (!entitlement.guildId || !premiumGuildIds.has(entitlement.guildId)) return;
+
+  try {
+    const refund = await refundUnusedGrantedPremium(entitlement.guildId);
+    if (!refund) return;
+
+    grantedPremiumGuildIds.delete(entitlement.guildId);
+    client.logger.info(
+      {
+        guildId: entitlement.guildId,
+        refunded: refund.refunded,
+        recipients: refund.recipients,
+        ratio: Number(refund.ratio.toFixed(3)),
+      },
+      "Premium offert reconverti en crédits après souscription",
+    );
+  } catch (error) {
+    // L'abonnement reste actif : mieux vaut un remboursement manqué qu'un premium non appliqué.
+    client.logger.error(
+      { err: error, guildId: entitlement.guildId },
+      "Échec du remboursement du premium offert après souscription",
+    );
+  }
 }
 
 export async function handleEntitlementDelete(entitlement: Entitlement): Promise<void> {
