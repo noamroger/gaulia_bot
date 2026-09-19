@@ -409,13 +409,28 @@ kick/ban depuis le web) — ces actions restent des commandes Discord pour l'ins
 
 **Liens publics et pied de page** : le pied de page (`components/SiteFooter.tsx`, monté une fois
 dans `app/layout.tsx`) est commun à toutes les pages — présentation du bot, version, auteur, liens
-vers Discord et mentions légales. Les trois liens sortants passent par des redirections construites
-au build depuis `DISCORD_CLIENT_ID` (`apps/dashboard/next.config.js`) plutôt que par des URL
-écrites en dur : `/invite` (ajout du bot), `/vote` (page top.gg) et `/app-directory` (fiche Discord
-App Directory). Sans cette variable, les redirections ne sont pas créées et les liens renvoient un
-404 — rien ne pointe vers un mauvais bot. La version affichée est lue au build dans le
+vers Discord et mentions légales. Les liens sortants passent par des redirections construites au
+build (`apps/dashboard/next.config.js`) plutôt que par des URL écrites en dur : `/invite` (ajout du
+bot), `/vote` (page top.gg) et `/app-directory` (fiche Discord App Directory) viennent de
+`DISCORD_CLIENT_ID`, et `/support` du code d'invitation `DISCORD_SUPPORT_INVITE_CODE` (ce qui suit
+`discord.gg/`). Sans ces variables, les redirections ne sont pas créées : les trois premiers liens
+renvoient un 404 plutôt que de pointer vers un mauvais bot, et le lien de support disparaît
+simplement du pied de page. La version affichée est lue au build dans le
 `package.json` de la racine, et l'adresse de contact reste facultative
 (`NEXT_PUBLIC_CONTACT_EMAIL` vide = lien masqué, comme sur la page de confidentialité).
+
+**Page de contact** (`/contact`) : formulaire public envoyé à `POST /contact` (API), qui transmet
+le message par mail à `CONTACT_EMAIL_TO` via SMTP (`apps/api/src/mail/`). Le rendu HTML du mail
+reprend la palette du site (dégradé indigo → violet, thème clair) en HTML de mail — tableaux et
+styles en ligne — avec une version texte en parallèle et un `Reply-To` sur l'auteur du message,
+pour répondre d'un simple « Répondre ». Rien n'est stocké en base : le message vit dans la boîte
+mail. La route étant ouverte, elle se protège par un champ piège (rempli seulement par un robot,
+qui reçoit alors un faux succès plutôt qu'une erreur qui lui apprendrait quoi éviter) et deux
+quotas en mémoire : 3 messages par IP toutes les 15 minutes, 40 par heure tous visiteurs
+confondus. Le `trustProxy` de Fastify est nécessaire pour que `request.ip` soit celle du visiteur
+et non celle du reverse proxy, sans quoi le quota par IP s'appliquerait à tout le monde d'un bloc.
+Tant que `SMTP_HOST`, `SMTP_FROM` ou `CONTACT_EMAIL_TO` est vide, la route répond 503 et le
+formulaire l'annonce.
 
 **Ajouter un nouveau réglage éditable** : ajoute le champ au schéma Prisma
 (`packages/database/prisma/schema.prisma`), régénère (`npm run prisma:generate` puis une migration),

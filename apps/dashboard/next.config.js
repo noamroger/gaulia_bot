@@ -13,36 +13,52 @@ const nextConfig = {
 
   env: {
     NEXT_PUBLIC_APP_VERSION: version,
+    // Le pied de page n'affiche le lien « Serveur de support » que si la redirection existe.
+    NEXT_PUBLIC_SUPPORT_INVITE: process.env.DISCORD_SUPPORT_INVITE_CODE ?? "",
   },
 
   // Lu au build (argument Docker) : le conteneur du dashboard n'a pas de .env au runtime.
   async redirects() {
+    const redirects = [];
     const botId = process.env.DISCORD_CLIENT_ID;
-    if (!botId) return [];
 
-    const inviteParams = new URLSearchParams({
-      client_id: botId,
-      scope: "bot applications.commands",
-      permissions: INVITE_PERMISSIONS,
-    });
+    if (botId) {
+      const inviteParams = new URLSearchParams({
+        client_id: botId,
+        scope: "bot applications.commands",
+        permissions: INVITE_PERMISSIONS,
+      });
 
-    return [
-      {
-        source: "/vote",
-        destination: `https://top.gg/bot/${botId}/vote`,
+      redirects.push(
+        {
+          source: "/vote",
+          destination: `https://top.gg/bot/${botId}/vote`,
+          permanent: false,
+        },
+        {
+          source: "/invite",
+          destination: `https://discord.com/oauth2/authorize?${inviteParams.toString()}`,
+          permanent: false,
+        },
+        {
+          source: "/app-directory",
+          destination: `https://discord.com/application-directory/${botId}`,
+          permanent: false,
+        },
+      );
+    }
+
+    // Code d'invitation du serveur de support : ce qui suit discord.gg/ dans le lien.
+    const supportCode = process.env.DISCORD_SUPPORT_INVITE_CODE;
+    if (supportCode) {
+      redirects.push({
+        source: "/support",
+        destination: `https://discord.gg/${supportCode}`,
         permanent: false,
-      },
-      {
-        source: "/invite",
-        destination: `https://discord.com/oauth2/authorize?${inviteParams.toString()}`,
-        permanent: false,
-      },
-      {
-        source: "/app-directory",
-        destination: `https://discord.com/application-directory/${botId}`,
-        permanent: false,
-      },
-    ];
+      });
+    }
+
+    return redirects;
   },
 };
 

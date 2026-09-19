@@ -8,5 +8,11 @@ export const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "5.0.0";
 /** Adresse de contact affichée dans le pied de page et la politique de confidentialité. */
 export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "";
 
+/**
+ * Code d'invitation du serveur de support (`DISCORD_SUPPORT_INVITE_CODE`, injecté au build par
+ * next.config.js). Vide = pas de redirection `/support`, donc pas de lien affiché.
+ */
+export const SUPPORT_INVITE = process.env.NEXT_PUBLIC_SUPPORT_INVITE ?? "";
+
 export const AUTHOR_NAME = "noamroger";
 export const AUTHOR_URL = "https://noamroger.fr";

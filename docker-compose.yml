@@ -161,8 +161,10 @@ services:
         # (pas "http://api:4000"), donc reprise depuis .env plutôt que codée en dur ici.
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
         NEXT_PUBLIC_CONTACT_EMAIL: ${NEXT_PUBLIC_CONTACT_EMAIL:-}
-        # Redirection /vote vers la page de vote top.gg du bot (next.config.js).
+        # Redirections /vote, /invite et /app-directory construites depuis cet id (next.config.js).
         DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:?DISCORD_CLIENT_ID doit être défini dans .env}
+        # Redirection /support vers le serveur Discord d'aide. Vide = lien masqué dans le pied de page.
+        DISCORD_SUPPORT_INVITE_CODE: ${DISCORD_SUPPORT_INVITE_CODE:-}
     container_name: ${CONTAINER_PREFIX:-gaulia}_dashboard
     logging: *default-logging
     restart: unless-stopped
