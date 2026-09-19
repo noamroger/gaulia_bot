@@ -407,6 +407,16 @@ kick/ban depuis le web) — ces actions restent des commandes Discord pour l'ins
 4. `GET /guilds` croise cette liste avec les serveurs où **le bot est réellement présent**
    (`Guild.botPresent`, mis à jour par `guildCreate`/`guildDelete`/sync au `ready`).
 
+**Liens publics et pied de page** : le pied de page (`components/SiteFooter.tsx`, monté une fois
+dans `app/layout.tsx`) est commun à toutes les pages — présentation du bot, version, auteur, liens
+vers Discord et mentions légales. Les trois liens sortants passent par des redirections construites
+au build depuis `DISCORD_CLIENT_ID` (`apps/dashboard/next.config.js`) plutôt que par des URL
+écrites en dur : `/invite` (ajout du bot), `/vote` (page top.gg) et `/app-directory` (fiche Discord
+App Directory). Sans cette variable, les redirections ne sont pas créées et les liens renvoient un
+404 — rien ne pointe vers un mauvais bot. La version affichée est lue au build dans le
+`package.json` de la racine, et l'adresse de contact reste facultative
+(`NEXT_PUBLIC_CONTACT_EMAIL` vide = lien masqué, comme sur la page de confidentialité).
+
 **Ajouter un nouveau réglage éditable** : ajoute le champ au schéma Prisma
 (`packages/database/prisma/schema.prisma`), régénère (`npm run prisma:generate` puis une migration),
 expose-le en lecture/écriture dans la route API concernée (`apps/api/src/routes/*.routes.ts`, avec

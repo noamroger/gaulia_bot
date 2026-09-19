@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { SiteFooter } from "@/components/SiteFooter";
 import { DEFAULT_THEME, THEME_STORAGE_KEY } from "@/lib/theme";
 
 import "./globals.css";
@@ -21,10 +20,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         {children}
-        <footer className="site-footer">
-          <Link href="/privacy">Politique de confidentialité</Link>
-          <ThemeToggle />
-        </footer>
+        <SiteFooter />
       </body>
     </html>
   );

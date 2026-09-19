@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { CONTACT_EMAIL } from "@/lib/config";
+
 export const metadata: Metadata = {
   title: "Politique de confidentialité — Gaulia",
   description: "Comment Gaulia collecte, utilise et conserve les données.",
 };
 
 const LAST_UPDATED = "14 septembre 2026";
-const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "";
 
 function Contact() {
   return CONTACT_EMAIL ? (

@@ -2,10 +2,18 @@
 // (apps/api/src/discord/discordApi.ts), sans aller jusqu'à Administrator.
 const INVITE_PERMISSIONS = "1099783334966";
 
+// Le contexte de build est la racine du monorepo (voir Dockerfile.dashboard) : la version
+// affichée dans le pied de page suit celle du projet, sans être recopiée à la main.
+const { version } = require("../../package.json");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
   reactStrictMode: true,
+
+  env: {
+    NEXT_PUBLIC_APP_VERSION: version,
+  },
 
   // Lu au build (argument Docker) : le conteneur du dashboard n'a pas de .env au runtime.
   async redirects() {
@@ -27,6 +35,11 @@ const nextConfig = {
       {
         source: "/invite",
         destination: `https://discord.com/oauth2/authorize?${inviteParams.toString()}`,
+        permanent: false,
+      },
+      {
+        source: "/app-directory",
+        destination: `https://discord.com/application-directory/${botId}`,
         permanent: false,
       },
     ];
