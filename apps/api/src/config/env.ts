@@ -40,20 +40,6 @@ const envSchema = z.object({
   // (il répond 503), pour ne jamais créditer sur la foi d'une requête non vérifiée.
   TOPGG_WEBHOOK_SECRET: z.string().optional().default(""),
 
-  // Envoi des messages du formulaire de contact (POST /contact). Tout est optionnel : sans
-  // configuration complète, la route répond 503 au lieu de prétendre avoir envoyé un mail.
-  SMTP_HOST: z.string().optional().default(""),
-  SMTP_PORT: z.coerce.number().int().positive().default(587),
-  SMTP_SECURE: z
-    .string()
-    .optional()
-    .default("false")
-    .transform((value) => value === "true"),
-  SMTP_USER: z.string().optional().default(""),
-  SMTP_PASSWORD: z.string().optional().default(""),
-  SMTP_FROM: z.string().optional().default(""),
-  CONTACT_EMAIL_TO: z.string().optional().default(""),
-
   API_PORT: z.coerce.number().int().positive().default(4000),
 
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),

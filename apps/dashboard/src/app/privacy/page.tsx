@@ -199,18 +199,6 @@ export default function PrivacyPage() {
         </div>
         <p>Ces cookies sont strictement nécessaires au fonctionnement du tableau de bord.</p>
 
-        <h3>Formulaire de contact</h3>
-        <p>
-          Le formulaire de la page <Link href="/contact">Nous contacter</Link> transmet ce que vous
-          y écrivez (nom ou pseudo, adresse e-mail, sujet, message, et si vous les renseignez votre
-          identifiant Discord et celui d&apos;un serveur) par courrier électronique à
-          l&apos;administrateur du bot. Rien n&apos;est enregistré en base de données : le message
-          vit dans la boîte mail qui le reçoit, et votre adresse ne sert qu&apos;à vous répondre.
-          Elle n&apos;est jamais ajoutée à une liste de diffusion. Pour limiter les abus, le nombre
-          d&apos;envois par adresse IP est plafonné ; ces compteurs restent en mémoire et
-          disparaissent au redémarrage.
-        </p>
-
         <h2>4. Journaux techniques</h2>
         <p>
           Nos serveurs enregistrent des journaux techniques (requêtes reçues avec l&apos;adresse IP
@@ -243,13 +231,6 @@ export default function PrivacyPage() {
               <tr>
                 <td>Mémoire anti-spam, file d&apos;attente musique et parties de jeu en cours</td>
                 <td>Jusqu&apos;au redémarrage du bot, jamais enregistrées</td>
-              </tr>
-              <tr>
-                <td>Messages envoyés depuis le formulaire de contact</td>
-                <td>
-                  Jamais enregistrés en base : conservés dans la boîte mail de l&apos;administrateur
-                  le temps de traiter la demande
-                </td>
               </tr>
               <tr>
                 <td>Journaux techniques</td>

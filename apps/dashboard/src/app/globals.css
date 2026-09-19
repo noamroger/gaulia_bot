@@ -1882,58 +1882,6 @@ button {
   color: var(--danger);
 }
 
-/* ─── Formulaire de contact ──────────────────────────────────────────────── */
-
-.contact-intro {
-  max-width: 70ch;
-  margin-bottom: 24px;
-}
-
-.contact-form {
-  max-width: 720px;
-}
-
-.contact-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.contact-form .field {
-  min-width: 0;
-}
-
-.contact-form .input,
-.contact-form .select {
-  width: 100%;
-  min-width: 0;
-}
-
-.contact-textarea {
-  resize: vertical;
-  line-height: 1.6;
-}
-
-.contact-note {
-  font-size: 13px;
-}
-
-/* Hors flux et hors tabulation : seuls les robots qui remplissent tout le formulaire le voient. */
-.contact-trap {
-  position: absolute;
-  left: -9999px;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-}
-
-@media (max-width: 620px) {
-  .contact-row {
-    grid-template-columns: 1fr;
-    gap: 0;
-  }
-}
-
 .chip-list {
   display: flex;
   flex-wrap: wrap;

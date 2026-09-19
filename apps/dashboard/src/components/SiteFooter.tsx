@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { APP_VERSION, AUTHOR_NAME, AUTHOR_URL, SUPPORT_INVITE } from "@/lib/config";
+import { APP_VERSION, AUTHOR_NAME, AUTHOR_URL, CONTACT_EMAIL, SUPPORT_INVITE } from "@/lib/config";
 
 interface FooterLink {
   label: string;
@@ -96,11 +96,13 @@ export function SiteFooter() {
           <p className="footer-heading">Ressources</p>
           <ul>
             <li>
-              <Link href="/contact">Nous contacter</Link>
-            </li>
-            <li>
               <Link href="/privacy">Politique de confidentialité</Link>
             </li>
+            {CONTACT_EMAIL && (
+              <li>
+                <a href={`mailto:${CONTACT_EMAIL}`}>Nous contacter</a>
+              </li>
+            )}
           </ul>
         </nav>
       </div>
