@@ -1918,13 +1918,29 @@ button {
   font-size: 13px;
 }
 
-/* Hors flux et hors tabulation : seuls les robots qui remplissent tout le formulaire le voient. */
-.contact-trap {
-  position: absolute;
-  left: -9999px;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
+/* Identité reprise de la session Discord, affichée en tête du formulaire. */
+.contact-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.contact-identity p {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+
+.contact-avatar {
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.contact-identity-hint {
+  margin: 8px 0 20px;
 }
 
 @media (max-width: 620px) {

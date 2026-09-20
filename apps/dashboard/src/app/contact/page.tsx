@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { api, ApiError } from "@/lib/api";
-import { SUPPORT_INVITE } from "@/lib/config";
+import { API_URL, SUPPORT_INVITE } from "@/lib/config";
+import { userAvatarUrl } from "@/lib/discordCdn";
+import type { Session } from "@/lib/types";
 
 const SUBJECTS = [
   { value: "question", label: "Question générale" },
@@ -16,46 +18,72 @@ const SUBJECTS = [
 
 const MESSAGE_MIN = 20;
 const MESSAGE_MAX = 4000;
+/** La connexion repasse par l'API, qui ramène ici plutôt que sur le tableau de bord. */
+const LOGIN_URL = `${API_URL}/auth/login?redirect=/contact`;
 
 interface ContactForm {
-  name: string;
-  email: string;
   subject: string;
-  discordTag: string;
   guildId: string;
   message: string;
-  /** Champ piège : caché aux humains, rempli par les robots (voir apps/api/.../contact.routes.ts). */
-  website: string;
 }
 
-const EMPTY_FORM: ContactForm = {
-  name: "",
-  email: "",
-  subject: "question",
-  discordTag: "",
-  guildId: "",
-  message: "",
-  website: "",
-};
+const EMPTY_FORM: ContactForm = { subject: "question", guildId: "", message: "" };
 
-/** Mêmes règles que la validation de l'API, pour corriger avant l'envoi plutôt qu'après. */
-function formError(form: ContactForm): string | null {
-  if (form.name.trim().length < 2) return "Indique un nom ou un pseudo.";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return "Adresse e-mail invalide.";
-  if (form.guildId.trim() && !/^\d{17,20}$/.test(form.guildId.trim())) {
-    return "L'identifiant du serveur doit être une suite de 17 à 20 chiffres.";
-  }
-  if (form.message.trim().length < MESSAGE_MIN) {
-    return `Le message doit faire au moins ${MESSAGE_MIN} caractères.`;
-  }
-  return null;
+/** Invitation à se connecter, affichée tant que l'identité Discord n'est pas disponible. */
+function LoginPrompt({ reason }: { reason: "anonymous" | "no-email" }) {
+  return (
+    <div className="card contact-form">
+      <h2 style={{ marginTop: 0 }}>
+        {reason === "anonymous" ? "Connecte-toi pour nous écrire" : "Une autorisation en plus"}
+      </h2>
+      <p className="text-muted">
+        {reason === "anonymous" ? (
+          <>
+            Le formulaire passe par ton compte Discord : ton pseudo, ton identifiant et
+            l&apos;adresse de ton compte accompagnent le message. Tu n&apos;as donc rien à saisir,
+            et la réponse part à la bonne personne.
+          </>
+        ) : (
+          <>
+            Ta session date d&apos;avant que nous demandions l&apos;accès à ton adresse Discord, ou
+            ton compte n&apos;a pas d&apos;adresse vérifiée. Reconnecte-toi pour autoriser son
+            partage : c&apos;est elle qui nous permet de te répondre.
+          </>
+        )}
+      </p>
+      <a className="button-primary" href={LOGIN_URL}>
+        {reason === "anonymous" ? "Se connecter avec Discord" : "Se reconnecter"}
+      </a>
+    </div>
+  );
 }
 
 export default function ContactPage() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
   const [form, setForm] = useState<ContactForm>(EMPTY_FORM);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    api
+      .get<Session>("/auth/me")
+      // Une session absente n'est pas une erreur ici : la page propose simplement de se connecter.
+      .then((data) => {
+        if (!cancelled) setSession(data);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function update(patch: Partial<ContactForm>): void {
     setForm((current) => ({ ...current, ...patch }));
@@ -65,9 +93,12 @@ export default function ContactPage() {
   async function submit(event: React.FormEvent): Promise<void> {
     event.preventDefault();
 
-    const invalid = formError(form);
-    if (invalid) {
-      setError(invalid);
+    if (form.guildId.trim() && !/^\d{17,20}$/.test(form.guildId.trim())) {
+      setError("L'identifiant du serveur doit être une suite de 17 à 20 chiffres.");
+      return;
+    }
+    if (form.message.trim().length < MESSAGE_MIN) {
+      setError(`Le message doit faire au moins ${MESSAGE_MIN} caractères.`);
       return;
     }
 
@@ -75,13 +106,9 @@ export default function ContactPage() {
     setError(null);
     try {
       await api.post("/contact", {
-        name: form.name.trim(),
-        email: form.email.trim(),
         subject: form.subject,
-        discordTag: form.discordTag.trim(),
         guildId: form.guildId.trim(),
         message: form.message.trim(),
-        website: form.website,
       });
       setSent(true);
       setForm(EMPTY_FORM);
@@ -107,7 +134,7 @@ export default function ContactPage() {
       <h1>Nous contacter</h1>
       <p className="text-muted contact-intro">
         Une question, un bug, une demande sur tes données ? Écris ici, la réponse arrivera à
-        l&apos;adresse indiquée.
+        l&apos;adresse de ton compte Discord.
         {SUPPORT_INVITE && (
           <>
             {" "}
@@ -120,136 +147,100 @@ export default function ContactPage() {
         )}
       </p>
 
-      <form className="card contact-form" onSubmit={(event) => void submit(event)} noValidate>
-        <div className="contact-row">
+      {loading && <p className="text-muted">Chargement…</p>}
+      {!loading && !session && <LoginPrompt reason="anonymous" />}
+      {!loading && session && !session.email && <LoginPrompt reason="no-email" />}
+
+      {!loading && session?.email && (
+        <form className="card contact-form" onSubmit={(event) => void submit(event)} noValidate>
+          <div className="contact-identity">
+            <img
+              src={userAvatarUrl(session.userId, session.avatar, 64)}
+              alt=""
+              width={44}
+              height={44}
+              className="contact-avatar"
+            />
+            <div>
+              <strong>{session.username}</strong>
+              <p className="text-muted">{session.email}</p>
+            </div>
+          </div>
+          <p className="field-hint contact-identity-hint">
+            Ton pseudo, ton identifiant Discord et cette adresse accompagnent le message. Ce
+            n&apos;est pas modifiable ici : tout vient de ta session.
+          </p>
+
+          <div className="contact-row">
+            <div className="field">
+              <label htmlFor="contact-subject">Sujet</label>
+              <select
+                id="contact-subject"
+                className="select"
+                value={form.subject}
+                onChange={(event) => update({ subject: event.target.value })}
+              >
+                {SUBJECTS.map((subject) => (
+                  <option key={subject.value} value={subject.value}>
+                    {subject.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field">
+              <label htmlFor="contact-guild">Serveur concerné (facultatif)</label>
+              <input
+                id="contact-guild"
+                className="input"
+                type="text"
+                inputMode="numeric"
+                maxLength={20}
+                placeholder="123456789012345678"
+                value={form.guildId}
+                onChange={(event) => update({ guildId: event.target.value })}
+              />
+            </div>
+          </div>
+
           <div className="field">
-            <label htmlFor="contact-name">Nom ou pseudo</label>
-            <input
-              id="contact-name"
-              className="input"
-              type="text"
-              autoComplete="name"
-              maxLength={80}
+            <label htmlFor="contact-message">Message</label>
+            <textarea
+              id="contact-message"
+              className="input contact-textarea"
+              rows={8}
+              maxLength={MESSAGE_MAX}
               required
-              value={form.name}
-              onChange={(event) => update({ name: event.target.value })}
+              value={form.message}
+              onChange={(event) => update({ message: event.target.value })}
             />
+            <p className="field-hint">
+              {form.message.trim().length} / {MESSAGE_MAX} caractères
+            </p>
           </div>
 
-          <div className="field">
-            <label htmlFor="contact-email">Adresse e-mail</label>
-            <input
-              id="contact-email"
-              className="input"
-              type="email"
-              autoComplete="email"
-              maxLength={180}
-              required
-              value={form.email}
-              onChange={(event) => update({ email: event.target.value })}
-            />
-          </div>
-        </div>
-
-        <div className="contact-row">
-          <div className="field">
-            <label htmlFor="contact-subject">Sujet</label>
-            <select
-              id="contact-subject"
-              className="select"
-              value={form.subject}
-              onChange={(event) => update({ subject: event.target.value })}
-            >
-              {SUBJECTS.map((subject) => (
-                <option key={subject.value} value={subject.value}>
-                  {subject.label}
-                </option>
-              ))}
-            </select>
+          <div className="toolbar" style={{ margin: 0 }}>
+            <button type="submit" className="button-primary" disabled={pending}>
+              {pending ? "Envoi…" : "Envoyer le message"}
+            </button>
+            <span className="text-muted contact-note">
+              Ton adresse ne sert qu&apos;à te répondre.{" "}
+              <Link href="/privacy">Politique de confidentialité</Link>
+            </span>
           </div>
 
-          <div className="field">
-            <label htmlFor="contact-discord">Identifiant Discord (facultatif)</label>
-            <input
-              id="contact-discord"
-              className="input"
-              type="text"
-              maxLength={80}
-              placeholder="pseudo"
-              value={form.discordTag}
-              onChange={(event) => update({ discordTag: event.target.value })}
-            />
-          </div>
-        </div>
-
-        <div className="field">
-          <label htmlFor="contact-guild">Identifiant du serveur concerné (facultatif)</label>
-          <input
-            id="contact-guild"
-            className="input"
-            type="text"
-            inputMode="numeric"
-            maxLength={20}
-            placeholder="123456789012345678"
-            value={form.guildId}
-            onChange={(event) => update({ guildId: event.target.value })}
-          />
-          <p className="field-hint">
-            Clic droit sur le serveur dans Discord &gt; « Copier l&apos;identifiant du serveur »,
-            avec le mode développeur activé.
-          </p>
-        </div>
-
-        <div className="field">
-          <label htmlFor="contact-message">Message</label>
-          <textarea
-            id="contact-message"
-            className="input contact-textarea"
-            rows={8}
-            maxLength={MESSAGE_MAX}
-            required
-            value={form.message}
-            onChange={(event) => update({ message: event.target.value })}
-          />
-          <p className="field-hint">
-            {form.message.trim().length} / {MESSAGE_MAX} caractères
-          </p>
-        </div>
-
-        {/* Piège à robots : hors flux et hors tabulation, invisible pour un visiteur. */}
-        <div className="contact-trap" aria-hidden="true">
-          <label htmlFor="contact-website">Ne pas remplir</label>
-          <input
-            id="contact-website"
-            type="text"
-            tabIndex={-1}
-            autoComplete="off"
-            value={form.website}
-            onChange={(event) => update({ website: event.target.value })}
-          />
-        </div>
-
-        <div className="toolbar" style={{ margin: 0 }}>
-          <button type="submit" className="button-primary" disabled={pending}>
-            {pending ? "Envoi…" : "Envoyer le message"}
-          </button>
-          <span className="text-muted contact-note">
-            Ton adresse ne sert qu&apos;à te répondre.{" "}
-            <Link href="/privacy">Politique de confidentialité</Link>
-          </span>
-        </div>
-
-        {error && (
-          <p className="notice notice-error" role="alert">
-            {error}
-          </p>
-        )}
-        {sent && (
-          <p className="notice notice-success" role="status">
-            Message envoyé. Une réponse arrivera à l&apos;adresse indiquée.
-          </p>
-        )}
-      </form>
+          {error && (
+            <p className="notice notice-error" role="alert">
+              {error}
+            </p>
+          )}
+          {sent && (
+            <p className="notice notice-success" role="status">
+              Message envoyé. Une réponse arrivera à {session.email}.
+            </p>
+          )}
+        </form>
+      )}
     </div>
   );
 }

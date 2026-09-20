@@ -419,16 +419,20 @@ simplement du pied de page. La version affichée est lue au build dans le
 `package.json` de la racine, et l'adresse de contact reste facultative
 (`NEXT_PUBLIC_CONTACT_EMAIL` vide = lien masqué, comme sur la page de confidentialité).
 
-**Page de contact** (`/contact`) : formulaire public envoyé à `POST /contact` (API), qui transmet
-le message par mail à `CONTACT_EMAIL_TO` via SMTP (`apps/api/src/mail/`). Le rendu HTML du mail
+**Page de contact** (`/contact`) : formulaire **réservé aux comptes Discord connectés**, envoyé à
+`POST /contact` (API), qui transmet le message par mail à `CONTACT_EMAIL_TO` via SMTP
+(`apps/api/src/mail/`). L'identité (pseudo, identifiant, avatar, adresse vérifiée) vient de la
+session, jamais de champs saisis : personne ne peut écrire au nom d'un autre, et il n'y a pas
+d'adresse fantaisiste à qui répondre. La connexion OAuth2 demande donc le scope `email` en plus
+d'`identify` et `guilds`, et `GET /auth/login?redirect=/contact` ramène le visiteur sur la page
+d'où il est parti (seul un chemin interne est accepté, sinon le dashboard deviendrait un tremplin
+de redirection). Une session ouverte avant ce scope, ou un compte sans adresse vérifiée, reçoit un
+403 qui invite à se reconnecter. Le rendu HTML du mail
 reprend la palette du site (dégradé indigo → violet, thème clair) en HTML de mail — tableaux et
 styles en ligne — avec une version texte en parallèle et un `Reply-To` sur l'auteur du message,
 pour répondre d'un simple « Répondre ». Rien n'est stocké en base : le message vit dans la boîte
-mail. La route étant ouverte, elle se protège par un champ piège (rempli seulement par un robot,
-qui reçoit alors un faux succès plutôt qu'une erreur qui lui apprendrait quoi éviter) et deux
-quotas en mémoire : 3 messages par IP toutes les 15 minutes, 40 par heure tous visiteurs
-confondus. Le `trustProxy` de Fastify est nécessaire pour que `request.ip` soit celle du visiteur
-et non celle du reverse proxy, sans quoi le quota par IP s'appliquerait à tout le monde d'un bloc.
+mail. Deux quotas en mémoire freinent les envois répétés : 3 messages par compte
+toutes les 15 minutes, 40 par heure tous comptes confondus.
 Tant que `SMTP_HOST` ou l'adresse de contact est vide, la route répond 503 et le formulaire
 l'annonce.
 

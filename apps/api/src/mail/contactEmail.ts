@@ -1,3 +1,5 @@
+import { userAvatarUrl } from "../discord/discordApi";
+
 /**
  * Mise en forme du message envoyé par le formulaire de contact. Le rendu reprend la palette du
  * site (dégradé indigo → violet, thème clair) en HTML de mail : tableaux, styles en ligne et
@@ -5,10 +7,12 @@
  */
 
 export interface ContactMessage {
-  name: string;
+  /** Identité issue de la session Discord : rien n'est saisi à la main, donc rien n'est usurpable. */
+  userId: string;
+  username: string;
+  avatar: string | null;
   email: string;
   subjectLabel: string;
-  discordTag: string;
   guildId: string;
   message: string;
   receivedAt: Date;
@@ -50,17 +54,16 @@ function row(label: string, valueHtml: string): string {
 }
 
 export function contactSubject(message: ContactMessage): string {
-  return `[Gaulia] ${message.subjectLabel} — ${message.name}`;
+  return `[Gaulia] ${message.subjectLabel} — ${message.username}`;
 }
 
 export function contactText(message: ContactMessage): string {
   return [
     `Nouveau message depuis le formulaire de contact de Gaulia.`,
     ``,
-    `Nom       : ${message.name}`,
+    `Discord   : ${message.username} (${message.userId})`,
     `Email     : ${message.email}`,
     `Sujet     : ${message.subjectLabel}`,
-    ...(message.discordTag ? [`Discord   : ${message.discordTag}`] : []),
     ...(message.guildId ? [`Serveur   : ${message.guildId}`] : []),
     `Reçu le   : ${formatDate(message.receivedAt)}`,
     ``,
@@ -73,18 +76,21 @@ export function contactText(message: ContactMessage): string {
 
 export function contactHtml(message: ContactMessage): string {
   const rows = [
-    row("Nom", escapeHtml(message.name)),
     row(
       "Email",
       `<a href="mailto:${escapeHtml(message.email)}" style="color:${BRAND_START};text-decoration:none;">${escapeHtml(message.email)}</a>`,
     ),
+    row("Identifiant", `<code style="font-size:13px;">${escapeHtml(message.userId)}</code>`),
     row("Sujet", escapeHtml(message.subjectLabel)),
-    ...(message.discordTag ? [row("Discord", escapeHtml(message.discordTag))] : []),
     ...(message.guildId
       ? [row("Serveur", `<code style="font-size:13px;">${escapeHtml(message.guildId)}</code>`)]
       : []),
     row("Reçu le", escapeHtml(formatDate(message.receivedAt))),
   ].join("");
+
+  // L'avatar est décoratif : les clients mail bloquent souvent les images distantes, et toute
+  // l'information utile (pseudo, identifiant, adresse) reste en texte.
+  const avatar = escapeHtml(userAvatarUrl(message.userId, message.avatar, 128));
 
   // `white-space: pre-wrap` garde les retours à la ligne du message sans les convertir en <br>.
   return `<!doctype html>
@@ -98,7 +104,22 @@ export function contactHtml(message: ContactMessage): string {
         </td>
       </tr>
       <tr>
-        <td style="padding:22px 26px 6px;">
+        <td style="padding:20px 26px 0;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="padding-right:14px;" valign="middle">
+                <img src="${avatar}" width="52" height="52" alt="" style="display:block;width:52px;height:52px;border-radius:26px;border:1px solid ${BORDER};background:${PAGE_BG};" />
+              </td>
+              <td valign="middle">
+                <div style="font:700 17px ${FONT};color:${TEXT};">${escapeHtml(message.username)}</div>
+                <div style="font:400 13px ${FONT};color:${TEXT_MUTED};margin-top:2px;">compte Discord vérifié</div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:16px 26px 6px;">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">${rows}</table>
         </td>
       </tr>
@@ -110,7 +131,8 @@ export function contactHtml(message: ContactMessage): string {
       </tr>
       <tr>
         <td style="padding:0 26px 24px;font:400 12px ${FONT};color:${TEXT_MUTED};">
-          Répondre à ce mail écrit directement à ${escapeHtml(message.email)}.
+          Répondre à ce mail écrit directement à ${escapeHtml(message.email)}, l'adresse du compte
+          Discord qui a envoyé ce message.
         </td>
       </tr>
     </table>

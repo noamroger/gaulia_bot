@@ -9,6 +9,17 @@ const MANAGE_GUILD_FLAG = 0x20n;
 // core/permissions et les commandes de modération) sans aller jusqu'à Administrator.
 const INVITE_PERMISSIONS = 1099783334966n;
 
+const CDN_BASE = "https://cdn.discordapp.com";
+
+/** Avatar d'un membre, ou l'avatar par défaut que Discord dérive de l'identifiant. */
+export function userAvatarUrl(userId: string, avatar: string | null, size = 128): string {
+  if (avatar) {
+    const extension = avatar.startsWith("a_") ? "gif" : "png";
+    return `${CDN_BASE}/avatars/${userId}/${avatar}.${extension}?size=${size}`;
+  }
+  return `${CDN_BASE}/embed/avatars/${Number((BigInt(userId) >> 22n) % 6n)}.png`;
+}
+
 /** Lien d'invitation Discord pré-rempli pour un serveur précis (popup OAuth2 côté dashboard). */
 export function buildInviteUrl(guildId: string): string {
   const params = new URLSearchParams({
@@ -35,6 +46,9 @@ export interface DiscordUser {
   username: string;
   discriminator: string;
   avatar: string | null;
+  /** Présent uniquement avec le scope `email`, et nul si le compte n'en a pas de vérifié. */
+  email?: string | null;
+  verified?: boolean;
 }
 
 export interface DiscordUserGuild {
@@ -50,7 +64,9 @@ export function buildAuthorizeUrl(state: string): string {
     client_id: env.DISCORD_CLIENT_ID,
     redirect_uri: env.DISCORD_REDIRECT_URI,
     response_type: "code",
-    scope: "identify guilds",
+    // `email` sert au formulaire de contact : il évite de faire saisir une adresse à la main, donc
+    // de recevoir des demandes signées d'une adresse que personne n'a vérifiée.
+    scope: "identify guilds email",
     state,
   });
 

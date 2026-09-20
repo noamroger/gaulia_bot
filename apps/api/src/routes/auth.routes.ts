@@ -14,6 +14,7 @@ import { logger } from "../logger";
 import { authenticate } from "../plugins/authenticate";
 
 const STATE_COOKIE = "gaulia_oauth_state";
+const RETURN_COOKIE = "gaulia_oauth_return";
 const SESSION_COOKIE = "gaulia_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 12;
 
@@ -25,11 +26,17 @@ const cookieOptions = {
 };
 
 export default async function authRoutes(app: FastifyInstance): Promise<void> {
-  app.get("/auth/login", async (_request, reply) => {
+  app.get<{ Querystring: { redirect?: string } }>("/auth/login", async (request, reply) => {
     const state = randomBytes(16).toString("hex");
+
+    // Page de retour après connexion (ex: /contact). Seul un chemin interne est accepté : un `//`
+    // ou une URL absolue ferait du dashboard un tremplin de redirection vers n'importe quel site.
+    const requested = request.query.redirect ?? "";
+    const returnPath = /^\/(?!\/)[\w\-/]*$/.test(requested) ? requested : "";
 
     await reply
       .setCookie(STATE_COOKIE, state, { ...cookieOptions, maxAge: 5 * 60 })
+      .setCookie(RETURN_COOKIE, returnPath, { ...cookieOptions, maxAge: 5 * 60 })
       .redirect(buildAuthorizeUrl(state));
   });
 
@@ -38,8 +45,10 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const { code, state } = request.query;
       const expectedState = request.cookies[STATE_COOKIE];
+      const returnPath = request.cookies[RETURN_COOKIE] ?? "";
 
       reply.clearCookie(STATE_COOKIE, { path: "/" });
+      reply.clearCookie(RETURN_COOKIE, { path: "/" });
 
       if (!code || !state || !expectedState || state !== expectedState) {
         return reply.redirect(`${env.DASHBOARD_URL}/login?error=invalid_state`);
@@ -63,6 +72,9 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
             userId: user.id,
             username: user.username,
             avatar: user.avatar,
+            // Discord ne renvoie l'adresse qu'avec le scope `email`, et seulement si elle est
+            // vérifiée : sans elle, le formulaire de contact demandera une reconnexion.
+            email: user.verified ? (user.email ?? null) : null,
             manageableGuilds,
             isOwner: env.OWNER_IDS.includes(user.id),
           },
@@ -74,7 +86,7 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
             ...cookieOptions,
             maxAge: SESSION_MAX_AGE_SECONDS,
           })
-          .redirect(`${env.DASHBOARD_URL}/dashboard`);
+          .redirect(`${env.DASHBOARD_URL}${returnPath || "/dashboard"}`);
       } catch (error) {
         logger.error({ err: error }, "Échec du callback OAuth2 Discord");
         return reply.redirect(`${env.DASHBOARD_URL}/login?error=oauth_failed`);

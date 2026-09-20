@@ -21,10 +21,7 @@ import statsRoutes from "./routes/stats.routes";
 import topggRoutes from "./routes/topgg.routes";
 
 async function main(): Promise<void> {
-  // Le déploiement place un reverse proxy devant l'API : sans cette option, `request.ip` vaut
-  // l'adresse du proxy pour tout le monde, et le quota par IP du formulaire de contact
-  // (POST /contact) s'appliquerait à l'ensemble des visiteurs d'un coup.
-  const app = Fastify({ loggerInstance: logger, trustProxy: true });
+  const app = Fastify({ loggerInstance: logger });
 
   await app.register(fastifyCors, {
     origin: env.DASHBOARD_URL,

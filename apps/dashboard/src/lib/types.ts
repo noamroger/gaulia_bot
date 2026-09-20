@@ -2,6 +2,8 @@ export interface Session {
   userId: string;
   username: string;
   avatar: string | null;
+  /** Adresse Discord vérifiée (scope `email`). Nulle pour une session ouverte avant ce scope. */
+  email: string | null;
   manageableGuilds: ManageableGuild[];
   isOwner: boolean;
 }

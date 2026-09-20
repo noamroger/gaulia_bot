@@ -164,11 +164,14 @@ export default function PrivacyPage() {
 
         <h2>3. Données traitées par le tableau de bord</h2>
         <p>
-          La connexion se fait avec votre compte Discord (autorisations « identify » et « guilds »).
-          Nous recevons votre identifiant, votre pseudo, votre avatar et la liste des serveurs que
-          vous pouvez gérer. Ces informations sont placées uniquement dans un cookie de session
-          signé, et ne sont pas enregistrées en base de données. Le jeton d&apos;accès fourni par
-          Discord sert une seule fois, pendant la connexion, puis n&apos;est pas conservé.
+          La connexion se fait avec votre compte Discord (autorisations « identify », « guilds » et
+          « email »). Nous recevons votre identifiant, votre pseudo, votre avatar, l&apos;adresse
+          vérifiée de votre compte et la liste des serveurs que vous pouvez gérer. Ces informations
+          sont placées uniquement dans un cookie de session signé, et ne sont pas enregistrées en
+          base de données. L&apos;adresse ne sert qu&apos;à vous répondre si vous écrivez depuis la
+          page <Link href="/contact">Nous contacter</Link> : elle n&apos;est jamais ajoutée à une
+          liste de diffusion. Le jeton d&apos;accès fourni par Discord sert une seule fois, pendant
+          la connexion, puis n&apos;est pas conservé.
         </p>
         <div style={{ overflowX: "auto" }}>
           <table className="table">
@@ -194,6 +197,13 @@ export default function PrivacyPage() {
                 <td>Sécuriser la connexion avec Discord</td>
                 <td>5 minutes</td>
               </tr>
+              <tr>
+                <td>
+                  <code>gaulia_oauth_return</code>
+                </td>
+                <td>Revenir à la page d&apos;où vous vous êtes connecté</td>
+                <td>5 minutes</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -201,14 +211,15 @@ export default function PrivacyPage() {
 
         <h3>Formulaire de contact</h3>
         <p>
-          Le formulaire de la page <Link href="/contact">Nous contacter</Link> transmet ce que vous
-          y écrivez (nom ou pseudo, adresse e-mail, sujet, message, et si vous les renseignez votre
-          identifiant Discord et celui d&apos;un serveur) par courrier électronique à
-          l&apos;administrateur du bot. Rien n&apos;est enregistré en base de données : le message
-          vit dans la boîte mail qui le reçoit, et votre adresse ne sert qu&apos;à vous répondre.
-          Elle n&apos;est jamais ajoutée à une liste de diffusion. Pour limiter les abus, le nombre
-          d&apos;envois par adresse IP est plafonné ; ces compteurs restent en mémoire et
-          disparaissent au redémarrage.
+          La page <Link href="/contact">Nous contacter</Link> demande d&apos;être connecté avec
+          Discord. Le message envoyé est accompagné de votre pseudo, de votre identifiant, de votre
+          avatar et de l&apos;adresse vérifiée de votre compte, tous repris de votre session — rien
+          n&apos;est saisi à la main, personne ne peut donc écrire en se faisant passer pour vous.
+          L&apos;ensemble part par courrier électronique à l&apos;administrateur du bot. Rien
+          n&apos;est enregistré en base de données : le message vit dans la boîte mail qui le
+          reçoit, et votre adresse ne sert qu&apos;à vous répondre. Pour limiter les abus, le nombre
+          d&apos;envois par compte est plafonné ; ces compteurs restent en mémoire et disparaissent
+          au redémarrage.
         </p>
 
         <h2>4. Journaux techniques</h2>
