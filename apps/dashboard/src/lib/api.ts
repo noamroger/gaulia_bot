@@ -39,5 +39,10 @@ export const api = {
     request<T>(path, { method: "PATCH", body: JSON.stringify(data) }),
   post: <T>(path: string, data?: unknown): Promise<T> =>
     request<T>(path, { method: "POST", body: data ? JSON.stringify(data) : undefined }),
-  delete: <T>(path: string): Promise<T> => request<T>(path, { method: "DELETE" }),
+  // Un DELETE peut porter un corps : la suppression des données personnelles y met sa confirmation.
+  delete: <T>(path: string, data?: unknown): Promise<T> =>
+    request<T>(path, {
+      method: "DELETE",
+      body: data === undefined ? undefined : JSON.stringify(data),
+    }),
 };

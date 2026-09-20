@@ -99,6 +99,9 @@ export function SiteFooter() {
               <Link href="/contact">Nous contacter</Link>
             </li>
             <li>
+              <Link href="/my-data">Mes données</Link>
+            </li>
+            <li>
               <Link href="/privacy">Politique de confidentialité</Link>
             </li>
           </ul>

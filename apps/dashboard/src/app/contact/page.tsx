@@ -136,7 +136,8 @@ export default function ContactPage() {
       <h1>Nous contacter</h1>
       <p className="text-muted contact-intro">
         Une question, un bug, une demande sur tes données ? Écris ici, la réponse arrivera à
-        l&apos;adresse de ton compte Discord.
+        l&apos;adresse de ton compte Discord. Pour voir, télécharger ou supprimer tes données
+        toi-même, la page <Link href="/my-data">Mes données</Link> le fait sans attendre de réponse.
         {SUPPORT_INVITE && (
           <>
             {" "}

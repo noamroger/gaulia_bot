@@ -15,7 +15,8 @@ import { authenticate } from "../plugins/authenticate";
 
 const STATE_COOKIE = "gaulia_oauth_state";
 const RETURN_COOKIE = "gaulia_oauth_return";
-const SESSION_COOKIE = "gaulia_session";
+/** Cookie de session, aussi effacé par la suppression des données (voir personalData.routes.ts). */
+export const SESSION_COOKIE = "gaulia_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 12;
 
 const cookieOptions = {

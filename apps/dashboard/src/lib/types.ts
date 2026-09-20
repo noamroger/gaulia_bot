@@ -417,3 +417,107 @@ export interface PublicStats {
   memberCount: number;
   commandsLast30Days: number;
 }
+
+// ─── Mes données (GET /me/data) ─────────────────────────────────────────────
+// Reflet de `UserDataExport` côté API : les dates arrivent en ISO après passage par JSON.
+
+export interface ExportedModerationCase {
+  guildId: string;
+  guildName: string | null;
+  caseNumber: number;
+  type: string;
+  reason: string | null;
+  durationSecs: number | null;
+  createdAt: string;
+}
+
+export interface ExportedWarn {
+  guildId: string;
+  guildName: string | null;
+  reason: string | null;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface ExportedCreditTransaction {
+  type: string;
+  amount: number;
+  balanceAfter: number;
+  guildId: string | null;
+  guildName: string | null;
+  reason: string | null;
+  createdAt: string;
+}
+
+export interface ExportedCredits {
+  balance: number;
+  totalEarned: number;
+  voteCount: number;
+  lastVoteAt: string | null;
+  createdAt: string;
+  transactions: ExportedCreditTransaction[];
+}
+
+export interface ExportedVote {
+  voteId: string;
+  weight: number;
+  votedAt: string;
+}
+
+export interface ExportedPremiumEntitlement {
+  entitlementId: string;
+  skuId: string;
+  guildId: string | null;
+  guildName: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  deleted: boolean;
+}
+
+export interface ExportedAdventure {
+  characterClass: string;
+  level: number;
+  totalXp: number;
+  gold: number;
+  echoes: number;
+  zoneId: string;
+  actIndex: number;
+  chapterIndex: number;
+  storyEndedAt: string | null;
+  explorations: number;
+  victories: number;
+  defeats: number;
+  dungeonClears: number;
+  lastPlayedAt: string | null;
+  createdAt: string;
+  items: { itemId: string; quantity: number; equipped: boolean; upgradeLevel: number }[];
+  quests: unknown[];
+  achievements: { achievementId: string; unlockedAt: string }[];
+  logs: { type: string; message: string; createdAt: string }[];
+  tradeHistory: unknown[];
+}
+
+export interface UserDataExport {
+  version: number;
+  userId: string;
+  generatedAt: string;
+  sanctionsReceived: ExportedModerationCase[];
+  warnsReceived: ExportedWarn[];
+  moderatorActivity: { moderationCases: number; warns: number };
+  credits: ExportedCredits | null;
+  topggVotes: ExportedVote[];
+  premiumEntitlements: ExportedPremiumEntitlement[];
+  adventure: ExportedAdventure | null;
+}
+
+export interface MyDataResponse {
+  /** Reprise du cookie de session : ces champs ne sont pas enregistrés en base. */
+  account: {
+    userId: string;
+    username: string;
+    avatar: string | null;
+    email: string | null;
+    manageableGuilds: { id: string; name: string }[];
+  };
+  data: UserDataExport;
+}

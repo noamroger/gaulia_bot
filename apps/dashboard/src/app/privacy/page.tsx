@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: "Comment Gaulia collecte, utilise et conserve les données.",
 };
 
-const LAST_UPDATED = "14 septembre 2026";
+const LAST_UPDATED = "20 septembre 2026";
 
 function Contact() {
   return CONTACT_EMAIL ? (
@@ -50,7 +50,9 @@ export default function PrivacyPage() {
             publicitaire.
           </li>
           <li>
-            Vous pouvez demander la suppression de vos données à tout moment : <Contact />.
+            Vous pouvez à tout moment consulter, télécharger et supprimer vos données vous-même
+            depuis la page <Link href="/my-data">Mes données</Link>, en vous connectant avec
+            Discord.
           </li>
         </ul>
 
@@ -314,10 +316,18 @@ export default function PrivacyPage() {
 
         <h2>8. Vos droits</h2>
         <p>
-          Conformément au RGPD, vous pouvez demander l&apos;accès à vos données, leur rectification
-          ou leur suppression. Écrivez à <Contact /> en indiquant votre identifiant Discord (ou
-          celui du serveur concerné, si vous en êtes propriétaire ou administrateur). Nous répondons
-          dans un délai d&apos;un mois.
+          Conformément au RGPD, vous pouvez accéder à vos données, en obtenir une copie et en
+          demander la suppression. La page <Link href="/my-data">Mes données</Link> le fait
+          directement, sans passer par nous : connectez-vous avec Discord, et vous y trouverez le
+          détail de ce qui est enregistré sur votre compte, un téléchargement au format JSON et un
+          bouton de suppression définitive. C&apos;est la connexion Discord qui prouve que le compte
+          est le vôtre, donc personne d&apos;autre ne peut consulter ni effacer vos données.
+        </p>
+        <p>
+          Pour une demande que cette page ne couvre pas — la suppression des données d&apos;un
+          serveur dont vous êtes propriétaire ou administrateur, une rectification, ou une question
+          sur le traitement —, écrivez à <Contact /> en indiquant votre identifiant Discord (ou
+          celui du serveur concerné). Nous répondons dans un délai d&apos;un mois.
         </p>
         <ul>
           <li>
@@ -325,10 +335,13 @@ export default function PrivacyPage() {
             (configuration, historique de modération, avertissements, automod, musique, premium).
           </li>
           <li>
-            <strong>Suppression d&apos;un utilisateur</strong> : les sanctions et avertissements
-            reçus sont effacés, ainsi que le compte de crédits et l&apos;historique de votes
-            associés. Les sanctions données en tant que modérateur restent dans l&apos;historique du
-            serveur, mais sans identifiant ni pseudo.
+            <strong>Suppression d&apos;un utilisateur</strong> (celle de la page{" "}
+            <Link href="/my-data">Mes données</Link>) : les sanctions et avertissements reçus sont
+            effacés, ainsi que le compte de crédits, l&apos;historique de votes, les droits premium
+            en cache et le personnage d&apos;aventure avec sa progression. Les sanctions données en
+            tant que modérateur restent dans l&apos;historique du serveur, mais sans identifiant ni
+            pseudo. La configuration des serveurs que vous administrez n&apos;est pas touchée : elle
+            appartient au serveur, et sa suppression se demande séparément.
           </li>
         </ul>
         <p>

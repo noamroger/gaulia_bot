@@ -15,6 +15,7 @@ import blindtestRoutes from "./routes/blindtest.routes";
 import contactRoutes from "./routes/contact.routes";
 import creditsRoutes from "./routes/credits.routes";
 import guildsRoutes from "./routes/guilds.routes";
+import personalDataRoutes from "./routes/personalData.routes";
 import premiumRoutes from "./routes/premium.routes";
 import settingsRoutes from "./routes/settings.routes";
 import statsRoutes from "./routes/stats.routes";
@@ -66,6 +67,7 @@ async function main(): Promise<void> {
   await app.register(premiumRoutes);
   await app.register(creditsRoutes);
   await app.register(contactRoutes);
+  await app.register(personalDataRoutes);
   await app.register(statsRoutes);
   await app.register(adminRoutes);
   await app.register(adventureRoutes);

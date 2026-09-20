@@ -2476,3 +2476,84 @@ button {
 .intervention-form .save-bar-actions {
   justify-content: flex-end;
 }
+
+/* ─── Mes données personnelles ───────────────────────────────────────────── */
+
+.my-data-intro {
+  max-width: 70ch;
+  margin-bottom: 24px;
+}
+
+.my-data-card {
+  max-width: 820px;
+  margin-bottom: 24px;
+}
+
+/* Chaque catégorie de données est repliée : la page s'ouvre sur un inventaire lisible d'un coup
+   d'œil, et le détail ne se déplie que si on le demande. */
+.my-data-section {
+  border-bottom: 1px solid var(--border);
+}
+
+.my-data-section:first-of-type {
+  border-top: 1px solid var(--border);
+}
+
+.my-data-section > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  font-size: 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.my-data-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Chevron maison : le marqueur natif ne se place pas de la même façon d'un navigateur à l'autre. */
+.my-data-section > summary span::before {
+  content: "▸";
+  display: inline-block;
+  width: 16px;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+
+.my-data-section[open] > summary span::before {
+  transform: rotate(90deg);
+}
+
+.my-data-section > summary strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.my-data-section-body {
+  padding: 0 0 16px 16px;
+  font-size: 14px;
+}
+
+.my-data-section-body > p:first-child {
+  margin-top: 0;
+}
+
+.my-data-section-body .data-summary li:last-child {
+  border-bottom: none;
+}
+
+.my-data-danger {
+  border-color: var(--danger-border);
+}
+
+.my-data-list {
+  margin: 0 0 16px;
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
