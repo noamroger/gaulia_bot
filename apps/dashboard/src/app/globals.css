@@ -2557,3 +2557,151 @@ button {
   line-height: 1.7;
   color: var(--text-muted);
 }
+
+/* ─── Panel admin : filtres, tri et pagination de la liste des serveurs ───── */
+
+.filter-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px 18px;
+  margin-bottom: 16px;
+}
+
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.filter-field > span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.filter-field .select,
+.filter-field .input {
+  width: 100%;
+}
+
+.filter-range {
+  display: flex;
+  gap: 8px;
+}
+
+.filter-range .input {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Étiquette et menu déroulant sur une seule ligne, pour la barre d'outils. */
+.filter-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.filter-inline .select {
+  min-width: 0;
+}
+
+/* En-tête de colonne cliquable : garde l'apparence d'un en-tête, pas d'un bouton. */
+.sort-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  white-space: nowrap;
+}
+
+.sort-header:hover {
+  color: var(--text);
+}
+
+.sort-header:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.sort-header[aria-pressed="true"] {
+  color: var(--text);
+}
+
+.sort-arrow {
+  font-size: 11px;
+  opacity: 0.55;
+}
+
+.sort-header[aria-pressed="true"] .sort-arrow {
+  opacity: 1;
+  color: var(--primary);
+}
+
+.module-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 190px;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+/* Le tableau s'estompe pendant le chargement de la page suivante, sans disparaître. */
+.table-scroll[aria-busy="true"] {
+  opacity: 0.6;
+}
+
+/* Pastille resserrée : un tableau dense en affiche plusieurs par ligne. */
+.badge-compact {
+  padding: 1px 7px;
+  font-size: 11px;
+}
+
+.module-badges .badge-compact {
+  white-space: nowrap;
+}
+
+/* Tableau des serveurs : douze colonnes, donc chaque pixel compte pour que les boutons
+   d'action restent visibles sans faire défiler le tableau horizontalement. */
+.server-table th,
+.server-table td {
+  padding: 8px 6px;
+}
+
+.server-table code {
+  font-size: 12px;
+}
+
+/* Largeur fixe : deux pastilles par ligne, plutôt qu'une colonne étroite qui les empile. */
+.server-table .module-badges {
+  width: 116px;
+  max-width: none;
+}
+
+/* Les deux actions restent sur une seule ligne : empilées, elles doublaient la hauteur de chaque
+   ligne du tableau pour rien. */
+.server-table .table-actions {
+  flex-wrap: nowrap;
+}
+
+.server-table .button-secondary {
+  padding: 6px 10px;
+  font-size: 13px;
+  white-space: nowrap;
+}

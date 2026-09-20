@@ -333,9 +333,40 @@ export interface AdminGuild {
   name: string | null;
   icon: string | null;
   memberCount: number;
+  language: string;
+  /** Abonnement Discord activé ; `premiumActive` dit s'il est encore valable aujourd'hui. */
   premium: boolean;
   premiumExpiresAt: string | null;
+  premiumGrantedAt: string | null;
+  premiumGrantedUntil: string | null;
+  premiumActive: boolean;
+  premiumSource: "SUBSCRIPTION" | "CREDITS" | null;
+  modLogChannelId: string | null;
+  automodLogChannelId: string | null;
+  djRoleId: string | null;
+  musicChannelId: string | null;
+  funChannelCount: number;
+  automodConfigured: boolean;
+  moderationConfigured: boolean;
+  musicConfigured: boolean;
+  /** Null quand le module aventure n'a jamais été réglé sur ce serveur. */
+  adventureEnabled: boolean | null;
+  moderationCaseCount: number;
+  warnCount: number;
+  playlistCount: number;
   createdAt: string;
+  updatedAt: string;
+}
+
+/** Une page de la liste des serveurs du panel admin, filtrée et triée côté API. */
+export interface AdminGuildPage {
+  items: AdminGuild[];
+  total: number;
+  totalPresent: number;
+  page: number;
+  perPage: number;
+  pageCount: number;
+  languages: string[];
 }
 
 export interface GuildDataSummary {

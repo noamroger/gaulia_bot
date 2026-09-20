@@ -5,11 +5,13 @@ import {
   getCommandUsageSummary,
   getCreditAccount,
   getGuildDataSummary,
+  getAdminGuild,
   getShardMetricHistory,
   getUserDataSummary,
+  GUILD_PAGE_SIZE_MAX,
+  listAdminGuilds,
   listCreditAccounts,
   listCreditTransactions,
-  listPresentGuilds,
   listShardStatuses,
   MAX_CREDIT_BALANCE,
   setGuildPremium,
@@ -51,6 +53,81 @@ const creditAdjustSchema = z
     "Fournis soit delta, soit balance.",
   );
 
+/**
+ * Filtres de la liste des serveurs du panel admin. Tout est optionnel et `all` vaut « sans
+ * contrainte » : une URL sans aucun paramètre rend la liste complète, comme avant les filtres.
+ */
+const flagFilterSchema = z.enum(["all", "yes", "no"]).default("all");
+
+/** Date saisie dans un champ jour (AAAA-MM-JJ), ramenée au début ou à la fin de la journée UTC. */
+function dayBoundarySchema(edge: "start" | "end") {
+  return z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .transform((value) =>
+      value ? new Date(`${value}T${edge === "start" ? "00:00:00.000" : "23:59:59.999"}Z`) : null,
+    );
+}
+
+const guildsQuerySchema = z.object({
+  q: z.string().trim().max(120).optional(),
+  premium: z.enum(["all", "active", "none", "subscription", "credits", "expiring"]).default("all"),
+  language: z
+    .string()
+    .regex(/^[a-z]{2}(-[A-Za-z]{2})?$/)
+    .optional(),
+  membersMin: z.coerce.number().int().min(0).max(100_000_000).optional(),
+  membersMax: z.coerce.number().int().min(0).max(100_000_000).optional(),
+  createdFrom: dayBoundarySchema("start"),
+  createdTo: dayBoundarySchema("end"),
+  updatedFrom: dayBoundarySchema("start"),
+  updatedTo: dayBoundarySchema("end"),
+  icon: flagFilterSchema,
+  modLog: flagFilterSchema,
+  automodLog: flagFilterSchema,
+  djRole: flagFilterSchema,
+  musicChannel: flagFilterSchema,
+  funChannels: flagFilterSchema,
+  automod: flagFilterSchema,
+  moderation: flagFilterSchema,
+  music: flagFilterSchema,
+  adventure: z.enum(["all", "enabled", "disabled", "none"]).default("all"),
+  playlists: flagFilterSchema,
+  cases: flagFilterSchema,
+  warns: flagFilterSchema,
+  sort: z
+    .enum([
+      "name",
+      "id",
+      "members",
+      "language",
+      "createdAt",
+      "updatedAt",
+      "premium",
+      "subscriptionEnd",
+      "creditsEnd",
+      "cases",
+      "warns",
+      "playlists",
+    ])
+    .default("createdAt"),
+  order: z.enum(["asc", "desc"]).default("desc"),
+  page: z.coerce.number().int().min(1).max(100_000).default(1),
+  perPage: z.coerce.number().int().min(1).max(GUILD_PAGE_SIZE_MAX).default(50),
+});
+
+/**
+ * Un champ de filtre vidé dans le navigateur arrive en `?membersMin=` : sans ce nettoyage, la
+ * chaîne vide serait convertie en 0 (ou refusée) au lieu d'être comprise comme « pas de filtre ».
+ */
+function withoutEmptyValues(query: unknown): Record<string, unknown> {
+  if (typeof query !== "object" || query === null) return {};
+  return Object.fromEntries(
+    Object.entries(query as Record<string, unknown>).filter(([, value]) => value !== ""),
+  );
+}
+
 const statsQuerySchema = z.object({
   days: z.enum(["7", "30", "90"]).default("30").transform(Number),
   /** Catégories de commandes à retirer des statistiques, séparées par des virgules. */
@@ -67,8 +144,41 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   app.addHook("preHandler", authenticate);
   app.addHook("preHandler", requireOwner);
 
-  app.get("/admin/guilds", async () => {
-    return listPresentGuilds();
+  app.get("/admin/guilds", async (request, reply) => {
+    const parsed = guildsQuerySchema.safeParse(withoutEmptyValues(request.query));
+    if (!parsed.success) {
+      return reply.status(400).send({ error: "Paramètres invalides." });
+    }
+
+    const filters = parsed.data;
+    return listAdminGuilds({
+      query: filters.q ?? null,
+      premium: filters.premium,
+      language: filters.language ?? null,
+      membersMin: filters.membersMin ?? null,
+      membersMax: filters.membersMax ?? null,
+      createdFrom: filters.createdFrom,
+      createdTo: filters.createdTo,
+      updatedFrom: filters.updatedFrom,
+      updatedTo: filters.updatedTo,
+      icon: filters.icon,
+      modLog: filters.modLog,
+      automodLog: filters.automodLog,
+      djRole: filters.djRole,
+      musicChannel: filters.musicChannel,
+      funChannels: filters.funChannels,
+      automod: filters.automod,
+      moderation: filters.moderation,
+      music: filters.music,
+      adventure: filters.adventure,
+      playlists: filters.playlists,
+      cases: filters.cases,
+      warns: filters.warns,
+      sort: filters.sort,
+      order: filters.order,
+      page: filters.page,
+      perPage: filters.perPage,
+    });
   });
 
   app.get("/admin/stats", async (request, reply) => {
@@ -225,11 +335,14 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
       }
 
       const { premium, premiumExpiresAt } = parsed.data;
-      return setGuildPremium(
+      const guild = await setGuildPremium(
         request.params.guildId,
         premium,
         premiumExpiresAt ? new Date(premiumExpiresAt) : null,
       );
+      // La liste attend des lignes enrichies (compteurs, réglages) : on renvoie le même format
+      // pour que le tableau se mette à jour sans avoir à tout recharger.
+      return (await getAdminGuild(guild.id)) ?? guild;
     },
   );
 }
