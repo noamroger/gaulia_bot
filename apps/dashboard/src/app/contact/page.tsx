@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { API_URL, SUPPORT_INVITE } from "@/lib/config";
 import { userAvatarUrl } from "@/lib/discordCdn";
-import type { Session } from "@/lib/types";
+import type { ManageableGuild, Session } from "@/lib/types";
 
 const SUBJECTS = [
   { value: "question", label: "Question générale" },
@@ -60,6 +60,7 @@ function LoginPrompt({ reason }: { reason: "anonymous" | "no-email" }) {
 
 export default function ContactPage() {
   const [session, setSession] = useState<Session | null>(null);
+  const [guilds, setGuilds] = useState<ManageableGuild[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState<ContactForm>(EMPTY_FORM);
   const [pending, setPending] = useState(false);
@@ -69,13 +70,14 @@ export default function ContactPage() {
   useEffect(() => {
     let cancelled = false;
 
-    api
-      .get<Session>("/auth/me")
-      // Une session absente n'est pas une erreur ici : la page propose simplement de se connecter.
-      .then((data) => {
-        if (!cancelled) setSession(data);
+    // Une session absente n'est pas une erreur ici : la page propose simplement de se connecter.
+    // La liste des serveurs suit la session, donc elle échoue aussi sans elle — sans conséquence.
+    void Promise.allSettled([api.get<Session>("/auth/me"), api.get<ManageableGuild[]>("/guilds")])
+      .then(([me, guildList]) => {
+        if (cancelled) return;
+        if (me.status === "fulfilled") setSession(me.value);
+        if (guildList.status === "fulfilled") setGuilds(guildList.value);
       })
-      .catch(() => undefined)
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
@@ -93,10 +95,6 @@ export default function ContactPage() {
   async function submit(event: React.FormEvent): Promise<void> {
     event.preventDefault();
 
-    if (form.guildId.trim() && !/^\d{17,20}$/.test(form.guildId.trim())) {
-      setError("L'identifiant du serveur doit être une suite de 17 à 20 chiffres.");
-      return;
-    }
     if (form.message.trim().length < MESSAGE_MIN) {
       setError(`Le message doit faire au moins ${MESSAGE_MIN} caractères.`);
       return;
@@ -107,7 +105,7 @@ export default function ContactPage() {
     try {
       await api.post("/contact", {
         subject: form.subject,
-        guildId: form.guildId.trim(),
+        guildId: form.guildId,
         message: form.message.trim(),
       });
       setSent(true);
@@ -122,6 +120,10 @@ export default function ContactPage() {
       setPending(false);
     }
   }
+
+  // Les serveurs où Gaulia tourne d'abord : ce sont ceux dont on peut réellement parler.
+  const withBot = guilds.filter((guild) => guild.botPresent);
+  const withoutBot = guilds.filter((guild) => !guild.botPresent);
 
   return (
     <div className="container">
@@ -190,16 +192,32 @@ export default function ContactPage() {
 
             <div className="field">
               <label htmlFor="contact-guild">Serveur concerné (facultatif)</label>
-              <input
+              <select
                 id="contact-guild"
-                className="input"
-                type="text"
-                inputMode="numeric"
-                maxLength={20}
-                placeholder="123456789012345678"
+                className="select"
                 value={form.guildId}
                 onChange={(event) => update({ guildId: event.target.value })}
-              />
+              >
+                <option value="">Aucun en particulier</option>
+                {withBot.length > 0 && (
+                  <optgroup label="Avec Gaulia">
+                    {withBot.map((guild) => (
+                      <option key={guild.id} value={guild.id}>
+                        {guild.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {withoutBot.length > 0 && (
+                  <optgroup label="Sans Gaulia">
+                    {withoutBot.map((guild) => (
+                      <option key={guild.id} value={guild.id} className="option-muted">
+                        {guild.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
             </div>
           </div>
 

@@ -1943,6 +1943,12 @@ button {
   margin: 8px 0 20px;
 }
 
+/* Serveurs sans Gaulia : en retrait dans la liste. Les navigateurs qui ignorent la couleur d'une
+   option gardent les intitulés de groupe, qui suffisent à distinguer les deux listes. */
+.option-muted {
+  color: var(--text-muted);
+}
+
 @media (max-width: 620px) {
   .contact-row {
     grid-template-columns: 1fr;

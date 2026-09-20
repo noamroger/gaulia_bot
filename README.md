@@ -432,7 +432,10 @@ reprend la palette du site (dégradé indigo → violet, thème clair) en HTML d
 styles en ligne — avec une version texte en parallèle et un `Reply-To` sur l'auteur du message,
 pour répondre d'un simple « Répondre ». Rien n'est stocké en base : le message vit dans la boîte
 mail. Deux quotas en mémoire freinent les envois répétés : 3 messages par compte
-toutes les 15 minutes, 40 par heure tous comptes confondus.
+toutes les 15 minutes, 40 par heure tous comptes confondus. Le serveur concerné, facultatif, est
+un menu déroulant alimenté par `GET /guilds` : d'abord ceux où Gaulia tourne, puis les autres en
+grisé. Le menu n'est qu'un confort de saisie — l'API revérifie avec `hasGuildAccess` que le compte
+gère bien le serveur envoyé, et résout son nom depuis la session pour que le mail soit lisible.
 Tant que `SMTP_HOST` ou l'adresse de contact est vide, la route répond 503 et le formulaire
 l'annonce.
 

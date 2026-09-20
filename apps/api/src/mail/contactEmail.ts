@@ -14,6 +14,8 @@ export interface ContactMessage {
   email: string;
   subjectLabel: string;
   guildId: string;
+  /** Nom du serveur, résolu depuis la session ; vide si l'identifiant n'y figure pas. */
+  guildName: string;
   message: string;
   receivedAt: Date;
 }
@@ -64,7 +66,11 @@ export function contactText(message: ContactMessage): string {
     `Discord   : ${message.username} (${message.userId})`,
     `Email     : ${message.email}`,
     `Sujet     : ${message.subjectLabel}`,
-    ...(message.guildId ? [`Serveur   : ${message.guildId}`] : []),
+    ...(message.guildId
+      ? [
+          `Serveur   : ${message.guildName ? `${message.guildName} (${message.guildId})` : message.guildId}`,
+        ]
+      : []),
     `Reçu le   : ${formatDate(message.receivedAt)}`,
     ``,
     `--- Message ---`,
@@ -83,7 +89,15 @@ export function contactHtml(message: ContactMessage): string {
     row("Identifiant", `<code style="font-size:13px;">${escapeHtml(message.userId)}</code>`),
     row("Sujet", escapeHtml(message.subjectLabel)),
     ...(message.guildId
-      ? [row("Serveur", `<code style="font-size:13px;">${escapeHtml(message.guildId)}</code>`)]
+      ? [
+          row(
+            "Serveur",
+            [
+              message.guildName ? `${escapeHtml(message.guildName)}<br />` : "",
+              `<code style="font-size:13px;color:${TEXT_MUTED};">${escapeHtml(message.guildId)}</code>`,
+            ].join(""),
+          ),
+        ]
       : []),
     row("Reçu le", escapeHtml(formatDate(message.receivedAt))),
   ].join("");

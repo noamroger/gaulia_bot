@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
+import { hasGuildAccess } from "../auth/session";
 import { contactHtml, contactSubject, contactText } from "../mail/contactEmail";
 import { isMailConfigured, sendContactMail } from "../mail/mailer";
 import { authenticate } from "../plugins/authenticate";
@@ -97,6 +98,14 @@ export default async function contactRoutes(app: FastifyInstance): Promise<void>
       });
     }
 
+    // Le champ est un menu déroulant côté dashboard, mais rien n'empêche d'envoyer autre chose :
+    // on refuse tout serveur que ce compte ne gère pas, plutôt que de le recopier dans le mail.
+    if (parsed.data.guildId && !hasGuildAccess(request.user, parsed.data.guildId)) {
+      return reply.status(403).send({
+        error: "Tu ne gères pas ce serveur.",
+      });
+    }
+
     if (isRateLimited(userId)) {
       return reply.status(429).send({
         error: "Trop de messages envoyés. Réessaie dans quelques minutes.",
@@ -104,6 +113,9 @@ export default async function contactRoutes(app: FastifyInstance): Promise<void>
     }
 
     const data = parsed.data;
+    // Le nom rend le mail lisible ; il vient de la session, donc du serveur, pas du formulaire.
+    const guild = request.user.manageableGuilds.find((entry) => entry.id === data.guildId);
+
     const message = {
       userId,
       username,
@@ -111,6 +123,7 @@ export default async function contactRoutes(app: FastifyInstance): Promise<void>
       email,
       subjectLabel: SUBJECTS[data.subject],
       guildId: data.guildId,
+      guildName: guild?.name ?? "",
       message: data.message,
       receivedAt: new Date(),
     };
