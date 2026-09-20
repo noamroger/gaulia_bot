@@ -7,12 +7,12 @@ import { api, ApiError } from "@/lib/api";
 import { API_URL } from "@/lib/config";
 import { userAvatarUrl } from "@/lib/discordCdn";
 import { formatDateTime, formatNumber } from "@/lib/format";
-import type { MyDataResponse, UserDataExport } from "@/lib/types";
+import type { GuildDataSummary, MyDataResponse, StoredGuildRef, UserDataExport } from "@/lib/types";
 
 /** La connexion repasse par l'API, qui ramène ici plutôt que sur le tableau de bord. */
 const LOGIN_URL = `${API_URL}/auth/login?redirect=/my-data`;
 
-/** Mot à recopier pour confirmer la suppression, exigé aussi par l'API. */
+/** Mot à recopier pour confirmer une suppression, exigé aussi par l'API. */
 const CONFIRMATION_WORD = "SUPPRIMER";
 
 const CASE_LABELS: Record<string, string> = {
@@ -92,6 +92,55 @@ function LoginPrompt() {
   );
 }
 
+/** Champ de confirmation commun aux deux suppressions : recopier le mot, confirmer ou annuler. */
+function ConfirmBox({
+  inputId,
+  value,
+  pending,
+  confirmLabel,
+  onChange,
+  onConfirm,
+  onCancel,
+}: {
+  inputId: string;
+  value: string;
+  pending: boolean;
+  confirmLabel: string;
+  onChange: (next: string) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <>
+      <div className="field" style={{ maxWidth: 320 }}>
+        <label htmlFor={inputId}>Recopie {CONFIRMATION_WORD} pour confirmer</label>
+        <input
+          id={inputId}
+          className="input"
+          type="text"
+          autoComplete="off"
+          value={value}
+          disabled={pending}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </div>
+      <div className="toolbar" style={{ marginBottom: 0 }}>
+        <button
+          type="button"
+          className="button-danger"
+          disabled={value.trim() !== CONFIRMATION_WORD || pending}
+          onClick={onConfirm}
+        >
+          {pending ? "Suppression…" : confirmLabel}
+        </button>
+        <button type="button" className="button-secondary" disabled={pending} onClick={onCancel}>
+          Annuler
+        </button>
+      </div>
+    </>
+  );
+}
+
 /** Section repliée par défaut : le détail ne s'ouvre que si l'utilisateur le demande. */
 function Section({
   title,
@@ -105,13 +154,156 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <details className="my-data-section" open={false}>
+    <details className="my-data-section">
       <summary>
         <span>{title}</span>
         <strong>{count === 0 ? "Aucune" : formatNumber(count)}</strong>
       </summary>
       <div className="my-data-section-body">
         {count === 0 ? <p className="text-muted">{empty}</p> : children}
+      </div>
+    </details>
+  );
+}
+
+/**
+ * Un serveur administré par le compte connecté. Le détail de ce qui est enregistré n'est demandé
+ * qu'à l'ouverture : un compte peut gérer des dizaines de serveurs, et tout charger d'avance
+ * ferait autant de requêtes inutiles.
+ */
+function GuildSection({ guild }: { guild: StoredGuildRef }) {
+  const [summary, setSummary] = useState<GuildDataSummary | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<Step>("idle");
+  const [confirmation, setConfirmation] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  async function load(): Promise<void> {
+    if (summary || loading) return;
+    setLoading(true);
+    setError(null);
+    try {
+      setSummary(await api.get<GuildDataSummary>(`/me/guilds/${guild.guildId}/data`));
+    } catch (loadError) {
+      setError(errorMessage(loadError));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function erase(): Promise<void> {
+    setStep("deleting");
+    setError(null);
+    try {
+      await api.delete(`/me/guilds/${guild.guildId}/data`, { confirm: CONFIRMATION_WORD });
+      setStep("done");
+      setSummary(null);
+    } catch (eraseError) {
+      setError(errorMessage(eraseError));
+      setStep("confirming");
+    }
+  }
+
+  return (
+    <details
+      className="my-data-section"
+      onToggle={(event) => {
+        if (event.currentTarget.open) void load();
+      }}
+    >
+      <summary>
+        <span>{guildLabel(guild.name, guild.guildId)}</span>
+        <strong>{guild.botPresent ? "Gaulia y est" : "Gaulia en est parti"}</strong>
+      </summary>
+      <div className="my-data-section-body">
+        {loading && <p className="text-muted">Chargement…</p>}
+
+        {step === "done" ? (
+          <p className="notice notice-success" role="status" style={{ marginTop: 0 }}>
+            Les données de ce serveur ont été supprimées.
+            {guild.botPresent
+              ? " Gaulia y étant encore, une configuration vierge sera recréée automatiquement."
+              : ""}
+          </p>
+        ) : (
+          summary && (
+            <>
+              <ul className="data-summary">
+                <li>
+                  <span>Configuration du serveur</span>
+                  <strong>{summary.configured ? "Enregistrée" : "Aucune"}</strong>
+                </li>
+                <li>
+                  <span>Sanctions dans l&apos;historique</span>
+                  <strong>{formatNumber(summary.moderationCases)}</strong>
+                </li>
+                <li>
+                  <span>Avertissements</span>
+                  <strong>{formatNumber(summary.warns)}</strong>
+                </li>
+                <li>
+                  <span>Règles d&apos;automod</span>
+                  <strong>{summary.automodConfig ? "Enregistrées" : "Aucune"}</strong>
+                </li>
+                <li>
+                  <span>Réglages musique</span>
+                  <strong>{summary.musicSettings ? "Enregistrés" : "Aucun"}</strong>
+                </li>
+                <li>
+                  <span>Listes de blindtest</span>
+                  <strong>{formatNumber(summary.blindtestPlaylists)}</strong>
+                </li>
+                <li>
+                  <span>Réglages de l&apos;aventure</span>
+                  <strong>{summary.adventureSettings ? "Enregistrés" : "Aucun"}</strong>
+                </li>
+                <li>
+                  <span>Droits premium en cache</span>
+                  <strong>{formatNumber(summary.premiumEntitlements)}</strong>
+                </li>
+              </ul>
+
+              <p className="text-muted" style={{ fontSize: 13 }}>
+                Tout part d&apos;un coup, pour tous les membres du serveur : configuration,
+                historique de modération, avertissements, automod, musique, listes de blindtest et
+                réglages de l&apos;aventure.
+                {guild.botPresent
+                  ? " Gaulia étant encore sur le serveur, une configuration vierge sera recréée à la prochaine synchronisation, mais l'historique, lui, ne revient pas."
+                  : ""}
+              </p>
+
+              {step === "idle" ? (
+                <button
+                  type="button"
+                  className="button-danger"
+                  onClick={() => setStep("confirming")}
+                >
+                  Supprimer les données de ce serveur
+                </button>
+              ) : (
+                <ConfirmBox
+                  inputId={`confirm-guild-${guild.guildId}`}
+                  value={confirmation}
+                  pending={step === "deleting"}
+                  confirmLabel="Confirmer la suppression définitive"
+                  onChange={setConfirmation}
+                  onConfirm={() => void erase()}
+                  onCancel={() => {
+                    setStep("idle");
+                    setConfirmation("");
+                    setError(null);
+                  }}
+                />
+              )}
+            </>
+          )
+        )}
+
+        {error && (
+          <p className="notice notice-error" role="alert">
+            {error}
+          </p>
+        )}
       </div>
     </details>
   );
@@ -171,9 +363,10 @@ export default function MyDataPage() {
           </p>
           <p className="text-muted">
             Ta session a été fermée, puisqu&apos;elle contenait elle aussi ton pseudo et ton
-            adresse. Les réglages des serveurs que tu administres n&apos;ont pas été touchés : ils
-            appartiennent aux serveurs, pas à ton compte. Si tu utilises encore Gaulia, de nouvelles
-            données pourront être créées, et cette page te permettra de les supprimer à nouveau.
+            adresse. L&apos;historique de modération des serveurs et la configuration de ceux que tu
+            administres n&apos;ont pas été touchés : ils appartiennent aux serveurs. Si tu utilises
+            encore Gaulia, de nouvelles données pourront être créées, et cette page te permettra de
+            les supprimer à nouveau.
           </p>
           <Link className="button-primary" href="/">
             Retour à l&apos;accueil
@@ -185,6 +378,7 @@ export default function MyDataPage() {
 
   const data = payload?.data;
   const account = payload?.account;
+  const guilds = payload?.guilds ?? [];
 
   return (
     <div className="container">
@@ -281,6 +475,12 @@ export default function MyDataPage() {
                   </tbody>
                 </table>
               </div>
+              <p className="text-muted" style={{ fontSize: 13 }}>
+                Ces lignes appartiennent à l&apos;historique des serveurs qui les ont prononcées :
+                elles ne partent pas avec la suppression de ton compte. Pour les faire retirer,
+                demande-le aux responsables du serveur, ou écris-nous depuis la page{" "}
+                <Link href="/contact">Nous contacter</Link>.
+              </p>
             </Section>
 
             <Section
@@ -310,6 +510,10 @@ export default function MyDataPage() {
                   </tbody>
                 </table>
               </div>
+              <p className="text-muted" style={{ fontSize: 13 }}>
+                Comme les sanctions, ils appartiennent au serveur qui les a donnés et ne partent pas
+                avec la suppression de ton compte.
+              </p>
             </Section>
 
             <Section
@@ -328,8 +532,7 @@ export default function MyDataPage() {
                 </li>
               </ul>
               <p className="text-muted" style={{ fontSize: 13 }}>
-                Ces lignes appartiennent à l&apos;historique des serveurs concernés. Une suppression
-                de tes données en retire ton identité, mais laisse la sanction en place.
+                Ces lignes appartiennent elles aussi à l&apos;historique des serveurs concernés.
               </p>
             </Section>
 
@@ -515,20 +718,20 @@ export default function MyDataPage() {
           <section className="card my-data-card my-data-danger">
             <h2 className="card-title">Supprimer mes données</h2>
             <p className="card-subtitle">
-              La suppression est définitive et immédiate. Elle efface ce qui te concerne :
+              La suppression est définitive et immédiate. Elle efface ce qui suit ton compte :
             </p>
             <ul className="my-data-list">
-              <li>les sanctions et avertissements que tu as reçus ;</li>
               <li>ton compte de crédits, son historique et tes votes top.gg enregistrés ;</li>
               <li>ton personnage d&apos;aventure, son inventaire et sa progression ;</li>
               <li>les droits premium gardés en cache pour ton compte.</li>
             </ul>
             <p className="text-muted" style={{ fontSize: 13 }}>
-              Les sanctions que tu as prononcées en tant que modérateur restent dans
-              l&apos;historique des serveurs concernés, sans ton identité. La configuration des
-              serveurs que tu administres n&apos;est pas touchée : elle appartient au serveur, et sa
-              suppression se demande séparément. Un abonnement premium encore actif chez Discord
-              sera resynchronisé automatiquement : pour l&apos;arrêter, annule-le depuis les
+              L&apos;historique de modération n&apos;en fait pas partie : une sanction ou un
+              avertissement appartient au serveur qui l&apos;a prononcé, pas au membre concerné. Il
+              part avec les données du serveur, ci-dessous si tu l&apos;administres, sinon sur
+              demande aux responsables du serveur ou à nous depuis la page{" "}
+              <Link href="/contact">Nous contacter</Link>. Un abonnement premium encore actif chez
+              Discord sera resynchronisé automatiquement : pour l&apos;arrêter, annule-le depuis les
               paramètres Discord.
             </p>
 
@@ -537,50 +740,42 @@ export default function MyDataPage() {
                 Supprimer mes données
               </button>
             ) : (
-              <>
-                <div className="field" style={{ maxWidth: 320 }}>
-                  <label htmlFor="my-data-confirm">
-                    Recopie {CONFIRMATION_WORD} pour confirmer
-                  </label>
-                  <input
-                    id="my-data-confirm"
-                    className="input"
-                    type="text"
-                    autoComplete="off"
-                    value={confirmation}
-                    disabled={step === "deleting"}
-                    onChange={(event) => setConfirmation(event.target.value)}
-                  />
-                </div>
-                <div className="toolbar" style={{ marginBottom: 0 }}>
-                  <button
-                    type="button"
-                    className="button-danger"
-                    disabled={confirmation.trim() !== CONFIRMATION_WORD || step === "deleting"}
-                    onClick={() => void erase()}
-                  >
-                    {step === "deleting" ? "Suppression…" : "Confirmer la suppression définitive"}
-                  </button>
-                  <button
-                    type="button"
-                    className="button-secondary"
-                    disabled={step === "deleting"}
-                    onClick={() => {
-                      setStep("idle");
-                      setConfirmation("");
-                      setError(null);
-                    }}
-                  >
-                    Annuler
-                  </button>
-                </div>
-              </>
+              <ConfirmBox
+                inputId="confirm-account"
+                value={confirmation}
+                pending={step === "deleting"}
+                confirmLabel="Confirmer la suppression définitive"
+                onChange={setConfirmation}
+                onConfirm={() => void erase()}
+                onCancel={() => {
+                  setStep("idle");
+                  setConfirmation("");
+                  setError(null);
+                }}
+              />
             )}
 
             {error && (
               <p className="notice notice-error" role="alert">
                 {error}
               </p>
+            )}
+          </section>
+
+          <section className="card my-data-card my-data-danger">
+            <h2 className="card-title">Supprimer les données d&apos;un serveur</h2>
+            <p className="card-subtitle">
+              Les serveurs que tu administres et pour lesquels Gaulia a enregistré quelque chose.
+              Supprimer, c&apos;est effacer les données du serveur entier, pour tous ses membres,
+              historique de modération compris.
+            </p>
+
+            {guilds.length === 0 ? (
+              <p className="text-muted">
+                Aucun des serveurs que tu administres n&apos;a de données enregistrées chez Gaulia.
+              </p>
+            ) : (
+              guilds.map((guild) => <GuildSection key={guild.guildId} guild={guild} />)
             )}
           </section>
         </>

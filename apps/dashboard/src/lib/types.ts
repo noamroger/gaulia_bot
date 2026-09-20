@@ -510,6 +510,13 @@ export interface UserDataExport {
   adventure: ExportedAdventure | null;
 }
 
+/** Serveur administré pour lequel Gaulia a enregistré quelque chose (GET /me/data). */
+export interface StoredGuildRef {
+  guildId: string;
+  name: string | null;
+  botPresent: boolean;
+}
+
 export interface MyDataResponse {
   /** Reprise du cookie de session : ces champs ne sont pas enregistrés en base. */
   account: {
@@ -520,4 +527,6 @@ export interface MyDataResponse {
     manageableGuilds: { id: string; name: string }[];
   };
   data: UserDataExport;
+  /** Parmi les serveurs administrés, ceux dont les données peuvent être supprimées. */
+  guilds: StoredGuildRef[];
 }

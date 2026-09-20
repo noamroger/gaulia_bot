@@ -51,8 +51,8 @@ export default function PrivacyPage() {
           </li>
           <li>
             Vous pouvez à tout moment consulter, télécharger et supprimer vos données vous-même
-            depuis la page <Link href="/my-data">Mes données</Link>, en vous connectant avec
-            Discord.
+            depuis la page <Link href="/my-data">Mes données</Link>, en vous connectant avec Discord
+            — et y supprimer aussi les données des serveurs que vous administrez.
           </li>
         </ul>
 
@@ -324,26 +324,36 @@ export default function PrivacyPage() {
           est le vôtre, donc personne d&apos;autre ne peut consulter ni effacer vos données.
         </p>
         <p>
-          Pour une demande que cette page ne couvre pas — la suppression des données d&apos;un
-          serveur dont vous êtes propriétaire ou administrateur, une rectification, ou une question
-          sur le traitement —, écrivez à <Contact /> en indiquant votre identifiant Discord (ou
-          celui du serveur concerné). Nous répondons dans un délai d&apos;un mois.
+          La même page permet aussi, si vous administrez un serveur (permission « Gérer le serveur »
+          côté Discord), de supprimer les données de ce serveur.
         </p>
         <ul>
           <li>
-            <strong>Suppression d&apos;un serveur</strong> : toutes ses données sont effacées
-            (configuration, historique de modération, avertissements, automod, musique, premium).
+            <strong>Suppression d&apos;un utilisateur</strong> : le compte de crédits et son
+            historique, les votes top.gg enregistrés, les droits premium en cache et le personnage
+            d&apos;aventure avec son inventaire et sa progression sont effacés.
           </li>
           <li>
-            <strong>Suppression d&apos;un utilisateur</strong> (celle de la page{" "}
-            <Link href="/my-data">Mes données</Link>) : les sanctions et avertissements reçus sont
-            effacés, ainsi que le compte de crédits, l&apos;historique de votes, les droits premium
-            en cache et le personnage d&apos;aventure avec sa progression. Les sanctions données en
-            tant que modérateur restent dans l&apos;historique du serveur, mais sans identifiant ni
-            pseudo. La configuration des serveurs que vous administrez n&apos;est pas touchée : elle
-            appartient au serveur, et sa suppression se demande séparément.
+            <strong>Suppression d&apos;un serveur</strong> : toutes ses données sont effacées
+            (configuration, historique de modération, avertissements, automod, musique, listes de
+            blindtest, réglages de l&apos;aventure, premium), pour tous ses membres. Si Gaulia est
+            encore sur le serveur, une configuration vierge est recréée automatiquement, mais
+            l&apos;historique ne revient pas.
           </li>
         </ul>
+        <p>
+          L&apos;historique de modération — les sanctions et avertissements reçus comme ceux donnés
+          — relève du serveur qui les a prononcés, et non des membres concernés : il ne part donc
+          pas avec la suppression d&apos;un compte, sans quoi il suffirait d&apos;être sanctionné
+          pour effacer la trace de sa sanction. Il est effacé avec les données du serveur, ou sur
+          demande.
+        </p>
+        <p>
+          Pour une demande que cette page ne couvre pas — le retrait d&apos;une sanction dont vous
+          avez fait l&apos;objet sur un serveur que vous n&apos;administrez pas, une rectification,
+          ou une question sur le traitement —, écrivez à <Contact /> en indiquant votre identifiant
+          Discord (ou celui du serveur concerné). Nous répondons dans un délai d&apos;un mois.
+        </p>
         <p>
           Un abonnement premium encore actif chez Discord est resynchronisé automatiquement : pour
           l&apos;arrêter, annulez-le depuis les paramètres Discord. Vous pouvez aussi déposer une

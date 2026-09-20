@@ -363,3 +363,33 @@ export async function exportUserData(userId: string): Promise<UserDataExport> {
       : null,
   };
 }
+
+/** Serveur administré par l'utilisateur pour lequel Gaulia a effectivement enregistré quelque chose. */
+export interface StoredGuildRef {
+  guildId: string;
+  name: string | null;
+  /** Faux si le bot a quitté le serveur : les données restent, mais plus rien ne s'y ajoute. */
+  botPresent: boolean;
+}
+
+/**
+ * Parmi les serveurs que l'utilisateur peut gérer, ceux qui ont une ligne en base — les seuls dont
+ * la suppression a un sens. Une seule requête, quel que soit le nombre de serveurs du compte : le
+ * détail de ce qui est enregistré se demande ensuite serveur par serveur (`getGuildDataSummary`).
+ */
+export async function listStoredGuilds(guildIds: string[]): Promise<StoredGuildRef[]> {
+  const unique = [...new Set(guildIds)];
+  if (unique.length === 0) return [];
+
+  const guilds = await prisma.guild.findMany({
+    where: { id: { in: unique } },
+    select: { id: true, name: true, botPresent: true },
+    orderBy: { name: "asc" },
+  });
+
+  return guilds.map((guild) => ({
+    guildId: guild.id,
+    name: guild.name,
+    botPresent: guild.botPresent,
+  }));
+}

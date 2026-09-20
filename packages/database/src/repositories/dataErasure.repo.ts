@@ -115,6 +115,10 @@ export async function getUserDataSummary(userId: string): Promise<UserDataSummar
 }
 
 /**
+ * Suppression complète, réservée au panel admin : elle traite une demande RGPD vérifiée à la main
+ * et touche donc aussi l'historique de modération, ce que la suppression en libre-service
+ * (`eraseOwnUserData`) ne fait pas.
+ *
  * Supprime les sanctions et avertissements reçus par l'utilisateur, anonymise ceux qu'il a donnés
  * en tant que modérateur, et supprime ses droits premium en cache, son personnage d'aventure
  * (inventaire et progression compris) ainsi que son compte de crédits
@@ -134,6 +138,30 @@ export async function eraseUserData(userId: string): Promise<UserDataSummary> {
       where: { moderatorId: userId },
       data: { moderatorId: ANONYMIZED_USER_ID },
     }),
+    prisma.premiumEntitlement.deleteMany({ where: { userId } }),
+    prisma.topggVote.deleteMany({ where: { userId } }),
+    prisma.creditAccount.deleteMany({ where: { userId } }),
+    // Inventaire, quêtes, hauts faits et journal partent en cascade avec le personnage.
+    prisma.adventureCharacter.deleteMany({ where: { userId } }),
+  ]);
+  return summary;
+}
+
+/**
+ * Suppression déclenchée par l'utilisateur lui-même depuis la page « Mes données ».
+ *
+ * L'historique de modération n'y figure pas : une sanction appartient au serveur qui l'a
+ * prononcée, pas au membre sanctionné. Sans cela, il suffirait d'être banni pour effacer son
+ * propre casier, et les modérateurs perdraient l'historique sur lequel repose l'escalade des
+ * avertissements. Il part avec les données du serveur (`eraseGuildData`), ou sur demande traitée
+ * depuis le panel admin (`eraseUserData`).
+ *
+ * Le reste — droits premium en cache, votes top.gg, compte de crédits, personnage d'aventure avec
+ * son inventaire et sa progression — suit le compte et est bien supprimé.
+ */
+export async function eraseOwnUserData(userId: string): Promise<UserDataSummary> {
+  const summary = await getUserDataSummary(userId);
+  await prisma.$transaction([
     prisma.premiumEntitlement.deleteMany({ where: { userId } }),
     prisma.topggVote.deleteMany({ where: { userId } }),
     prisma.creditAccount.deleteMany({ where: { userId } }),
