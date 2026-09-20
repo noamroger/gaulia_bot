@@ -40,10 +40,44 @@ const envSchema = z.object({
   // (il répond 503), pour ne jamais créditer sur la foi d'une requête non vérifiée.
   TOPGG_WEBHOOK_SECRET: z.string().optional().default(""),
 
+  // Envoi des messages du formulaire de contact (POST /contact). Tout est optionnel : sans
+  // configuration complète, la route répond 503 au lieu de prétendre avoir envoyé un mail.
+  SMTP_HOST: z.string().optional().default(""),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  // Exiger le chiffrement de la connexion. Ce n'est PAS le `secure` de nodemailer, qui désigne le
+  // TLS implicite du port 465 : sur le port 587 la connexion s'ouvre en clair puis passe en TLS
+  // par STARTTLS. Le mode se déduit donc du port, et cette variable rend le chiffrement obligatoire.
+  SMTP_TLS: z
+    .string()
+    .optional()
+    .default("true")
+    .transform((value) => value !== "false"),
+  SMTP_USER: z.string().optional().default(""),
+  SMTP_PASS: z.string().optional().default(""),
+  // Expéditeur des mails. À défaut, l'adresse de contact elle-même : un formulaire qui s'envoie à
+  // lui-même part d'un domaine déjà vérifié chez le fournisseur SMTP, donc délivrable.
+  SMTP_FROM: z.string().optional().default(""),
+  // Destinataire des messages. À défaut, l'adresse de contact publique déjà présente dans le .env.
+  CONTACT_EMAIL_TO: z.string().optional().default(""),
+  NEXT_PUBLIC_CONTACT_EMAIL: z.string().optional().default(""),
+
   API_PORT: z.coerce.number().int().positive().default(4000),
 
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
 });
 
-export const env = envSchema.parse(process.env);
+const parsed = envSchema.parse(process.env);
+
+/**
+ * Le formulaire de contact n'a besoin que des identifiants SMTP : l'expéditeur et le destinataire
+ * retombent sur l'adresse de contact publique, déjà configurée pour la page de confidentialité et
+ * le pied de page. Une seule variable à renseigner au lieu de trois.
+ */
+const contactTo = parsed.CONTACT_EMAIL_TO || parsed.NEXT_PUBLIC_CONTACT_EMAIL;
+
+export const env = {
+  ...parsed,
+  CONTACT_EMAIL_TO: contactTo,
+  SMTP_FROM: parsed.SMTP_FROM || contactTo,
+};

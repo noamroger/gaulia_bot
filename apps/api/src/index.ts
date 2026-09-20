@@ -12,6 +12,7 @@ import adventureRoutes from "./routes/adventure.routes";
 import automodRoutes from "./routes/automod.routes";
 import authRoutes from "./routes/auth.routes";
 import blindtestRoutes from "./routes/blindtest.routes";
+import contactRoutes from "./routes/contact.routes";
 import creditsRoutes from "./routes/credits.routes";
 import guildsRoutes from "./routes/guilds.routes";
 import premiumRoutes from "./routes/premium.routes";
@@ -20,7 +21,10 @@ import statsRoutes from "./routes/stats.routes";
 import topggRoutes from "./routes/topgg.routes";
 
 async function main(): Promise<void> {
-  const app = Fastify({ loggerInstance: logger });
+  // Le déploiement place un reverse proxy devant l'API : sans cette option, `request.ip` vaut
+  // l'adresse du proxy pour tout le monde, et le quota par IP du formulaire de contact
+  // (POST /contact) s'appliquerait à l'ensemble des visiteurs d'un coup.
+  const app = Fastify({ loggerInstance: logger, trustProxy: true });
 
   await app.register(fastifyCors, {
     origin: env.DASHBOARD_URL,
@@ -64,6 +68,7 @@ async function main(): Promise<void> {
   await app.register(blindtestRoutes);
   await app.register(premiumRoutes);
   await app.register(creditsRoutes);
+  await app.register(contactRoutes);
   await app.register(statsRoutes);
   await app.register(adminRoutes);
   await app.register(adventureRoutes);

@@ -19,12 +19,14 @@
     "@gaulia/database": "*",
     "dotenv": "^16.4.7",
     "fastify": "^5.12.4",
+    "nodemailer": "^7.0.13",
     "pino": "^10.3.1",
     "pino-pretty": "^13.0.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
+    "@types/nodemailer": "^8.0.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
   }

@@ -416,8 +416,32 @@ bot), `/vote` (page top.gg) et `/app-directory` (fiche Discord App Directory) vi
 `discord.gg/`). Sans ces variables, les redirections ne sont pas créées : les trois premiers liens
 renvoient un 404 plutôt que de pointer vers un mauvais bot, et le lien de support disparaît
 simplement du pied de page. La version affichée est lue au build dans le
-`package.json` de la racine, et le lien « Nous contacter » est un simple `mailto:` construit depuis
-`NEXT_PUBLIC_CONTACT_EMAIL` (vide = lien masqué, comme sur la page de confidentialité).
+`package.json` de la racine, et l'adresse de contact reste facultative
+(`NEXT_PUBLIC_CONTACT_EMAIL` vide = lien masqué, comme sur la page de confidentialité).
+
+**Page de contact** (`/contact`) : formulaire public envoyé à `POST /contact` (API), qui transmet
+le message par mail à `CONTACT_EMAIL_TO` via SMTP (`apps/api/src/mail/`). Le rendu HTML du mail
+reprend la palette du site (dégradé indigo → violet, thème clair) en HTML de mail — tableaux et
+styles en ligne — avec une version texte en parallèle et un `Reply-To` sur l'auteur du message,
+pour répondre d'un simple « Répondre ». Rien n'est stocké en base : le message vit dans la boîte
+mail. La route étant ouverte, elle se protège par un champ piège (rempli seulement par un robot,
+qui reçoit alors un faux succès plutôt qu'une erreur qui lui apprendrait quoi éviter) et deux
+quotas en mémoire : 3 messages par IP toutes les 15 minutes, 40 par heure tous visiteurs
+confondus. Le `trustProxy` de Fastify est nécessaire pour que `request.ip` soit celle du visiteur
+et non celle du reverse proxy, sans quoi le quota par IP s'appliquerait à tout le monde d'un bloc.
+Tant que `SMTP_HOST` ou l'adresse de contact est vide, la route répond 503 et le formulaire
+l'annonce.
+
+Côté SMTP, `secure` se déduit du **port** et non d'une variable : le 465 ouvre une connexion
+chiffrée d'emblée, tandis que le 587 démarre en clair et bascule via STARTTLS. Annoncer
+`secure: true` sur le 587 ferait attendre une poignée de main que le serveur n'entame jamais.
+`SMTP_TLS` (vrai par défaut) sert donc à *exiger* le chiffrement (`requireTLS`) : un serveur qui
+ne propose pas STARTTLS fait échouer l'envoi au lieu de l'expédier en clair. Des délais d'attente
+explicites (connexion, accueil, socket) évitent qu'un serveur muet laisse la requête HTTP pendue
+plusieurs minutes. `SMTP_FROM` et `CONTACT_EMAIL_TO` sont facultatifs : à défaut, tous deux
+reprennent `NEXT_PUBLIC_CONTACT_EMAIL`, donc le formulaire s'envoie à l'adresse de contact
+publique depuis cette même adresse — un domaine déjà vérifié chez le fournisseur, donc
+délivrable — le `Reply-To` portant toujours l'auteur du message.
 
 **Ajouter un nouveau réglage éditable** : ajoute le champ au schéma Prisma
 (`packages/database/prisma/schema.prisma`), régénère (`npm run prisma:generate` puis une migration),
