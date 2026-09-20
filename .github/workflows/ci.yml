@@ -1,0 +1,51 @@
+name: CI
+
+# Vérification automatique : à chaque push et à chaque pull request visant dev ou main.
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+
+# Un nouveau push sur une branche annule la vérification encore en cours sur la même branche.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verification:
+    name: Typecheck et lint
+    runs-on: ubuntu-latest
+    env:
+      # `prisma generate` ne se connecte pas à la base (il lui faut juste le schéma), mais le
+      # chargement de prisma.config.ts exige que DATABASE_URL existe — d'où cette valeur factice,
+      # comme dans les Dockerfile. Aucune base n'est démarrée dans ce job.
+      DATABASE_URL: postgresql://user:pass@localhost:5432/db
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      # Même version majeure que les images node:20-alpine utilisées en production.
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Générer le client Prisma
+        run: npm run prisma:generate
+
+      # apps/bot, apps/api et apps/dashboard importent @gaulia/database via ses types compilés
+      # (dist/index.d.ts) : sans cette compilation, leur typecheck échoue sur un module introuvable.
+      - name: Compiler @gaulia/database
+        run: npm run build -w packages/database
+
+      - name: Typecheck des quatre espaces de travail
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
