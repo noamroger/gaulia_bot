@@ -3,13 +3,33 @@
 
 FROM node:20-alpine AS build
 WORKDIR /app
-COPY . .
+
+# Étape 1 — les manifestes seuls, puis l'installation. Tant que package.json et
+# package-lock.json ne changent pas, Docker réutilise la couche `npm ci` telle quelle :
+# un push qui ne touche que du code source ne réinstalle plus les dépendances.
+# Les quatre workspaces sont copiés (et pas seulement celui de l'API) parce que `npm ci`
+# lit le lockfile de la racine, qui les couvre tous — et parce que ce préfixe identique
+# dans les trois Dockerfiles permet aux trois images de partager la même couche en cache.
+COPY package.json package-lock.json ./
+COPY packages/database/package.json ./packages/database/
+COPY apps/api/package.json ./apps/api/
+COPY apps/bot/package.json ./apps/bot/
+COPY apps/dashboard/package.json ./apps/dashboard/
 RUN npm ci
+
+# Étape 2 — le schéma Prisma seul, puis la génération du client. Le client n'est
+# régénéré que si le schéma (ou une migration) change, pas à chaque modification de code.
 # `prisma generate` ne se connecte pas à la base (juste besoin du schéma), mais son chargement de
 # config exige que DATABASE_URL existe — .env est exclu du contexte de build (.dockerignore), donc
 # on fournit une valeur factice ici ; la vraie valeur est injectée au runtime par docker-compose.
 ENV DATABASE_URL="postgresql://user:pass@localhost:5432/db"
+COPY packages/database/prisma ./packages/database/prisma
+COPY packages/database/prisma.config.ts ./packages/database/prisma.config.ts
 RUN npm run prisma:generate -w packages/database
+
+# Étape 3 — le reste du code, qui change à chaque push : seules les couches suivantes
+# sont reconstruites.
+COPY . .
 RUN npm run build -w packages/database
 RUN npm run build -w apps/api
 

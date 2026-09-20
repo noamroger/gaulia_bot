@@ -5,6 +5,22 @@
 
 FROM node:20-alpine AS build
 WORKDIR /app
+
+# Étape 1 — les manifestes seuls, puis l'installation. Tant que package.json et
+# package-lock.json ne changent pas, Docker réutilise la couche `npm ci` telle quelle :
+# un push qui ne touche que du code source ne réinstalle plus les dépendances.
+# Les quatre workspaces sont copiés (et pas seulement celui du dashboard) parce que `npm ci`
+# lit le lockfile de la racine, qui les couvre tous — et parce que ce préfixe identique
+# dans les trois Dockerfiles permet aux trois images de partager la même couche en cache.
+COPY package.json package-lock.json ./
+COPY packages/database/package.json ./packages/database/
+COPY apps/api/package.json ./apps/api/
+COPY apps/bot/package.json ./apps/bot/
+COPY apps/dashboard/package.json ./apps/dashboard/
+RUN npm ci
+
+# Étape 2 — les ARG viennent après `npm ci` : changer une de ces valeurs ne doit invalider
+# que le build Next.js, pas l'installation des dépendances.
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_CONTACT_EMAIL
 ARG DISCORD_CLIENT_ID
@@ -14,8 +30,10 @@ ENV NEXT_PUBLIC_CONTACT_EMAIL=$NEXT_PUBLIC_CONTACT_EMAIL
 ENV DISCORD_CLIENT_ID=$DISCORD_CLIENT_ID
 ENV DISCORD_SUPPORT_INVITE_CODE=$DISCORD_SUPPORT_INVITE_CODE
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# Étape 3 — le reste du code, qui change à chaque push : seules les couches suivantes
+# sont reconstruites.
 COPY . .
-RUN npm ci
 RUN npm run build -w apps/dashboard
 
 FROM node:20-alpine AS runtime
