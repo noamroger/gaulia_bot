@@ -35,7 +35,7 @@ export async function handleStart(interaction: ChatInputCommandInteraction): Pro
     successPayload(
       true,
       `${definition.emoji} Bienvenue dans les Terres de Gaulia`,
-      `Tu commences ${definition.name.toLowerCase()} : *${definition.passive}*\n\nTout se pilote aux boutons sous tes messages — ou à la commande, si tu préfères : \`/aventure explorer\`, \`/aventure histoire\`, \`/aventure quetes\`.`,
+      `Tu commences ${definition.name.toLowerCase()} : *${definition.passive}*\n\nTout se pilote aux boutons sous tes messages - ou à la commande, si tu préfères : \`/aventure explorer\`, \`/aventure histoire\`, \`/aventure quetes\`.`,
     ),
   );
 }
@@ -99,6 +99,6 @@ export async function handleImprove(interaction: ChatInputCommandInteraction): P
 
 /** Choix de classe proposés par la commande `/aventure commencer`. */
 export const CLASS_CHOICES = CLASSES.map((definition) => ({
-  name: `${definition.emoji} ${definition.name} — ${definition.description}`.slice(0, 100),
+  name: `${definition.emoji} ${definition.name} - ${definition.description}`.slice(0, 100),
   value: definition.id,
 }));

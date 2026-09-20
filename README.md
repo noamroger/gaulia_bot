@@ -1,18 +1,18 @@
 # Gaulia
 
 Bot Discord TypeScript modulaire (modération, AutoMod, musique via Lavalink, abonnement **Gaulia
-Premium**), accompagné d'un **dashboard web** et d'une **API** dédiée — le tout en monorepo,
+Premium**), accompagné d'un **dashboard web** et d'une **API** dédiée - le tout en monorepo,
 partageant un seul schéma Postgres, géré par un unique `docker-compose.yml`.
 
 ## Stack
 
-- [discord.js](https://discord.js.org) v14 — Message Components V2 pour toute l'UI du bot (pas d'embeds)
+- [discord.js](https://discord.js.org) v14 - Message Components V2 pour toute l'UI du bot (pas d'embeds)
 - [lavalink-client](https://github.com/lavalink-devs/lavalink-client) + [Lavalink](https://lavalink.dev) v4 pour la musique
 - PostgreSQL + [Prisma](https://www.prisma.io), partagé entre le bot et l'API (`@gaulia/database`)
 - `ShardingManager` natif discord.js pour le sharding
 - [Fastify](https://fastify.dev) pour l'API (OAuth2 Discord, config des serveurs, stats)
 - [Next.js](https://nextjs.org) pour le dashboard (ne parle qu'à l'API, jamais à la base)
-- Docker Compose (postgres + lavalink + bot + api + dashboard) — **pas de reverse proxy inclus**,
+- Docker Compose (postgres + lavalink + bot + api + dashboard) - **pas de reverse proxy inclus**,
   branche le tien en amont (voir [Domaine & ports](#domaine--ports))
 
 ## Architecture (monorepo npm workspaces)
@@ -20,15 +20,15 @@ partageant un seul schéma Postgres, géré par un unique `docker-compose.yml`.
 ```
 gaulia_bot/
 ├─ packages/
-│  └─ database/              # @gaulia/database — schéma Prisma + repositories, partagé bot+api
+│  └─ database/              # @gaulia/database - schéma Prisma + repositories, partagé bot+api
 │     ├─ prisma/schema.prisma
 │     └─ src/{client.ts, repositories/*.repo.ts}
 ├─ apps/
-│  ├─ bot/                   # @gaulia/bot — le bot Discord
+│  ├─ bot/                   # @gaulia/bot - le bot Discord
 │  │  └─ src/{client,config,core,events,handlers,modules,structures,bot.ts,index.ts}
-│  ├─ api/                   # @gaulia/api — Fastify : OAuth2 Discord, config, stats, webhook top.gg
+│  ├─ api/                   # @gaulia/api - Fastify : OAuth2 Discord, config, stats, webhook top.gg
 │  │  └─ src/{auth,discord,plugins,premium,routes,topgg,index.ts}
-│  └─ dashboard/             # @gaulia/dashboard — Next.js, ne parle qu'à l'API (fetch + cookies)
+│  └─ dashboard/             # @gaulia/dashboard - Next.js, ne parle qu'à l'API (fetch + cookies)
 │     └─ src/{app,lib,components}
 ├─ docker/lavalink/
 ├─ Dockerfile.bot / Dockerfile.api / Dockerfile.dashboard
@@ -37,19 +37,19 @@ gaulia_bot/
 
 Dans `apps/bot`, chaque module (`moderation`, `automod`, `music`, `fun`, `premium`, `adventure`)
 suit la même structure interne : `commands/`, `services/`, `events/`, `components/` (selon besoin).
-Les commandes et events du bot sont chargés dynamiquement au démarrage — pas besoin de les
+Les commandes et events du bot sont chargés dynamiquement au démarrage - pas besoin de les
 enregistrer manuellement ailleurs.
 
 `adventure` est le plus gros module : ses services sont rangés par domaine
 (`services/{access,character,combat,dungeon,economy,events,exploration,inventory,progress}/`), son
 contenu de jeu est isolé dans `data/`, ses vues Components V2 dans `ui/` et une fonction par
 sous-commande dans `handlers/`. Attention : seuls `commands/` et `components/` sont des noms
-réservés (le chargeur y cherche des commandes et des composants, à n'importe quelle profondeur) —
+réservés (le chargeur y cherche des commandes et des composants, à n'importe quelle profondeur) -
 d'où le dossier `handlers/` pour les sous-commandes.
 
 **Comment le bot, l'API et le dashboard communiquent :**
 
-- Le bot et l'API importent tous les deux `@gaulia/database` (même schéma, mêmes repositories) —
+- Le bot et l'API importent tous les deux `@gaulia/database` (même schéma, mêmes repositories) -
   aucun ne réimplémente sa propre couche d'accès aux données.
 - Le dashboard ne fait **jamais** de requête à Postgres : uniquement des `fetch` vers l'API
   (cookies de session inclus). C'est l'API seule qui parle à la base.
@@ -62,8 +62,8 @@ d'où le dossier `handlers/` pour les sous-commandes.
 ## Prérequis
 
 - Node.js ≥ 20
-- Docker + Docker Compose (recommandé) — ou Postgres/Lavalink installés manuellement
-- Un reverse proxy déjà en place devant cette machine Docker (le tien — ce compose n'en fournit pas),
+- Docker + Docker Compose (recommandé) - ou Postgres/Lavalink installés manuellement
+- Un reverse proxy déjà en place devant cette machine Docker (le tien - ce compose n'en fournit pas),
   capable de terminer le TLS et de router deux domaines vers deux ports (voir
   [Domaine & ports](#domaine--ports))
 - Une application Discord créée sur le [portail développeur](https://discord.com/developers/applications),
@@ -75,7 +75,7 @@ d'où le dossier `handlers/` pour les sous-commandes.
    - `gauliabot.xyz` → cette machine, port **4500**
    - `api.gauliabot.xyz` → cette machine, port **4501**
 2. Renseigne `.env` : `DISCORD_REDIRECT_URI`/`DASHBOARD_URL`/`NEXT_PUBLIC_API_URL` avec tes vrais
-   domaines publics (voir `.env.example`) — le token du bot et les secrets
+   domaines publics (voir `.env.example`) - le token du bot et les secrets
    Postgres/Lavalink/JWT sont déjà pré-remplis, change-les si besoin.
 3. Enregistre `DISCORD_REDIRECT_URI` comme redirect URI valide sur le
    [portail développeur Discord](https://discord.com/developers/applications) (onglet OAuth2).
@@ -85,7 +85,7 @@ d'où le dossier `handlers/` pour les sous-commandes.
    docker compose up -d --build
    ```
 
-   Ordre de démarrage : Postgres → Lavalink (plugins YouTube/LavaSrc téléchargés automatiquement —
+   Ordre de démarrage : Postgres → Lavalink (plugins YouTube/LavaSrc téléchargés automatiquement -
    peut prendre une minute) → `migrate` (applique le schéma Prisma puis s'arrête) → bot/API/dashboard.
 
 5. Rien à faire pour les commandes slash : à chaque démarrage, le conteneur `gaulia_bot` remplace
@@ -116,7 +116,7 @@ Lance Postgres et Lavalink toi-même (ou seulement ces deux services via
 vers `localhost`, `DISCORD_REDIRECT_URI`/`DASHBOARD_URL`/`NEXT_PUBLIC_API_URL` vers
 `http://localhost:4000`/`http://localhost:3000`, et `NODE_ENV=development` (sinon les cookies de
 session sont marqués `Secure` et ne fonctionnent pas en HTTP local). Le `.env` versionné dans ce
-dépôt est configuré pour la prod (domaine réel) — garde une copie locale séparée si tu jongles
+dépôt est configuré pour la prod (domaine réel) - garde une copie locale séparée si tu jongles
 entre les deux.
 
 ## Scripts utiles (racine du monorepo)
@@ -140,14 +140,14 @@ Le service `lavalink` du `docker-compose.yml` utilise l'image officielle
 
 ### Plugins déjà configurés
 
-- **[youtube-source](https://github.com/lavalink-devs/youtube-source)** — restaure la lecture
+- **[youtube-source](https://github.com/lavalink-devs/youtube-source)** - restaure la lecture
   YouTube (retirée du core Lavalink v4 pour raisons légales). Configuré avec plusieurs "clients"
   (`MUSIC`, `ANDROID_VR`, `WEB`, `WEBEMBEDDED`) pour limiter les blocages/rate-limits YouTube.
-- **[LavaSrc](https://github.com/topi314/LavaSrc)** — résout les liens/recherches Spotify (et
+- **[LavaSrc](https://github.com/topi314/LavaSrc)** - résout les liens/recherches Spotify (et
   Deezer/Apple Music si tu les actives) vers des pistes jouables via YouTube.
 
 Les deux sont téléchargés automatiquement au démarrage du conteneur (section `lavalink.plugins` de
-`application.yml`) — aucune image custom à builder.
+`application.yml`) - aucune image custom à builder.
 
 ### Activer la résolution Spotify (optionnel)
 
@@ -167,14 +167,14 @@ les identifiants requis par source).
 ### Scaler avec plusieurs nodes Lavalink
 
 `apps/bot/src/modules/music/services/musicManager.ts` initialise `LavalinkManager` avec un tableau
-`nodes` — actuellement un seul node (`env.LAVALINK_HOST`/`LAVALINK_PORT`). Pour ajouter un second
+`nodes` - actuellement un seul node (`env.LAVALINK_HOST`/`LAVALINK_PORT`). Pour ajouter un second
 node (par exemple un serveur dédié plus costaud, ou un node dans une autre région), ajoute une
 entrée dans ce tableau avec un `id` différent ; lavalink-client répartit automatiquement les
 nouveaux players entre les nodes disponibles (load balancing par charge).
 
 ### Sécurité
 
-Le service Lavalink n'expose **aucun port sur l'hôte** par défaut dans `docker-compose.yml` — seul
+Le service Lavalink n'expose **aucun port sur l'hôte** par défaut dans `docker-compose.yml` - seul
 le service `bot` peut le joindre, via le réseau Docker interne. Ne décommente `ports: - "2333:2333"`
 que si tu as besoin d'y accéder depuis l'extérieur du réseau Docker (auquel cas, assure-toi que
 `LAVALINK_PASSWORD` est une valeur forte et unique).
@@ -202,13 +202,13 @@ simultané (playback saccadé/`OutOfMemoryError` dans les logs = signal qu'il fa
    directement (`GET /guilds/:guildId/premium`, via le helper `isPremiumActive`).
 
    Un serveur est premium s'il a **soit** un entitlement Discord actif (`Guild.premium`), **soit**
-   du premium offert encore valide (`Guild.premiumGrantedUntil`, obtenu contre des crédits de vote —
+   du premium offert encore valide (`Guild.premiumGrantedUntil`, obtenu contre des crédits de vote -
    voir la section top.gg). Les deux colonnes sont indépendantes : l'expiration d'un abonnement
    Discord n'annule pas un premium offert, et inversement. Comme les octrois viennent du dashboard
    et non de la gateway, le bot relit la liste des serveurs concernés toutes les 60 s
-   (`startPremiumGrantSync`, appelé depuis `events/ready.ts`) — un échange peut donc mettre jusqu'à
+   (`startPremiumGrantSync`, appelé depuis `events/ready.ts`) - un échange peut donc mettre jusqu'à
    une minute à débloquer une commande en jeu.
-5. Pour gater une nouvelle commande côté bot : ajoute `premiumOnly: true` sur l'objet `Command` —
+5. Pour gater une nouvelle commande côté bot : ajoute `premiumOnly: true` sur l'objet `Command` -
    le dispatcher (`apps/bot/src/events/interactionCreate.ts`) affiche automatiquement un message
    d'upsell avec un bouton d'achat natif Discord (`ButtonBuilder` + `ButtonStyle.Premium`) si le
    serveur n'a pas l'abonnement.
@@ -243,7 +243,7 @@ la fonctionnalité correspondante est simplement inactive et le reste du bot tou
 2. `apps/api/src/routes/topgg.routes.ts` vérifie chaque livraison avant tout traitement :
    l'en-tête `x-topgg-signature` (`t=<timestamp>,v1=<hmac>`) doit correspondre au HMAC-SHA256 de
    `<timestamp>.<corps brut>` calculé avec le secret, et l'horodatage doit tomber dans une fenêtre
-   de 30 s (anti-rejeu) — voir `apps/api/src/topgg/webhookSignature.ts`. La route conserve le corps
+   de 30 s (anti-rejeu) - voir `apps/api/src/topgg/webhookSignature.ts`. La route conserve le corps
    **brut** (parseur `application/json` encapsulé à ce scope) : re-sérialiser le JSON invaliderait
    la signature. Sans `TOPGG_WEBHOOK_SECRET`, l'endpoint répond `503` plutôt que de créditer sur la
    foi d'une requête non vérifiée.
@@ -263,7 +263,7 @@ la fonctionnalité correspondante est simplement inactive et le reste du bot tou
   dashboard, dans `apps/api/src/premium/offers.ts`.
 - L'échange débite d'abord (`spendCredits`, dont le `updateMany` conditionné sur
   `balance >= montant` empêche deux échanges simultanés de passer le solde en négatif), puis
-  prolonge `Guild.premiumGrantedUntil` — en repartant de l'échéance en cours si elle est encore
+  prolonge `Guild.premiumGrantedUntil` - en repartant de l'échéance en cours si elle est encore
   valide, pour que deux échanges se cumulent. Si l'octroi échoue après le débit, les crédits sont
   recrédités.
 - Chaque mouvement (vote, échange, ajustement admin) est journalisé dans `credit_transactions`
@@ -273,12 +273,12 @@ la fonctionnalité correspondante est simplement inactive et le reste du bot tou
 
 ### Source du premium et remboursement au prorata
 
-Un serveur peut être premium de deux façons — l'abonnement Discord payant (entitlement) ou des
-crédits échangés — et l'onglet **Premium** du dashboard dit toujours laquelle, avec sa date.
+Un serveur peut être premium de deux façons - l'abonnement Discord payant (entitlement) ou des
+crédits échangés - et l'onglet **Premium** du dashboard dit toujours laquelle, avec sa date.
 
 - `describePremium()` (`packages/database/src/repositories/premium.repo.ts`) détaille le statut
   source par source : c'est ce que renvoie `GET /guilds/:guildId/premium`. Quand les deux
-  coexistent, l'abonnement payant prime à l'affichage — il ne s'interrompt pas, lui.
+  coexistent, l'abonnement payant prime à l'affichage - il ne s'interrompt pas, lui.
 - L'abonnement affiche son **prochain renouvellement** (`premiumExpiresAt`), le premium offert son
   **expiration** (`premiumGrantedUntil`), sans renouvellement automatique.
 - **Souscrire un abonnement pendant une période offerte reconvertit le reste en crédits.**
@@ -292,7 +292,7 @@ crédits échangés — et l'onglet **Premium** du dashboard dit toujours laquel
   à la main depuis le panel admin n'a pas de date de début ni de crédits dépensés : il n'est jamais
   remboursé ni refermé.
 - La conversion est déclenchée par la **création** d'un entitlement uniquement, jamais par une mise
-  à jour ni par la resynchronisation du démarrage — sinon un octroi manuel disparaîtrait au
+  à jour ni par la resynchronisation du démarrage - sinon un octroi manuel disparaîtrait au
   prochain redémarrage du bot. Refermer la fenêtre rend l'opération idempotente.
 - L'API refuse un échange de crédits sur un serveur déjà abonné : ils seraient consommés en
   parallèle sans rien apporter. Le dashboard désactive les offres et l'explique.
@@ -305,7 +305,7 @@ Fiche complète du bot, en quatre onglets navigables aux boutons Components V2 (
 
 - **D'où viennent les chiffres** : un process de shard ne connaît que SES serveurs
   (`client.guilds.cache` est scopé au shard), donc tous les totaux globaux sont recalculés depuis
-  les heartbeats en base — exactement la source du `GET /admin/stats` de l'API. Le reste (mémoire,
+  les heartbeats en base - exactement la source du `GET /admin/stats` de l'API. Le reste (mémoire,
   versions, cache, latence WebSocket) décrit le process qui répond, et l'onglet **Shards** montre
   les deux à la fois, le shard courant étant marqué `➤`.
 - **Ce qui vient de la base** : `getBotContentStats()`
@@ -315,7 +315,7 @@ Fiche complète du bot, en quatre onglets navigables aux boutons Components V2 (
 - **Catalogue** : compté à chaud depuis `client.commands` / `client.components`, donc toujours à
   jour sans rien déclarer.
 - **Rien n'est gardé « depuis toujours »** : l'onglet Commandes affiche le jour courant, 30 jours
-  et 90 jours, cette dernière fenêtre étant `COMMAND_USAGE_RETENTION_DAYS` — la durée de
+  et 90 jours, cette dernière fenêtre étant `COMMAND_USAGE_RETENTION_DAYS` - la durée de
   conservation appliquée par le job de rétention de l'API. Le total est recalculé sur la fenêtre
   plutôt que lu dans `totalAllTime`, pour rester juste même entre deux purges.
 - **Où c'est rangé** : `modules/general/services/botinfo/` (collecte dans `botStatsService.ts`,
@@ -335,7 +335,7 @@ partagé entre tous les serveurs et les messages privés (la progression n'est p
 seuls les salons où l'on peut jouer se règlent par serveur).
 
 - **Boucle de jeu** : `/aventure explorer` consomme de l'énergie et tire une rencontre dans la
-  région courante — combat résolu d'un bloc, trouvaille, ou simple ambiance. Tout le reste
+  région courante - combat résolu d'un bloc, trouvaille, ou simple ambiance. Tout le reste
   (expérience, butin, quêtes, chapitre, hauts faits) découle d'évènements de jeu passés à
   `services/events/eventDispatcher.ts`. Ajouter une action revient à émettre les bons évènements :
   elle n'a rien à savoir des quêtes ni du scénario.
@@ -344,9 +344,9 @@ seuls les salons où l'on peut jouer se règlent par serveur).
   menu pour sauter à un chapitre et l'option `sujet:` pour y arriver directement. C'est la seule
   commande du module qui ne demande pas d'aventurier : tant qu'on n'en a pas, la page propose de
   créer le sien d'un bouton par classe. Le contenu vit dans `data/tutorial.ts` et lit les chiffres
-  dans l'équilibrage — régler le jeu met le tutoriel à jour tout seul.
+  dans l'équilibrage - régler le jeu met le tutoriel à jour tout seul.
 - **Tout se joue au bouton** : chaque écran porte sa barre de navigation (Components V2) et ses
-  actions — voyager depuis la carte, explorer de nouveau, se soigner quand on est amoché, lancer le
+  actions - voyager depuis la carte, explorer de nouveau, se soigner quand on est amoché, lancer le
   donjon, renforcer une pièce, acheter, équiper, accepter un échange. Les commandes restent
   disponibles pour qui préfère taper.
   Côté code, une seule vue existe par écran : `ui/renderView.ts` les rend toutes, et le composant
@@ -369,14 +369,14 @@ seuls les salons où l'on peut jouer se règlent par serveur).
   proposition : les deux sacs sont revérifiés à l'acceptation, et le transfert se fait dans une
   seule transaction. Une proposition expire au bout de 15 minutes, chacun en a 5 ouvertes au
   maximum, et les échanges s'ouvrent au niveau 5. **Tout n'est pas échangeable** : le catalogue
-  porte un indicateur `tradable`, faux pour les reliques du scénario — il suffit de le poser sur
+  porte un indicateur `tradable`, faux pour les reliques du scénario - il suffit de le poser sur
   un objet pour le rendre incessible. Les sous-commandes d'échange sont regroupées sous
   `/aventure echange …` : Discord plafonne une commande à 25 options de premier niveau, et les
   groupes laissent la place aux prochaines mécaniques.
 - **Scénario** : 7 actes × 5 chapitres. Un chapitre se termine quand ses objectifs sont remplis,
   que le niveau requis est atteint, puis qu'il est **scellé** avec des *fragments d'écho*.
 - **Durée de vie** : les fragments ne s'obtiennent qu'en temps réel (lot quotidien, lot
-  hebdomadaire, donjon de la semaine, trouvailles rares) — environ 14 par semaine au mieux, pour un
+  hebdomadaire, donjon de la semaine, trouvailles rares) - environ 14 par semaine au mieux, pour un
   scénario qui en coûte 755. Terminer l'histoire demande donc **au moins un an**, sans grind : la
   régularité compte, pas le nombre d'heures d'affilée. `npm run adventure:pacing -w packages/database`
   rejoue la simulation pour vérifier ce rythme après chaque retouche d'équilibrage.
@@ -394,7 +394,7 @@ seuls les salons où l'on peut jouer se règlent par serveur).
 
 **Périmètre v1** : consultation/édition de la configuration (salons de logs, automod, historique de
 modération/warns, statut premium). Pas de pilotage temps réel du bot (pas de skip musique ou
-kick/ban depuis le web) — ces actions restent des commandes Discord pour l'instant.
+kick/ban depuis le web) - ces actions restent des commandes Discord pour l'instant.
 
 **Connexion (OAuth2 Discord)**, entièrement gérée par l'API (`apps/api/src/routes/auth.routes.ts`) :
 
@@ -403,12 +403,12 @@ kick/ban depuis le web) — ces actions restent des commandes Discord pour l'ins
    calcule ceux où l'utilisateur a `MANAGE_GUILD`/est owner, puis pose un cookie de session `httpOnly`
    (JWT, 12h) et redirige vers `${DASHBOARD_URL}/dashboard`.
 3. Chaque route protégée vérifie ce JWT puis que le `guildId` demandé fait partie des serveurs
-   gérables — sans nouvel appel à l'API Discord par requête.
+   gérables - sans nouvel appel à l'API Discord par requête.
 4. `GET /guilds` croise cette liste avec les serveurs où **le bot est réellement présent**
    (`Guild.botPresent`, mis à jour par `guildCreate`/`guildDelete`/sync au `ready`).
 
 **Liens publics et pied de page** : le pied de page (`components/SiteFooter.tsx`, monté une fois
-dans `app/layout.tsx`) est commun à toutes les pages — présentation du bot, version, auteur, liens
+dans `app/layout.tsx`) est commun à toutes les pages - présentation du bot, version, auteur, liens
 vers Discord et mentions légales. Les liens sortants passent par des redirections construites au
 build (`apps/dashboard/next.config.js`) plutôt que par des URL écrites en dur : `/invite` (ajout du
 bot), `/vote` (page top.gg) et `/app-directory` (fiche Discord App Directory) viennent de
@@ -428,13 +428,13 @@ d'`identify` et `guilds`, et `GET /auth/login?redirect=/contact` ramène le visi
 d'où il est parti (seul un chemin interne est accepté, sinon le dashboard deviendrait un tremplin
 de redirection). Une session ouverte avant ce scope, ou un compte sans adresse vérifiée, reçoit un
 403 qui invite à se reconnecter. Le rendu HTML du mail
-reprend la palette du site (dégradé indigo → violet, thème clair) en HTML de mail — tableaux et
-styles en ligne — avec une version texte en parallèle et un `Reply-To` sur l'auteur du message,
+reprend la palette du site (dégradé indigo → violet, thème clair) en HTML de mail (tableaux et
+styles en ligne) avec une version texte en parallèle et un `Reply-To` sur l'auteur du message,
 pour répondre d'un simple « Répondre ». Rien n'est stocké en base : le message vit dans la boîte
 mail. Deux quotas en mémoire freinent les envois répétés : 3 messages par compte
 toutes les 15 minutes, 40 par heure tous comptes confondus. Le serveur concerné, facultatif, est
 un menu déroulant alimenté par `GET /guilds` : d'abord ceux où Gaulia tourne, puis les autres en
-grisé. Le menu n'est qu'un confort de saisie — l'API revérifie avec `hasGuildAccess` que le compte
+grisé. Le menu n'est qu'un confort de saisie - l'API revérifie avec `hasGuildAccess` que le compte
 gère bien le serveur envoyé, et résout son nom depuis la session pour que le mail soit lisible.
 Tant que `SMTP_HOST` ou l'adresse de contact est vide, la route répond 503 et le formulaire
 l'annonce.
@@ -447,8 +447,8 @@ ne propose pas STARTTLS fait échouer l'envoi au lieu de l'expédier en clair. D
 explicites (connexion, accueil, socket) évitent qu'un serveur muet laisse la requête HTTP pendue
 plusieurs minutes. `SMTP_FROM` et `CONTACT_EMAIL_TO` sont facultatifs : à défaut, tous deux
 reprennent `NEXT_PUBLIC_CONTACT_EMAIL`, donc le formulaire s'envoie à l'adresse de contact
-publique depuis cette même adresse — un domaine déjà vérifié chez le fournisseur, donc
-délivrable — le `Reply-To` portant toujours l'auteur du message.
+publique depuis cette même adresse (un domaine déjà vérifié chez le fournisseur, donc
+délivrable), le `Reply-To` portant toujours l'auteur du message.
 
 **Ajouter un nouveau réglage éditable** : ajoute le champ au schéma Prisma
 (`packages/database/prisma/schema.prisma`), régénère (`npm run prisma:generate` puis une migration),
@@ -463,21 +463,21 @@ dashboard par-serveur : accès basé sur `OWNER_IDS` (`.env`), pas sur les permi
 serveur particulier.
 
 - Au login, l'API calcule `isOwner = OWNER_IDS.includes(userId)` et le signe dans le JWT de session
-  (`apps/api/src/routes/auth.routes.ts`) — aucune route n'a besoin de relire `.env` à chaque requête.
+  (`apps/api/src/routes/auth.routes.ts`) - aucune route n'a besoin de relire `.env` à chaque requête.
 - Toutes les routes `/admin/*` (`apps/api/src/routes/admin.routes.ts`) exigent `isOwner` via le
-  preHandler `requireOwner` — un utilisateur normal reçoit `403` même en devinant l'URL.
+  preHandler `requireOwner` - un utilisateur normal reçoit `403` même en devinant l'URL.
 - Un propriétaire peut aussi consulter/modifier la config de **n'importe quel serveur** via les
   routes `/guilds/:guildId/...` normales (`hasGuildAccess` bypass la vérification MANAGE_GUILD si
-  `isOwner` est vrai) — pratique pour du support sans avoir besoin d'être membre du serveur.
+  `isOwner` est vrai) - pratique pour du support sans avoir besoin d'être membre du serveur.
 - Fonctionnalités actuelles : statistiques détaillées (`GET /admin/stats`), liste de **tous** les serveurs connus
   du bot avec leur nom (synchronisé par `apps/bot/src/events/{guildCreate,guildUpdate}.ts` et
-  `core/presence/guildPresenceSync.ts` — utile car un owner n'est pas forcément membre de chaque
+  `core/presence/guildPresenceSync.ts` - utile car un owner n'est pas forcément membre de chaque
   serveur), un bouton pour offrir/retirer manuellement le premium à un serveur
-  (`PATCH /admin/guilds/:guildId/premium`, sans passer par un vrai achat Discord — pratique pour du
+  (`PATCH /admin/guilds/:guildId/premium`, sans passer par un vrai achat Discord - pratique pour du
   support ou des essais), et l'onglet **Crédits**.
 - Onglet **Crédits** (`/admin/credits`) : liste des utilisateurs possédant des crédits (pseudo,
   identifiant, solde, nombre de votes, dernier vote) avec deux façons d'écrire un solde, toutes
-  deux confirmées avant enregistrement — la boîte de dialogue « Ajouter / retirer des crédits »
+  deux confirmées avant enregistrement - la boîte de dialogue « Ajouter / retirer des crédits »
   (identifiant Discord + variation ±, motif facultatif ; le compte est créé s'il n'existe pas) et
   l'édition directe de la cellule d'une ligne. Les deux passent par
   `PATCH /admin/credits/:userId` (`delta` ou `balance`), qui journalise systématiquement un
@@ -485,12 +485,12 @@ serveur particulier.
 - Onglet **Aventure** (`/admin/aventure`) : liste de tous les aventuriers (classe, niveau, acte et
   chapitre atteints, bourse, fragments, dernière partie), fiche complète d'un joueur (progression,
   caractéristiques, inventaire avec le palier de renforcement de chaque pièce, quêtes en cours,
-  échanges en attente, journal) et interventions dans sa partie —
+  échanges en attente, journal) et interventions dans sa partie -
   expérience, pièces, fragments d'écho, énergie, points de caractéristique, niveau et objets
   donnés ou retirés (`PATCH /admin/adventure/players/:userId`). L'expérience offerte passe par la
   même règle que le jeu (les niveaux montent normalement), et **chaque intervention est inscrite
   dans le journal du joueur**, visible par lui avec `/aventure journal`.
-- Le dashboard (`apps/dashboard/src/app/admin/`) réutilise le même login que le reste — pas de
+- Le dashboard (`apps/dashboard/src/app/admin/`) réutilise le même login que le reste - pas de
   système d'auth séparé à maintenir.
 
 **⚠️ Important** : `OWNER_IDS` doit être un ID Discord numérique (le tien), pas un pseudo. Récupère-le
@@ -499,13 +499,13 @@ séparés par des virgules.
 
 ## Domaine & ports
 
-Pas de reverse proxy dans ce `docker-compose.yml` — tu as déjà le tien en amont. Voici quel domaine
+Pas de reverse proxy dans ce `docker-compose.yml` - tu as déjà le tien en amont. Voici quel domaine
 pointer vers quel port sur cette machine :
 
 | Domaine             | Port hôte | Service     | Notes                                            |
 | ------------------- | --------- | ----------- | ------------------------------------------------ |
-| `gauliabot.xyz`     | `4500`    | `dashboard` | Next.js — sert le panel serveur + le panel admin |
-| `api.gauliabot.xyz` | `4501`    | `api`       | Fastify — OAuth2, config, stats                  |
+| `gauliabot.xyz`     | `4500`    | `dashboard` | Next.js - sert le panel serveur + le panel admin |
+| `api.gauliabot.xyz` | `4501`    | `api`       | Fastify - OAuth2, config, stats                  |
 
 Ton reverse proxy doit terminer le TLS et forwarder en HTTP simple vers `<ip-de-cette-machine>:4500`
 et `:4501` (ces deux ports sont déjà choisis hors des plages courantes 3000/3001/8000/9000). Aucun

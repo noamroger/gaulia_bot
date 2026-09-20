@@ -3,7 +3,7 @@ import path from "node:path";
 import dotenv from "dotenv";
 import { z } from "zod";
 
-// __dirname ici = apps/api/src/config (dev, tsx) ou apps/api/dist/config (compilé) — dans les
+// __dirname ici = apps/api/src/config (dev, tsx) ou apps/api/dist/config (compilé) - dans les
 // deux cas 4 niveaux sous la racine du monorepo, où vit le .env partagé. En Docker les variables
 // sont déjà injectées par docker-compose (no-op silencieux ici).
 dotenv.config({ path: path.resolve(__dirname, "../../../../.env") });

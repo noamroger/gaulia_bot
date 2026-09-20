@@ -123,7 +123,7 @@ export async function getUserDataSummary(userId: string): Promise<UserDataSummar
  * en tant que modérateur, et supprime ses droits premium en cache, son personnage d'aventure
  * (inventaire et progression compris) ainsi que son compte de crédits
  * (son historique de votes top.gg part avec, donc un vote déjà encaissé pourra être recrédité si
- * top.gg le relivre — cas marginal accepté pour ne rien conserver de l'utilisateur).
+ * top.gg le relivre - cas marginal accepté pour ne rien conserver de l'utilisateur).
  */
 export async function eraseUserData(userId: string): Promise<UserDataSummary> {
   const summary = await getUserDataSummary(userId);
@@ -156,8 +156,8 @@ export async function eraseUserData(userId: string): Promise<UserDataSummary> {
  * avertissements. Il part avec les données du serveur (`eraseGuildData`), ou sur demande traitée
  * depuis le panel admin (`eraseUserData`).
  *
- * Le reste — droits premium en cache, votes top.gg, compte de crédits, personnage d'aventure avec
- * son inventaire et sa progression — suit le compte et est bien supprimé.
+ * Le reste - droits premium en cache, votes top.gg, compte de crédits, personnage d'aventure avec
+ * son inventaire et sa progression - suit le compte et est bien supprimé.
  */
 export async function eraseOwnUserData(userId: string): Promise<UserDataSummary> {
   const summary = await getUserDataSummary(userId);

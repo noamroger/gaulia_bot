@@ -14,7 +14,7 @@ export type SignatureResult =
 
 /**
  * Vérifie la signature d'une livraison top.gg : HMAC-SHA256 de `<timestamp>.<corps brut>` avec le
- * secret de l'intégration. Le corps doit être celui reçu octet pour octet — re-sérialiser le JSON
+ * secret de l'intégration. Le corps doit être celui reçu octet pour octet - re-sérialiser le JSON
  * invaliderait la signature.
  */
 export function verifyTopggSignature(

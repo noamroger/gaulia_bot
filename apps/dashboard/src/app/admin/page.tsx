@@ -129,7 +129,7 @@ export default function AdminStatsPage() {
             />
             <StatTile
               label="Ping moyen"
-              value={stats.averagePing !== null ? `${stats.averagePing} ms` : "—"}
+              value={stats.averagePing !== null ? `${stats.averagePing} ms` : "-"}
             />
             <StatTile label="Lecteurs musique actifs" value={formatNumber(stats.playerCount)} />
           </div>
@@ -237,19 +237,19 @@ export default function AdminStatsPage() {
                     </div>
                     <div>
                       <dt>Ping</dt>
-                      <dd>{shard.online ? `${shard.ping} ms` : "—"}</dd>
+                      <dd>{shard.online ? `${shard.ping} ms` : "-"}</dd>
                     </div>
                     <div>
                       <dt>Mémoire</dt>
-                      <dd>{shard.online ? `${formatNumber(shard.memoryMb)} Mo` : "—"}</dd>
+                      <dd>{shard.online ? `${formatNumber(shard.memoryMb)} Mo` : "-"}</dd>
                     </div>
                     <div>
                       <dt>Lecteurs actifs</dt>
-                      <dd>{shard.online ? formatNumber(shard.playerCount) : "—"}</dd>
+                      <dd>{shard.online ? formatNumber(shard.playerCount) : "-"}</dd>
                     </div>
                     <div>
                       <dt>Uptime</dt>
-                      <dd>{shard.online ? formatUptime(shard.startedAt, now) : "—"}</dd>
+                      <dd>{shard.online ? formatUptime(shard.startedAt, now) : "-"}</dd>
                     </div>
                   </dl>
                   <p className="stat-hint" style={{ margin: "12px 0 0" }}>

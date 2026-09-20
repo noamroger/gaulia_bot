@@ -186,7 +186,7 @@ export async function applyQuestProgress(
     goldReward += view.reward.gold;
     current = (await grantXp(current, items, view.reward.xp)).character;
     notices.push(
-      `✅ Quête terminée — ${view.label} · +${view.reward.xp} XP · +${view.reward.gold} 🪙`,
+      `✅ Quête terminée - ${view.label} · +${view.reward.xp} XP · +${view.reward.gold} 🪙`,
     );
   }
 
@@ -202,11 +202,11 @@ export async function applyQuestProgress(
   if (dailyDone && !dailyWasDone) {
     echoes += ECHOES_PER_DAILY_SET;
     produced.push({ type: "DAILY_SET", amount: 1 });
-    notices.push(`🔷 Lot quotidien complété — +${ECHOES_PER_DAILY_SET} fragment d'écho.`);
+    notices.push(`🔷 Lot quotidien complété - +${ECHOES_PER_DAILY_SET} fragment d'écho.`);
   }
   if (weeklyDone && !weeklyWasDone) {
     echoes += ECHOES_PER_WEEKLY_SET;
-    notices.push(`🔷 Lot hebdomadaire complété — +${ECHOES_PER_WEEKLY_SET} fragments d'écho.`);
+    notices.push(`🔷 Lot hebdomadaire complété - +${ECHOES_PER_WEEKLY_SET} fragments d'écho.`);
   }
 
   if (goldReward > 0 || echoes > 0) {

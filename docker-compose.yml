@@ -53,7 +53,7 @@ services:
       # simplement re-téléchargés à chaque recréation du conteneur, ce qui reste rapide.
     healthcheck:
       # Cette version de Lavalink exige le mot de passe même sur /version (401 sinon, d'où le
-      # header Authorization ci-dessous — sans lui wget échoue et Docker marque le conteneur
+      # header Authorization ci-dessous - sans lui wget échoue et Docker marque le conteneur
       # "unhealthy" alors que Lavalink tourne très bien).
       test:
         [

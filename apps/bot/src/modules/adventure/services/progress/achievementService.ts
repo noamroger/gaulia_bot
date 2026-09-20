@@ -15,7 +15,7 @@ export async function checkAchievements(character: AdventureCharacter): Promise<
     if (!achievement.unlocked(character)) continue;
     if (!(await unlockAdventureAchievement(character.userId, achievement.id))) continue;
 
-    notices.push(`${achievement.emoji} Haut fait débloqué — **${achievement.name}**`);
+    notices.push(`${achievement.emoji} Haut fait débloqué - **${achievement.name}**`);
     await addAdventureLog({
       userId: character.userId,
       type: "LEVEL_UP",

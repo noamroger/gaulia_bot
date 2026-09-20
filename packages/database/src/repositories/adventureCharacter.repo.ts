@@ -101,7 +101,7 @@ export async function upgradeAdventureItem(
 }
 
 /**
- * Retire des exemplaires d'un objet. Retourne faux — sans rien modifier — si l'inventaire n'en
+ * Retire des exemplaires d'un objet. Retourne faux (sans rien modifier) si l'inventaire n'en
  * contient pas assez, ce qui sert de garde-fou aux achats, crafts et consommations.
  */
 export async function removeAdventureItem(

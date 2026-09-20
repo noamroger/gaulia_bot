@@ -124,12 +124,12 @@ function formatOption(option: APIApplicationCommandBasicOption): string {
   const choiceList =
     choices.length > 0 ? ` (choix : ${choices.map((choice) => choice.name).join(", ")})` : "";
 
-  return `- \`${option.name}\` · ${type}${option.required ? ", obligatoire" : ""} — ${option.description}${choiceList}`;
+  return `- \`${option.name}\` · ${type}${option.required ? ", obligatoire" : ""} - ${option.description}${choiceList}`;
 }
 
 function overviewLine(command: Command): string {
   if (command.type !== "chatInput") {
-    return `\`${command.data.name}\` — ${commandSummary(command)}`;
+    return `\`${command.data.name}\` - ${commandSummary(command)}`;
   }
 
   const prefix = `/${command.data.name}`;
@@ -138,7 +138,7 @@ function overviewLine(command: Command): string {
     .filter(Boolean);
 
   const signature = subcommands.length > 0 ? `${prefix} ${subcommands.join("|")}` : prefix;
-  return `\`${signature}\` — ${commandSummary(command)}`;
+  return `\`${signature}\` - ${commandSummary(command)}`;
 }
 
 function usageSection(command: Command): string {
@@ -150,7 +150,7 @@ function usageSection(command: Command): string {
   const hasSubcommands = usages.some((usage) => usage.path !== `/${command.data.name}`);
 
   const lines = usages.flatMap((usage) => [
-    hasSubcommands ? `${formatSignature(usage)} — ${usage.description}` : formatSignature(usage),
+    hasSubcommands ? `${formatSignature(usage)} - ${usage.description}` : formatSignature(usage),
     ...usage.options.map(formatOption),
   ]);
 
@@ -252,7 +252,7 @@ export function helpAutocompleteChoices(
     .slice(0, MAX_AUTOCOMPLETE_CHOICES)
     .map((command) => ({
       name: truncate(
-        `${displayName(command)} — ${commandSummary(command)}`,
+        `${displayName(command)} - ${commandSummary(command)}`,
         MAX_CHOICE_NAME_LENGTH,
       ),
       value: command.data.name,

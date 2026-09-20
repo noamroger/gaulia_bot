@@ -30,7 +30,7 @@ function addCandidate(candidates: Set<string>, value: string): void {
 /** Réponses acceptées pour un titre : titre principal, et nom de l'œuvre cité entre parenthèses. */
 export function titleAnswers(title: string): string[] {
   const candidates = new Set<string>();
-  const main = title.split(/\s[-–—]\s|[([]/)[0] ?? title;
+  const main = title.split(/\s[-–\u2014]\s|[([]/)[0] ?? title;
   addCandidate(candidates, main);
   addCandidate(candidates, main.replace(GENERIC_WORDS, " "));
   const work = main.match(/\b(?:from|du film)\s+(.{2,})$/i)?.[1];
@@ -38,7 +38,7 @@ export function titleAnswers(title: string): string[] {
 
   const segments = [
     ...[...title.matchAll(/[([]([^)\]]+)[)\]]/g)].map((match) => match[1] ?? ""),
-    ...title.split(/\s[-–—]\s/).slice(1),
+    ...title.split(/\s[-–\u2014]\s/).slice(1),
   ];
   for (const segment of segments) {
     if (IGNORED_SEGMENT.test(segment)) continue;

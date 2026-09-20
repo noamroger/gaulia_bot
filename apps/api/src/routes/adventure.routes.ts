@@ -154,7 +154,7 @@ function describeIntervention(body: z.infer<typeof interventionSchema>): string 
   }
 
   const summary = parts.join(", ") || "aucune modification";
-  return body.reason ? `${summary} — ${body.reason}` : summary;
+  return body.reason ? `${summary} - ${body.reason}` : summary;
 }
 
 /** Panel admin du module aventure : suivi des joueurs et interventions dans leur partie. */

@@ -33,7 +33,7 @@ function confirmed(body: unknown): string | null {
 
 /**
  * Données personnelles de l'utilisateur connecté : consultation, export et suppression, sans
- * passer par une demande par mail. Tout est cadré par la session — on ne lit et on n'efface
+ * passer par une demande par mail. Tout est cadré par la session - on ne lit et on n'efface
  * jamais que le compte qui fait la requête, ou un serveur qu'il administre réellement.
  */
 export default async function personalDataRoutes(app: FastifyInstance): Promise<void> {

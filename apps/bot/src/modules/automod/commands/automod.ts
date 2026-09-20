@@ -80,7 +80,7 @@ const command: ChatInputCommand = {
           : rules
               .map(
                 (rule) =>
-                  `**${rule.name}** — \`${rule.id}\` (${rule.enabled ? "activée" : "désactivée"})`,
+                  `**${rule.name}** - \`${rule.id}\` (${rule.enabled ? "activée" : "désactivée"})`,
               )
               .join("\n"),
       );

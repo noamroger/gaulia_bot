@@ -37,7 +37,7 @@ const command: ChatInputCommand = {
 
   help: {
     details:
-      "Gaulia Premium débloque le mode 24/7, les filtres audio, une file d'attente étendue et les règles automod avancées. `status` indique si ce serveur en profite, `upgrade` affiche les options d'abonnement — dont la semaine ou le mois offerts contre des crédits gagnés en votant.",
+      "Gaulia Premium débloque le mode 24/7, les filtres audio, une file d'attente étendue et les règles automod avancées. `status` indique si ce serveur en profite, `upgrade` affiche les options d'abonnement - dont la semaine ou le mois offerts contre des crédits gagnés en votant.",
     examples: ["premium status", "premium upgrade"],
   },
 

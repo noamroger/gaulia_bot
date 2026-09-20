@@ -91,7 +91,7 @@ export async function autocompleteShop(interaction: AutocompleteInteraction): Pr
       .filter((item) => item.name.toLowerCase().includes(query))
       .slice(0, MAX_CHOICES)
       .map((item) => ({
-        name: `${item.name} — ${formatNumber(item.price ?? 0)} pièces`.slice(0, 100),
+        name: `${item.name} - ${formatNumber(item.price ?? 0)} pièces`.slice(0, 100),
         value: item.id,
       })),
   );
@@ -104,7 +104,7 @@ export async function autocompleteRecipes(interaction: AutocompleteInteraction):
     RECIPES.filter((recipe) => (findItem(recipe.itemId)?.name ?? "").toLowerCase().includes(query))
       .slice(0, MAX_CHOICES)
       .map((recipe) => ({
-        name: `${findItem(recipe.itemId)?.name ?? recipe.itemId} — niveau ${recipe.levelRequirement}`.slice(
+        name: `${findItem(recipe.itemId)?.name ?? recipe.itemId} - niveau ${recipe.levelRequirement}`.slice(
           0,
           100,
         ),

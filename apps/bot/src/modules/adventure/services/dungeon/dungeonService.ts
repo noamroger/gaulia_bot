@@ -56,7 +56,7 @@ export interface DungeonOutcome {
 
 /**
  * Donjon de l'acte : un seul par semaine, remporté ou non. C'est le rendez-vous qui cadence
- * l'histoire — il rapporte l'essentiel des fragments d'écho et la relique du chapitre final.
+ * l'histoire - il rapporte l'essentiel des fragments d'écho et la relique du chapitre final.
  * Une défaite ne consomme que l'énergie : on peut réessayer le jour même en s'équipant mieux.
  */
 export async function runDungeon(

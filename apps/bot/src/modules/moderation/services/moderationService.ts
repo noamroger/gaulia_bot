@@ -97,7 +97,7 @@ async function postModLog(guild: Guild, moderationCase: ModerationCase): Promise
   if (!channel || !channel.isTextBased() || !("send" in channel)) return;
 
   const lines = [
-    `### ${Emojis.Moderation} Cas #${moderationCase.caseNumber} — ${TYPE_LABELS[moderationCase.type]}`,
+    `### ${Emojis.Moderation} Cas #${moderationCase.caseNumber} - ${TYPE_LABELS[moderationCase.type]}`,
     `**Cible :** ${moderationCase.targetTag} (\`${moderationCase.targetId}\`)`,
     `**Modérateur :** ${moderationCase.moderatorTag}`,
   ];
@@ -139,7 +139,7 @@ export async function notifyTarget(
   if (!settings.dmOnSanction) return;
 
   const lines = [
-    `### ${Emojis.Moderation} Action de modération — ${guild.name}`,
+    `### ${Emojis.Moderation} Action de modération - ${guild.name}`,
     `**Action :** ${TYPE_LABELS[type]}`,
   ];
   if (reason) lines.push(`**Raison :** ${reason}`);

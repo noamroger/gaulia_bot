@@ -47,7 +47,7 @@ export async function assertAdventureAccess(
 
   if (settings.channelIds.length === 0) {
     throw new GauliaError(
-      "Aucun salon d'aventure n'est autorisé sur ce serveur. Demande à un administrateur d'en ouvrir un depuis le tableau de bord — ou joue en message privé avec Gaulia.",
+      "Aucun salon d'aventure n'est autorisé sur ce serveur. Demande à un administrateur d'en ouvrir un depuis le tableau de bord - ou joue en message privé avec Gaulia.",
     );
   }
 
@@ -56,5 +56,5 @@ export async function assertAdventureAccess(
     .map((id) => `<#${id}>`)
     .join(", ");
   const more = settings.channelIds.length > MAX_LISTED_CHANNELS ? "…" : "";
-  throw new GauliaError(`L'aventure se joue dans : ${shown}${more} — ou en message privé.`);
+  throw new GauliaError(`L'aventure se joue dans : ${shown}${more} - ou en message privé.`);
 }

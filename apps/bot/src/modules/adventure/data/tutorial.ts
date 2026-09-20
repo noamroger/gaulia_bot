@@ -41,7 +41,7 @@ const tradeMinutes = Math.round(ADVENTURE_TRADE_EXPIRY_MS / 60_000);
 const dungeonDays = Math.round(ADVENTURE_DUNGEON_COOLDOWN_MS / (24 * 3_600_000));
 const upgradePercent = Math.round(ADVENTURE_UPGRADE_STEP * 100);
 const classList = CLASSES.map(
-  (entry) => `${entry.emoji} **${entry.name}** — ${entry.description}\n*${entry.passive}*`,
+  (entry) => `${entry.emoji} **${entry.name}** - ${entry.description}\n*${entry.passive}*`,
 ).join("\n");
 
 export const TUTORIAL_PAGES: readonly TutorialPage[] = [
@@ -53,15 +53,15 @@ export const TUTORIAL_PAGES: readonly TutorialPage[] = [
     sections: [
       {
         heading: "Ton aventurier",
-        body: `Tu as **un seul aventurier**, le même partout : sur tous les serveurs où Gaulia est présent, et en message privé avec lui. Ta progression te suit, elle n'appartient à aucun serveur.\n\nChoisis une classe pour commencer — elle fixe ton style de combat, pas ton destin :\n\n${classList}`,
+        body: `Tu as **un seul aventurier**, le même partout : sur tous les serveurs où Gaulia est présent, et en message privé avec lui. Ta progression te suit, elle n'appartient à aucun serveur.\n\nChoisis une classe pour commencer - elle fixe ton style de combat, pas ton destin :\n\n${classList}`,
       },
       {
         heading: "Explorer, c'est le cœur du jeu",
-        body: "`/aventure explorer` t'envoie battre la région où tu te trouves. Tu peux y croiser une créature — le combat se résout d'un bloc, tu lis le résumé —, faire une trouvaille, ou ne rien rencontrer du tout. Dans tous les cas tu gagnes de l'expérience, souvent des pièces et du butin.\n\nEnsuite, tout se pilote **aux boutons** sous le message : explorer encore, ouvrir ton sac, te soigner. Les commandes restent là pour qui préfère taper.",
+        body: "`/aventure explorer` t'envoie battre la région où tu te trouves. Tu peux y croiser une créature (le combat se résout d'un bloc, tu lis le résumé), faire une trouvaille, ou ne rien rencontrer du tout. Dans tous les cas tu gagnes de l'expérience, souvent des pièces et du butin.\n\nEnsuite, tout se pilote **aux boutons** sous le message : explorer encore, ouvrir ton sac, te soigner. Les commandes restent là pour qui préfère taper.",
       },
       {
         heading: "Énergie et points de vie",
-        body: `Une exploration coûte **${ADVENTURE_ENERGY_PER_EXPLORE} énergie**. Tu en regagnes 1 toutes les ${regenMinutes} minutes, jusqu'à **${ADVENTURE_ENERGY_MAX}** en réserve — soit environ ${energyPerDay} par jour si tu passes régulièrement.\n\nTes points de vie remontent seuls avec le temps, ou d'un coup avec une potion. Perdre un combat ne coûte jamais ta progression : tu rentres soigner tes plaies, c'est tout. **Il n'y a pas de mort définitive.**`,
+        body: `Une exploration coûte **${ADVENTURE_ENERGY_PER_EXPLORE} énergie**. Tu en regagnes 1 toutes les ${regenMinutes} minutes, jusqu'à **${ADVENTURE_ENERGY_MAX}** en réserve - soit environ ${energyPerDay} par jour si tu passes régulièrement.\n\nTes points de vie remontent seuls avec le temps, ou d'un coup avec une potion. Perdre un combat ne coûte jamais ta progression : tu rentres soigner tes plaies, c'est tout. **Il n'y a pas de mort définitive.**`,
       },
     ],
   },
@@ -73,7 +73,7 @@ export const TUTORIAL_PAGES: readonly TutorialPage[] = [
     sections: [
       {
         heading: "Niveaux et caractéristiques",
-        body: `L'expérience te fait monter jusqu'au niveau **${ADVENTURE_MAX_LEVEL}**. Chaque niveau rend toute ta vie et t'offre **${ADVENTURE_STAT_POINTS_PER_LEVEL} points** à placer avec \`/aventure ameliorer\` :\n\n**Force** — dégâts physiques et points de vie\n**Agilité** — coups critiques, esquive et défense\n**Esprit** — dégâts magiques`,
+        body: `L'expérience te fait monter jusqu'au niveau **${ADVENTURE_MAX_LEVEL}**. Chaque niveau rend toute ta vie et t'offre **${ADVENTURE_STAT_POINTS_PER_LEVEL} points** à placer avec \`/aventure ameliorer\` :\n\n**Force** - dégâts physiques et points de vie\n**Agilité** - coups critiques, esquive et défense\n**Esprit** - dégâts magiques`,
       },
       {
         heading: "S'équiper",
@@ -97,7 +97,7 @@ export const TUTORIAL_PAGES: readonly TutorialPage[] = [
       },
       {
         heading: "Le comptoir",
-        body: "`/aventure boutique` liste ce que le marchand propose à ton niveau : potions, rations qui rendent de l'énergie, équipement d'entrée de gamme. Tu achètes d'un menu déroulant. `/aventure vendre` fait l'inverse — sauf pour les reliques, que personne ne rachète.",
+        body: "`/aventure boutique` liste ce que le marchand propose à ton niveau : potions, rations qui rendent de l'énergie, équipement d'entrée de gamme. Tu achètes d'un menu déroulant. `/aventure vendre` fait l'inverse - sauf pour les reliques, que personne ne rachète.",
       },
       {
         heading: "La forge",
@@ -121,7 +121,7 @@ export const TUTORIAL_PAGES: readonly TutorialPage[] = [
       },
       {
         heading: "Le donjon de la semaine",
-        body: `Chaque acte a son gardien, affrontable **une fois tous les ${dungeonDays} jours** pour ${ADVENTURE_ENERGY_PER_DUNGEON} énergie. C'est le gros rendez-vous : beaucoup d'expérience, d'or, et les fragments qui font avancer l'histoire. Une défaite ne consomme pas la semaine — reviens mieux équipé le jour même.`,
+        body: `Chaque acte a son gardien, affrontable **une fois tous les ${dungeonDays} jours** pour ${ADVENTURE_ENERGY_PER_DUNGEON} énergie. C'est le gros rendez-vous : beaucoup d'expérience, d'or, et les fragments qui font avancer l'histoire. Une défaite ne consomme pas la semaine - reviens mieux équipé le jour même.`,
       },
       {
         heading: "Les quêtes",
@@ -141,7 +141,7 @@ export const TUTORIAL_PAGES: readonly TutorialPage[] = [
       },
       {
         heading: "Les règles du marché",
-        body: `Les échanges s'ouvrent au **niveau ${ADVENTURE_TRADE_MIN_LEVEL}** des deux côtés. Une proposition expire après **${tradeMinutes} minutes**, et tu peux en avoir **${ADVENTURE_MAX_PENDING_TRADES}** ouvertes en même temps, avec au plus ${ADVENTURE_TRADE_MAX_ITEMS} objets par côté.\n\nRien n'est bloqué pendant qu'une proposition attend : tu continues de jouer normalement. Les deux sacs sont revérifiés au moment de l'acceptation, et tout part en une seule fois — impossible qu'un des deux soit délesté sans recevoir sa part.`,
+        body: `Les échanges s'ouvrent au **niveau ${ADVENTURE_TRADE_MIN_LEVEL}** des deux côtés. Une proposition expire après **${tradeMinutes} minutes**, et tu peux en avoir **${ADVENTURE_MAX_PENDING_TRADES}** ouvertes en même temps, avec au plus ${ADVENTURE_TRADE_MAX_ITEMS} objets par côté.\n\nRien n'est bloqué pendant qu'une proposition attend : tu continues de jouer normalement. Les deux sacs sont revérifiés au moment de l'acceptation, et tout part en une seule fois - impossible qu'un des deux soit délesté sans recevoir sa part.`,
       },
       {
         heading: "Ce qui ne s'échange pas",
@@ -165,7 +165,7 @@ export const TUTORIAL_PAGES: readonly TutorialPage[] = [
       },
       {
         heading: "Où l'on joue",
-        body: "En **message privé** avec Gaulia, toujours. Sur un serveur, ça dépend de ses administrateurs : ils choisissent les salons où l'aventure est autorisée depuis le tableau de bord. Si une commande te répond que le salon n'est pas ouvert, demande-leur — ou continue en privé, c'est le même personnage.",
+        body: "En **message privé** avec Gaulia, toujours. Sur un serveur, ça dépend de ses administrateurs : ils choisissent les salons où l'aventure est autorisée depuis le tableau de bord. Si une commande te répond que le salon n'est pas ouvert, demande-leur - ou continue en privé, c'est le même personnage.",
       },
       {
         heading: "Jouer ensemble",
@@ -185,11 +185,11 @@ export const TUTORIAL_PAGES: readonly TutorialPage[] = [
       },
       {
         heading: "La bonne habitude",
-        body: "Passe une ou deux fois par jour, vide ton énergie, termine ton lot de quêtes, prends ton donjon dans la semaine. C'est tout. Ta **série de jours consécutifs** augmente ton butin, jusqu'à +30 % — et un jour manqué la remet à 1, jamais à zéro.",
+        body: "Passe une ou deux fois par jour, vide ton énergie, termine ton lot de quêtes, prends ton donjon dans la semaine. C'est tout. Ta **série de jours consécutifs** augmente ton butin, jusqu'à +30 % - et un jour manqué la remet à 1, jamais à zéro.",
       },
       {
         heading: "Trois conseils pour débuter",
-        body: "**1.** Place tes points de caractéristique dès que tu montes de niveau, ils ne servent à rien en réserve.\n**2.** Garde tes matériaux : ils valent plus à la forge qu'au comptoir.\n**3.** Voyage dès qu'une région s'ouvre — les gains y sont meilleurs, et ton histoire t'y attend.",
+        body: "**1.** Place tes points de caractéristique dès que tu montes de niveau, ils ne servent à rien en réserve.\n**2.** Garde tes matériaux : ils valent plus à la forge qu'au comptoir.\n**3.** Voyage dès qu'une région s'ouvre - les gains y sont meilleurs, et ton histoire t'y attend.",
       },
     ],
   },
@@ -202,6 +202,6 @@ export function findTutorialPage(id: string): number {
 
 /** Choix proposés par l'option `sujet` de `/aventure tuto`. */
 export const TUTORIAL_CHOICES = TUTORIAL_PAGES.map((page) => ({
-  name: `${page.emoji} ${page.title} — ${page.summary}`.slice(0, 100),
+  name: `${page.emoji} ${page.title} - ${page.summary}`.slice(0, 100),
   value: page.id,
 }));

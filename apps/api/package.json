@@ -1,7 +1,7 @@
 {
   "name": "@gaulia/api",
   "version": "1.0.0",
-  "description": "Gaulia — API du dashboard (OAuth2 Discord, config des serveurs, stats)",
+  "description": "Gaulia - API du dashboard (OAuth2 Discord, config des serveurs, stats)",
   "private": true,
   "engines": {
     "node": ">=20.0.0"

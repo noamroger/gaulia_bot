@@ -28,11 +28,11 @@ export function profileView(
 
   const equipment = SLOTS.map((slot) => {
     const row = equippedIn(items, slot);
-    return `${SLOT_LABELS[slot]} · ${row ? itemLabel(row.itemId) : "—"}`;
+    return `${SLOT_LABELS[slot]} · ${row ? itemLabel(row.itemId) : "-"}`;
   });
 
   const lines = [
-    `## ${definition.emoji} ${character.username ?? "Aventurier"}${options.title ? ` — *${options.title}*` : ""}`,
+    `## ${definition.emoji} ${character.username ?? "Aventurier"}${options.title ? ` - *${options.title}*` : ""}`,
     `${definition.name} · niveau **${character.level}** · ${zone.emoji} ${zone.name} · rang #${formatNumber(options.rank)}`,
     [
       `❤️ **${formatNumber(character.hp)} / ${formatNumber(stats.maxHp)}** · ⚡ **${character.energy} / ${ENERGY_MAX}**`,
@@ -46,7 +46,7 @@ export function profileView(
     ].join("\n"),
     `**Équipement**\n${equipment.join("\n")}`,
     options.chapter
-      ? `**Histoire** ${options.chapter.actEmoji} ${options.chapter.actTitle}\nChapitre ${options.chapter.overallIndex}/${TOTAL_CHAPTERS} — *${options.chapter.chapter.title}*`
+      ? `**Histoire** ${options.chapter.actEmoji} ${options.chapter.actTitle}\nChapitre ${options.chapter.overallIndex}/${TOTAL_CHAPTERS} - *${options.chapter.chapter.title}*`
       : "**Histoire** 🏆 Scénario terminé.",
     `🔥 Série de **${character.streak} jour(s)** (record : ${character.bestStreak}) · 🗺️ ${formatNumber(character.explorations)} explorations · ⚔️ ${formatNumber(character.victories)} victoires · 🚪 ${character.dungeonClears} donjons`,
   ];
@@ -76,9 +76,9 @@ export function statsView(character: AdventureCharacter, items: AdventureItem[])
       ? `Tu as **${character.statPoints} point(s)** à placer avec \`/aventure ameliorer caracteristique:<...> points:<n>\`.`
       : "Aucun point disponible : monte d'un niveau pour en gagner.",
     [
-      `**Force** ${character.might} — dégâts physiques et points de vie (attaque ${formatNumber(stats.attack)}, PV max ${formatNumber(stats.maxHp)})`,
-      `**Agilité** ${character.agility} — critique, esquive et défense (${stats.crit} % / ${stats.dodge} %)`,
-      `**Esprit** ${character.spirit} — dégâts magiques (puissance ${formatNumber(stats.power)})`,
+      `**Force** ${character.might} - dégâts physiques et points de vie (attaque ${formatNumber(stats.attack)}, PV max ${formatNumber(stats.maxHp)})`,
+      `**Agilité** ${character.agility} - critique, esquive et défense (${stats.crit} % / ${stats.dodge} %)`,
+      `**Esprit** ${character.spirit} - dégâts magiques (puissance ${formatNumber(stats.power)})`,
     ].join("\n"),
   ];
   return toV2Payload(true, buildContainer(Colors.Primary, lines));
@@ -92,7 +92,7 @@ export function leaderboardView(
   const rows = entries.map((entry, index) => {
     const definition = classDefinition(entry.characterClass);
     const highlight = entry.userId === viewer.userId ? "**" : "";
-    return `${medals[index] ?? `\`${index + 1}.\``} ${highlight}${entry.username ?? "Aventurier"}${highlight} — ${definition.emoji} niveau ${entry.level} · acte ${entry.actIndex + 1} · ${formatNumber(entry.totalXp)} XP`;
+    return `${medals[index] ?? `\`${index + 1}.\``} ${highlight}${entry.username ?? "Aventurier"}${highlight} - ${definition.emoji} niveau ${entry.level} · acte ${entry.actIndex + 1} · ${formatNumber(entry.totalXp)} XP`;
   });
 
   const payload = toV2Payload(
@@ -112,11 +112,11 @@ export function achievementsView(
   locked: { emoji: string; name: string; description: string }[],
 ): V2MessagePayload {
   const lines = [
-    `## 🏆 Hauts faits — ${unlocked.length}/${unlocked.length + locked.length}`,
+    `## 🏆 Hauts faits - ${unlocked.length}/${unlocked.length + locked.length}`,
     unlocked.length > 0
       ? unlocked
           .map(
-            (entry) => `${checkbox(true)} ${entry.emoji} **${entry.name}** — ${entry.description}`,
+            (entry) => `${checkbox(true)} ${entry.emoji} **${entry.name}** - ${entry.description}`,
           )
           .join("\n")
       : "Aucun haut fait pour l'instant.",
@@ -125,7 +125,7 @@ export function achievementsView(
     lines.push(
       locked
         .slice(0, 8)
-        .map((entry) => `${checkbox(false)} ${entry.emoji} ${entry.name} — ${entry.description}`)
+        .map((entry) => `${checkbox(false)} ${entry.emoji} ${entry.name} - ${entry.description}`)
         .join("\n"),
     );
   }
@@ -151,7 +151,7 @@ export function mapView(character: AdventureCharacter, zones: ZoneDefinition[]):
         const here = zone.id === character.zoneId;
         const marker = here ? "📍 " : "";
         const suffix = here ? " · **tu es ici**" : "";
-        return `${marker}${zone.emoji} **${zone.name}** — niveau conseillé ${zone.minLevel}${suffix}`;
+        return `${marker}${zone.emoji} **${zone.name}** - niveau conseillé ${zone.minLevel}${suffix}`;
       })
       .join("\n"),
     "Choisis ta destination d'un bouton, ou `/aventure voyager region:<nom>`.",

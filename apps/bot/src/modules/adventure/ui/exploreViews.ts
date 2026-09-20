@@ -71,12 +71,12 @@ export function dungeonStatusView(
   status: DungeonStatus,
 ): V2MessagePayload {
   const lines = [
-    `## 🚪 Donjon — ${status.actTitle}`,
+    `## 🚪 Donjon - ${status.actTitle}`,
     `Gardien : ${status.guardian.emoji} **${status.guardian.name}** (niveau ${status.guardian.level})`,
     status.cooldownMs > 0
       ? `⏳ Prochaine tentative dans **${formatDuration(status.cooldownMs)}**.`
       : "Le passage est ouvert : affronte le gardien d'un bouton, ou `/aventure donjon lancer:true`.",
-    `Un donjon remporté rapporte l'essentiel de tes fragments d'écho — c'est le rendez-vous de la semaine.`,
+    `Un donjon remporté rapporte l'essentiel de tes fragments d'écho - c'est le rendez-vous de la semaine.`,
     vitalsLine(character),
   ];
   const payload = toV2Payload(false, buildContainer(Colors.Premium, lines));
@@ -95,7 +95,7 @@ export function dungeonStatusView(
 export function dungeonResultView(outcome: DungeonOutcome): V2MessagePayload {
   const lines = [
     `## ${outcome.guardian.emoji} ${outcome.combat.victory ? "Gardien vaincu" : "Le gardien tient bon"}`,
-    `**${outcome.guardian.name}** — niveau ${outcome.guardian.level}`,
+    `**${outcome.guardian.name}** - niveau ${outcome.guardian.level}`,
     outcome.combat.highlights.join("\n"),
   ];
 

@@ -5,7 +5,7 @@ import { isPremiumGuild } from "../services/entitlementService";
 
 /**
  * Vérifie qu'une guilde a l'abonnement premium. Si non, répond directement à l'interaction avec
- * l'upsell Components V2 et retourne false — à utiliser en garde en tête d'exécution (commande
+ * l'upsell Components V2 et retourne false - à utiliser en garde en tête d'exécution (commande
  * entièrement premium) ou au milieu d'une commande mixte (ex: un sous-mode premium de `/loop`).
  */
 export async function requirePremium(

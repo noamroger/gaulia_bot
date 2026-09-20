@@ -7,7 +7,7 @@ import { DEFAULT_THEME, THEME_STORAGE_KEY } from "@/lib/theme";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Gaulia — Dashboard",
+  title: "Gaulia - Dashboard",
   description: "Gère la modération, l'automod et le statut premium de tes serveurs Gaulia.",
 };
 

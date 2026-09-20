@@ -18,7 +18,7 @@ const IMPLICIT_TLS_PORT = 465;
 
 /**
  * Options de connexion au serveur SMTP. `secure` se déduit du port et non de `SMTP_TLS` : sur le
- * 587, le dialogue commence en clair puis bascule en TLS via STARTTLS — annoncer `secure: true`
+ * 587, le dialogue commence en clair puis bascule en TLS via STARTTLS - annoncer `secure: true`
  * ferait attendre une poignée de main TLS que le serveur n'entamera jamais, et la connexion
  * resterait bloquée. `SMTP_TLS` sert donc à *exiger* le chiffrement (`requireTLS`), ce qui fait
  * échouer l'envoi plutôt que de le laisser partir en clair si le serveur ne propose pas STARTTLS.

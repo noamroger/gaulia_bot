@@ -35,7 +35,7 @@ const command: ChatInputCommand = {
     }
 
     const lines = [
-      `### ${Emojis.Moderation} Cas #${moderationCase.caseNumber} — ${caseTypeLabel(moderationCase.type)}`,
+      `### ${Emojis.Moderation} Cas #${moderationCase.caseNumber} - ${caseTypeLabel(moderationCase.type)}`,
       `**Cible :** ${moderationCase.targetTag} (\`${moderationCase.targetId}\`)`,
       `**Modérateur :** ${moderationCase.moderatorTag}`,
       `**Date :** <t:${Math.floor(moderationCase.createdAt.getTime() / 1000)}:F>`,

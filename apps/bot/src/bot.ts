@@ -23,7 +23,7 @@ async function main(): Promise<void> {
 
   // lavalink-client a besoin des paquets gateway bruts (VOICE_STATE_UPDATE / VOICE_SERVER_UPDATE)
   // pour établir les connexions vocales. discord.js n'expose plus "raw" dans son typage public
-  // (ClientEvents) mais continue de l'émettre au runtime — c'est l'intégration recommandée par
+  // (ClientEvents) mais continue de l'émettre au runtime - c'est l'intégration recommandée par
   // lavalink-client lui-même, d'où le cast local ici.
   client.on("raw", (packet: unknown) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- paquet gateway brut, non typé côté discord.js

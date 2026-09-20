@@ -10,7 +10,7 @@
  *    ≈ 3,4 M d'XP : ≈ 8 mois pour un acharné, ≈ 10 mois en rythme régulier.
  * 2. Les fragments d'écho, qui scellent les chapitres, ne s'obtiennent qu'en temps réel : un lot
  *    de quêtes quotidiennes (1/jour), un lot hebdomadaire (2/semaine), un donjon (3/semaine) et
- *    quelques trouvailles rares — soit ≈ 14 échos/semaine au mieux, pour un scénario qui en coûte
+ *    quelques trouvailles rares - soit ≈ 14 échos/semaine au mieux, pour un scénario qui en coûte
  *    755. Impossible de descendre sous ≈ 12 mois, même en jouant parfaitement.
  *
  * Le second verrou est celui qui garantit la durée : il ne récompense pas le bourrinage, seulement

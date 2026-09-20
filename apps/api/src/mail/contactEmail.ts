@@ -56,7 +56,7 @@ function row(label: string, valueHtml: string): string {
 }
 
 export function contactSubject(message: ContactMessage): string {
-  return `[Gaulia] ${message.subjectLabel} — ${message.username}`;
+  return `[Gaulia] ${message.subjectLabel} - ${message.username}`;
 }
 
 export function contactText(message: ContactMessage): string {

@@ -93,8 +93,8 @@ export function inventoryView(
         value: entry.item.id,
         description: (entry.item.slot
           ? entry.row.equipped
-            ? "Déjà porté — retirer"
-            : `Équiper — ${describeBonus(entry.item)}`
+            ? "Déjà porté - retirer"
+            : `Équiper - ${describeBonus(entry.item)}`
           : entry.item.description
         ).slice(0, 100),
         emoji: entry.item.emoji,
@@ -110,7 +110,7 @@ export function shopView(character: AdventureCharacter): V2MessagePayload {
   const lines = available
     .map((item) => {
       const locked = (item.level ?? 1) > character.level ? ` · 🔒 niveau ${item.level}` : "";
-      return `${RARITY_EMOJIS[item.rarity]} ${itemLabel(item.id)} — ${gold(item.price ?? 0)}${locked}\n*${describeBonus(item)}*`;
+      return `${RARITY_EMOJIS[item.rarity]} ${itemLabel(item.id)} - ${gold(item.price ?? 0)}${locked}\n*${describeBonus(item)}*`;
     })
     .join("\n");
 
@@ -134,7 +134,7 @@ export function shopView(character: AdventureCharacter): V2MessagePayload {
     .setPlaceholder("Acheter un objet…")
     .addOptions(
       buyable.slice(0, MAX_SELECT_OPTIONS).map((item) => ({
-        label: `${item.name} — ${formatNumber(item.price ?? 0)} pièces`.slice(0, 100),
+        label: `${item.name} - ${formatNumber(item.price ?? 0)} pièces`.slice(0, 100),
         value: item.id,
         description: describeBonus(item).slice(0, 100),
         emoji: item.emoji,
@@ -205,7 +205,7 @@ function upgradeSection(items: AdventureItem[]): string {
     rows.length > 0
       ? rows.slice(0, 5).join("\n")
       : "Aucune pièce d'équipement à renforcer dans ton sac.",
-    "`/aventure renforcer objet:<pièce>` — le renforcement reste attaché à ton exemplaire et ne suit pas un échange.",
+    "`/aventure renforcer objet:<pièce>` - le renforcement reste attaché à ton exemplaire et ne suit pas un échange.",
   ].join("\n");
 }
 
@@ -222,7 +222,7 @@ export function forgeView(character: AdventureCharacter, items: AdventureItem[])
           return `${ok} ${ingredient.quantity} × ${itemLabel(ingredient.itemId)} (${have})`;
         })
         .join(" · ");
-      return `**${itemLabel(recipe.itemId)}**${recipe.quantity > 1 ? ` ×${recipe.quantity}` : ""} — ${gold(recipe.goldCost)}\n${ingredients}`;
+      return `**${itemLabel(recipe.itemId)}**${recipe.quantity > 1 ? ` ×${recipe.quantity}` : ""} - ${gold(recipe.goldCost)}\n${ingredients}`;
     })
     .join("\n");
 

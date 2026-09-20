@@ -47,7 +47,7 @@ export function LiveStats() {
         {ITEMS.map((item) => (
           <div key={item.key} className="landing-stat">
             <span className="landing-stat-value">
-              {stats ? formatCompact(stats[item.key]) : "—"}
+              {stats ? formatCompact(stats[item.key]) : "-"}
             </span>
             <span className="landing-stat-label">{item.label}</span>
           </div>

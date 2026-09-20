@@ -72,7 +72,7 @@ export async function grantGuildPremium(guildId: string, durationMs: number): Pr
   return premiumGrantedUntil;
 }
 
-/** Fixe (ou retire, avec `null`) l'échéance du premium offert — panel admin. */
+/** Fixe (ou retire, avec `null`) l'échéance du premium offert - panel admin. */
 export async function setGuildPremiumGrant(guildId: string, until: Date | null): Promise<Guild> {
   return prisma.guild.upsert({
     where: { id: guildId },
@@ -147,7 +147,7 @@ const GRANT_TRANSACTION_TYPES = ["PREMIUM_REDEEM", "PREMIUM_REFUND"] as const;
  * Le remboursement est au prorata du temps restant : il reste la moitié de la fenêtre, la moitié
  * des crédits dépensés revient. Chaque contributeur est remboursé sur ce qu'il a réellement payé
  * (les débits sont nettés de leurs éventuels remboursements), et la fenêtre est refermée dans la
- * même transaction — ce qui rend l'opération naturellement idempotente : un second appel ne
+ * même transaction - ce qui rend l'opération naturellement idempotente : un second appel ne
  * trouve plus rien à rembourser.
  *
  * Retourne `null` s'il n'y a rien à convertir, notamment pour un octroi posé à la main depuis le

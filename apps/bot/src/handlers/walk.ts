@@ -32,7 +32,7 @@ export function filterBySubfolder(files: string[], subfolder: string): string[] 
 /**
  * Charge l'export par défaut d'un module par chemin de fichier absolu. Utilise `require` plutôt
  * que `import()` dynamique : ce dernier traite toujours son argument comme une URL ESM, ce qui
- * casse sur Windows avec un chemin `E:\...` brut (ERR_UNSUPPORTED_ESM_URL_SCHEME) — `require`
+ * casse sur Windows avec un chemin `E:\...` brut (ERR_UNSUPPORTED_ESM_URL_SCHEME) - `require`
  * gère nativement les chemins absolus de chaque plateforme.
  */
 export function loadDefaultExport<T>(file: string): T | undefined {

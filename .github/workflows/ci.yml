@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # `prisma generate` ne se connecte pas à la base (il lui faut juste le schéma), mais le
-      # chargement de prisma.config.ts exige que DATABASE_URL existe — d'où cette valeur factice,
+      # chargement de prisma.config.ts exige que DATABASE_URL existe - d'où cette valeur factice,
       # comme dans les Dockerfile. Aucune base n'est démarrée dans ce job.
       DATABASE_URL: postgresql://user:pass@localhost:5432/db
 

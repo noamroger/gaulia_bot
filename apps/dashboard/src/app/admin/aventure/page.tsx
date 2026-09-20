@@ -115,14 +115,14 @@ export default function AdminAdventurePage() {
         <div className="card stat-tile">
           <span className="stat-label">Histoires terminées</span>
           <span className="stat-value">{formatNumber(finished)}</span>
-          <span className="stat-hint">sur {catalogue?.totalChapters ?? "—"} chapitres</span>
+          <span className="stat-hint">sur {catalogue?.totalChapters ?? "-"} chapitres</span>
         </div>
         <div className="card stat-tile">
           <span className="stat-label">Niveau le plus élevé</span>
           <span className="stat-value">
             {formatNumber(Math.max(0, ...(players ?? []).map((player) => player.level)))}
           </span>
-          <span className="stat-hint">maximum : {catalogue?.maxLevel ?? "—"}</span>
+          <span className="stat-hint">maximum : {catalogue?.maxLevel ?? "-"}</span>
         </div>
       </div>
 
@@ -183,7 +183,7 @@ export default function AdminAdventurePage() {
                   </td>
                   <td className="numeric">{formatNumber(player.gold)}</td>
                   <td className="numeric">{formatNumber(player.echoes)}</td>
-                  <td>{player.lastPlayedAt ? formatDateTime(player.lastPlayedAt) : "—"}</td>
+                  <td>{player.lastPlayedAt ? formatDateTime(player.lastPlayedAt) : "-"}</td>
                   <td className="table-actions">
                     <button
                       type="button"

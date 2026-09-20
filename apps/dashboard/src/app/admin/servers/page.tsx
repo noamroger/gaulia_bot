@@ -84,7 +84,7 @@ export default function AdminServersPage() {
             <tbody>
               {filteredGuilds.map((guild) => {
                 const icon = guildIconUrl(guild.id, guild.icon, 64);
-                const name = guild.name ?? "—";
+                const name = guild.name ?? "-";
                 return (
                   <tr key={guild.id}>
                     <td>

@@ -18,7 +18,7 @@ interface FooterColumn {
 /**
  * `/invite`, `/vote` et `/app-directory` sont des redirections du dashboard construites au build à
  * partir de DISCORD_CLIENT_ID (voir next.config.js) : aucun identifiant n'est écrit en dur ici, et
- * les liens restent valides même sans cette variable — la redirection est alors simplement absente.
+ * les liens restent valides même sans cette variable - la redirection est alors simplement absente.
  */
 const COLUMNS: FooterColumn[] = [
   {

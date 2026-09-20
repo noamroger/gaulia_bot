@@ -373,7 +373,7 @@ export interface StoredGuildRef {
 }
 
 /**
- * Parmi les serveurs que l'utilisateur peut gérer, ceux qui ont une ligne en base — les seuls dont
+ * Parmi les serveurs que l'utilisateur peut gérer, ceux qui ont une ligne en base - les seuls dont
  * la suppression a un sens. Une seule requête, quel que soit le nombre de serveurs du compte : le
  * détail de ce qui est enregistré se demande ensuite serveur par serveur (`getGuildDataSummary`).
  */

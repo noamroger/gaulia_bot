@@ -14,7 +14,7 @@ export interface DispatchResult {
 /**
  * Point de passage unique après une action : les évènements alimentent le chapitre en cours, les
  * quêtes, puis les hauts faits. Une nouvelle action n'a donc qu'à produire ses évènements et
- * appeler cette fonction — elle n'a rien à connaître du scénario ni des quêtes.
+ * appeler cette fonction - elle n'a rien à connaître du scénario ni des quêtes.
  */
 export async function dispatchGameEvents(
   character: AdventureCharacter,

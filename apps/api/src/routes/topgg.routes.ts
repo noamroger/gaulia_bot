@@ -13,7 +13,7 @@ const webhookUserSchema = z.object({
   id: z.string(),
   name: z.string().optional(),
   avatar_url: z.string().optional().nullable(),
-  /** Identifiant de l'utilisateur sur la plateforme du projet — l'ID Discord dans notre cas. */
+  /** Identifiant de l'utilisateur sur la plateforme du projet - l'ID Discord dans notre cas. */
   platform_id: z.string().optional().nullable(),
 });
 

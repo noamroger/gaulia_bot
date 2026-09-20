@@ -2,7 +2,7 @@
  * Scénario : sept actes de cinq chapitres. Comme le catalogue d'objets, il est partagé avec
  * l'API : le panel admin affiche l'acte et le chapitre atteints par chaque joueur.
  * Un chapitre se termine quand ses objectifs sont
- * remplis, que le niveau requis est atteint, puis qu'il est scellé avec des fragments d'écho —
+ * remplis, que le niveau requis est atteint, puis qu'il est scellé avec des fragments d'écho -
  * la ressource qui ne s'obtient qu'avec le temps (voir data/pacing.ts). C'est ce triple verrou qui
  * étale l'histoire sur plus d'un an sans jamais imposer de grind.
  *
@@ -57,7 +57,7 @@ export interface AdventureActDefinition {
 export const ADVENTURE_ACTS: readonly AdventureActDefinition[] = [
   {
     id: "acte-1",
-    title: "Acte I — Les Semailles",
+    title: "Acte I - Les Semailles",
     emoji: "🌾",
     intro:
       "Un matin, les cloches de la Clairière ont sonné toutes seules. Depuis, les anciens parlent d'un écho revenu du fond des Terres.",
@@ -138,7 +138,7 @@ export const ADVENTURE_ACTS: readonly AdventureActDefinition[] = [
   },
   {
     id: "acte-2",
-    title: "Acte II — Les Sept Tombes",
+    title: "Acte II - Les Sept Tombes",
     emoji: "⚰️",
     intro:
       "Le cor de la brume ouvre une route vers la nécropole. Six noms y sont gravés. Le septième t'attend.",
@@ -212,7 +212,7 @@ export const ADVENTURE_ACTS: readonly AdventureActDefinition[] = [
   },
   {
     id: "acte-3",
-    title: "Acte III — Les Forges Noires",
+    title: "Acte III - Les Forges Noires",
     emoji: "⚒️",
     intro:
       "La clef des tombes ouvre une trappe sous la nécropole. En dessous, on bat le métal depuis des siècles sans jamais s'arrêter.",
@@ -285,7 +285,7 @@ export const ADVENTURE_ACTS: readonly AdventureActDefinition[] = [
   },
   {
     id: "acte-4",
-    title: "Acte IV — Le Haut-Givre",
+    title: "Acte IV - Le Haut-Givre",
     emoji: "🏔️",
     intro:
       "La braise éternelle rend le froid supportable. Juste assez pour monter au-dessus des nuages.",
@@ -358,7 +358,7 @@ export const ADVENTURE_ACTS: readonly AdventureActDefinition[] = [
   },
   {
     id: "acte-5",
-    title: "Acte V — La Côte des Tempêtes",
+    title: "Acte V - La Côte des Tempêtes",
     emoji: "🌊",
     intro:
       "Le cœur de gel calme la mer sur dix mètres autour de toi. C'est peu, mais c'est un début.",
@@ -432,7 +432,7 @@ export const ADVENTURE_ACTS: readonly AdventureActDefinition[] = [
   },
   {
     id: "acte-6",
-    title: "Acte VI — La Voûte Astrale",
+    title: "Acte VI - La Voûte Astrale",
     emoji: "🌌",
     intro:
       "L'œil de la tempête est une porte. Derrière, un ciel sous la terre, et des étoiles qui te suivent du regard.",
@@ -506,7 +506,7 @@ export const ADVENTURE_ACTS: readonly AdventureActDefinition[] = [
   },
   {
     id: "acte-7",
-    title: "Acte VII — Le Cœur des Échos",
+    title: "Acte VII - Le Cœur des Échos",
     emoji: "✨",
     intro:
       "Le voile astral se pose sur tes épaules. Tu entres là où les Terres gardent tout ce qui a été dit.",

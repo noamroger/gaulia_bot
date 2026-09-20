@@ -16,7 +16,7 @@ export function guildInfo(guild: Guild): {
 /**
  * Marque comme présents en base (nom, icône et nombre de membres à jour) tous les serveurs vus par
  * CE shard. Note : `client.guilds.cache` n'est scopé qu'au shard courant, donc on ne peut pas
- * déduire ici les serveurs quittés pendant l'arrêt (ça casserait les guildes des AUTRES shards) —
+ * déduire ici les serveurs quittés pendant l'arrêt (ça casserait les guildes des AUTRES shards) -
  * `events/guildDelete.ts` gère ce cas en direct pendant que le bot tourne.
  */
 export async function syncGuildPresence(client: GauliaClient): Promise<void> {

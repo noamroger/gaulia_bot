@@ -50,12 +50,12 @@ export function PlayerSheet({
         <div className="card stat-tile">
           <span className="stat-label">Scénario</span>
           <span className="stat-value">
-            {chaptersDone}/{catalogue?.totalChapters ?? "—"}
+            {chaptersDone}/{catalogue?.totalChapters ?? "-"}
           </span>
           <span className="stat-hint">
             {character.storyEndedAt
               ? "Histoire terminée"
-              : `${act?.title ?? `Acte ${character.actIndex + 1}`} — ${chapter?.title ?? `chapitre ${character.chapterIndex + 1}`}`}
+              : `${act?.title ?? `Acte ${character.actIndex + 1}`} - ${chapter?.title ?? `chapitre ${character.chapterIndex + 1}`}`}
           </span>
         </div>
         <div className="card stat-tile">
@@ -68,7 +68,7 @@ export function PlayerSheet({
         <div className="card stat-tile">
           <span className="stat-label">Énergie</span>
           <span className="stat-value">
-            {character.energy}/{catalogue?.maxEnergy ?? "—"}
+            {character.energy}/{catalogue?.maxEnergy ?? "-"}
           </span>
           <span className="stat-hint">{formatNumber(character.hp)} PV</span>
         </div>
@@ -147,9 +147,9 @@ export function PlayerSheet({
                     <td>{itemName(row.itemId)}</td>
                     <td className="numeric">{formatNumber(row.quantity)}</td>
                     <td className="numeric">
-                      {row.upgradeLevel > 0 ? `+${row.upgradeLevel}` : "—"}
+                      {row.upgradeLevel > 0 ? `+${row.upgradeLevel}` : "-"}
                     </td>
-                    <td>{row.equipped ? "Porté" : "—"}</td>
+                    <td>{row.equipped ? "Porté" : "-"}</td>
                   </tr>
                 ))}
               </tbody>

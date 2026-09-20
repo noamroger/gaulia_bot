@@ -6,7 +6,7 @@ import type { AdventureItemDefinition, AdventureItemRarity } from "./adventureIt
  * matériaux de haut niveau, et une façon de garder utile un équipement aimé plus longtemps.
  *
  * Le renforcement porte sur l'exemplaire d'un joueur (ligne d'inventaire) : il ne suit pas l'objet
- * lors d'un échange — ce qui évite un marché de pièces déjà renforcées, et récompense celui qui a
+ * lors d'un échange - ce qui évite un marché de pièces déjà renforcées, et récompense celui qui a
  * dépensé ses propres ressources.
  */
 

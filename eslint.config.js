@@ -10,7 +10,7 @@ module.exports = tseslint.config(
   {
     languageOptions: {
       parserOptions: {
-        // Auto-découvre le tsconfig.json le plus proche de chaque fichier linté — nécessaire en
+        // Auto-découvre le tsconfig.json le plus proche de chaque fichier linté - nécessaire en
         // monorepo (packages/*, apps/*) plutôt qu'un chemin de projet unique codé en dur.
         projectService: true,
         tsconfigRootDir: __dirname,

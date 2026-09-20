@@ -1,7 +1,7 @@
 {
   "name": "@gaulia/bot",
   "version": "5.0.0",
-  "description": "Gaulia — bot Discord (modération, automod, musique, premium, sharding)",
+  "description": "Gaulia - bot Discord (modération, automod, musique, premium, sharding)",
   "private": true,
   "engines": {
     "node": ">=20.0.0"

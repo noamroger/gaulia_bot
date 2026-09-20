@@ -6,7 +6,7 @@ import { LiveStats } from "@/components/home/LiveStats";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 export const metadata: Metadata = {
-  title: "Gaulia — Bot Discord de modération, musique et jeux",
+  title: "Gaulia - Bot Discord de modération, musique et jeux",
   description:
     "Gaulia modère, protège et anime ton serveur Discord : modération, automod, musique, blindtest et jeux, configurables depuis un tableau de bord.",
 };

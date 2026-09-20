@@ -11,8 +11,8 @@ import { useEditableResource } from "@/lib/useEditableResource";
 import { useGuildResources } from "@/lib/useGuildResources";
 
 const MODE_LABELS: Record<AdventureChannelMode, string> = {
-  ALLOWLIST: "Liste blanche — jouable uniquement dans les salons choisis",
-  BLOCKLIST: "Liste noire — jouable partout, sauf dans les salons choisis",
+  ALLOWLIST: "Liste blanche - jouable uniquement dans les salons choisis",
+  BLOCKLIST: "Liste noire - jouable partout, sauf dans les salons choisis",
 };
 
 export default function AdventureSettingsPage() {
@@ -100,8 +100,8 @@ export default function AdventureSettingsPage() {
             addLabel="Ajouter un salon…"
             emptyLabel={
               allowlist
-                ? "Aucun salon — aventure interdite partout"
-                : "Aucun salon — aventure autorisée partout"
+                ? "Aucun salon - aventure interdite partout"
+                : "Aucun salon - aventure autorisée partout"
             }
             ariaLabel="Ajouter un salon d'aventure"
             onChange={(adventureChannelIds) => update({ adventureChannelIds })}
@@ -119,7 +119,7 @@ export default function AdventureSettingsPage() {
       >
         <SettingRow
           label="Progression"
-          hint="L'énergie limite le nombre d'explorations par jour et les fragments d'écho — gagnés avec les quêtes et le donjon hebdomadaire — font avancer le scénario. Terminer l'histoire demande plus d'un an de jeu régulier."
+          hint="L'énergie limite le nombre d'explorations par jour et les fragments d'écho (gagnés avec les quêtes et le donjon hebdomadaire) font avancer le scénario. Terminer l'histoire demande plus d'un an de jeu régulier."
         >
           <span className="setting-hint">7 actes · 35 chapitres</span>
         </SettingRow>

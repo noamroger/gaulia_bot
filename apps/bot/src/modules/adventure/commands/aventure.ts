@@ -330,9 +330,9 @@ const command: ChatInputCommand = {
             .setName("caracteristique")
             .setDescription("Caractéristique à monter")
             .addChoices(
-              { name: "Force — dégâts physiques et PV", value: "force" },
-              { name: "Agilité — critique, esquive, défense", value: "agilite" },
-              { name: "Esprit — dégâts magiques", value: "esprit" },
+              { name: "Force - dégâts physiques et PV", value: "force" },
+              { name: "Agilité - critique, esquive, défense", value: "agilite" },
+              { name: "Esprit - dégâts magiques", value: "esprit" },
             ),
         )
         .addIntegerOption((option) =>
@@ -353,7 +353,7 @@ const command: ChatInputCommand = {
 
   help: {
     details:
-      "`/aventure tuto` explique tout en quelques pages, et permet de créer son aventurier d'un bouton. Un jeu d'aventure au long cours : tu crées un aventurier, tu explores les Terres de Gaulia, tu combats, tu récoltes, tu forges, tu renforces ton équipement, tu échanges avec les autres joueurs et tu suis une histoire en sept actes. L'énergie limite le nombre d'explorations par jour et les fragments d'écho — gagnés avec les quêtes et le donjon hebdomadaire — font avancer le scénario : le terminer demande plus d'un an de jeu régulier. Jouable en message privé, et sur un serveur dans les salons autorisés par ses administrateurs.",
+      "`/aventure tuto` explique tout en quelques pages, et permet de créer son aventurier d'un bouton. Un jeu d'aventure au long cours : tu crées un aventurier, tu explores les Terres de Gaulia, tu combats, tu récoltes, tu forges, tu renforces ton équipement, tu échanges avec les autres joueurs et tu suis une histoire en sept actes. L'énergie limite le nombre d'explorations par jour et les fragments d'écho (gagnés avec les quêtes et le donjon hebdomadaire) font avancer le scénario : le terminer demande plus d'un an de jeu régulier. Jouable en message privé, et sur un serveur dans les salons autorisés par ses administrateurs.",
     examples: [
       "aventure tuto",
       "aventure tuto sujet:echanges",

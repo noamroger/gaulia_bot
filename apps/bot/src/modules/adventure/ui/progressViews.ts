@@ -18,7 +18,7 @@ function questLines(title: string, views: QuestSets["daily"], resetLabel: string
   const rows = views
     .map((view) => {
       const done = view.row.claimedAt !== null;
-      return `${checkbox(done)} ${view.label} — ${counter(Math.min(view.row.progress, view.row.target), view.row.target)} · +${formatNumber(view.reward.xp)} XP · +${formatNumber(view.reward.gold)} 🪙`;
+      return `${checkbox(done)} ${view.label} - ${counter(Math.min(view.row.progress, view.row.target), view.row.target)} · +${formatNumber(view.reward.xp)} XP · +${formatNumber(view.reward.gold)} 🪙`;
     })
     .join("\n");
   return `**${title}** *(${resetLabel})*\n${rows}`;
@@ -69,7 +69,7 @@ export function storyView(
   const objectives = status.objectives
     .map(
       (entry) =>
-        `${checkbox(entry.done)} ${entry.label} — ${counter(entry.progress, entry.objective.target)}`,
+        `${checkbox(entry.done)} ${entry.label} - ${counter(entry.progress, entry.objective.target)}`,
     )
     .join("\n");
 
@@ -82,7 +82,7 @@ export function storyView(
     false,
     buildContainer(Colors.Premium, [
       `## ${status.actEmoji} ${status.actTitle}`,
-      `**Chapitre ${status.overallIndex}/${TOTAL_CHAPTERS} — ${status.chapter.title}**\n*${status.chapter.narration}*`,
+      `**Chapitre ${status.overallIndex}/${TOTAL_CHAPTERS} - ${status.chapter.title}**\n*${status.chapter.narration}*`,
       `**Objectifs**\n${objectives}`,
       `**Pour sceller le chapitre**\n${requirements}`,
       `Avancement du scénario ${progressBar((status.overallIndex - 1) / TOTAL_CHAPTERS)} ${Math.round(((status.overallIndex - 1) / TOTAL_CHAPTERS) * 100)} %`,
@@ -114,7 +114,7 @@ export function storyView(
 
 export function sealView(result: SealResult): V2MessagePayload {
   const lines = [
-    `## 🔷 ${result.chapter.title} — chapitre scellé`,
+    `## 🔷 ${result.chapter.title} - chapitre scellé`,
     `*${result.chapter.narration}*`,
     `✨ +${formatNumber(result.chapter.reward.xp)} XP · 🪙 +${formatNumber(result.chapter.reward.gold)}`,
   ];

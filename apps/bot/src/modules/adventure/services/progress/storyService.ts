@@ -51,7 +51,7 @@ export function objectiveLabel(objective: ChapterObjective): string {
   switch (objective.type) {
     case "EXPLORE": {
       const zone = objective.zoneId ? findZone(objective.zoneId) : undefined;
-      return `Explorer ${objective.target} fois${zone ? ` — ${zone.emoji} ${zone.name}` : ""}`;
+      return `Explorer ${objective.target} fois${zone ? ` - ${zone.emoji} ${zone.name}` : ""}`;
     }
     case "DEFEAT_FAMILY":
       return `Vaincre ${objective.target} ${objective.family ? MONSTER_FAMILY_LABELS[objective.family] : "créatures"}`;

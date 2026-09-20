@@ -4,7 +4,7 @@ import Link from "next/link";
 import { CONTACT_EMAIL } from "@/lib/config";
 
 export const metadata: Metadata = {
-  title: "Politique de confidentialité — Gaulia",
+  title: "Politique de confidentialité - Gaulia",
   description: "Comment Gaulia collecte, utilise et conserve les données.",
 };
 
@@ -52,7 +52,7 @@ export default function PrivacyPage() {
           <li>
             Vous pouvez à tout moment consulter, télécharger et supprimer vos données vous-même
             depuis la page <Link href="/my-data">Mes données</Link>, en vous connectant avec Discord
-            — et y supprimer aussi les données des serveurs que vous administrez.
+            - et y supprimer aussi les données des serveurs que vous administrez.
           </li>
         </ul>
 
@@ -215,7 +215,7 @@ export default function PrivacyPage() {
         <p>
           La page <Link href="/contact">Nous contacter</Link> demande d&apos;être connecté avec
           Discord. Le message envoyé est accompagné de votre pseudo, de votre identifiant, de votre
-          avatar et de l&apos;adresse vérifiée de votre compte, tous repris de votre session — rien
+          avatar et de l&apos;adresse vérifiée de votre compte, tous repris de votre session - rien
           n&apos;est saisi à la main, personne ne peut donc écrire en se faisant passer pour vous.
           L&apos;ensemble part par courrier électronique à l&apos;administrateur du bot. Rien
           n&apos;est enregistré en base de données : le message vit dans la boîte mail qui le
@@ -342,16 +342,16 @@ export default function PrivacyPage() {
           </li>
         </ul>
         <p>
-          L&apos;historique de modération — les sanctions et avertissements reçus comme ceux donnés
-          — relève du serveur qui les a prononcés, et non des membres concernés : il ne part donc
+          L&apos;historique de modération - les sanctions et avertissements reçus comme ceux donnés
+          - relève du serveur qui les a prononcés, et non des membres concernés : il ne part donc
           pas avec la suppression d&apos;un compte, sans quoi il suffirait d&apos;être sanctionné
           pour effacer la trace de sa sanction. Il est effacé avec les données du serveur, ou sur
           demande.
         </p>
         <p>
-          Pour une demande que cette page ne couvre pas — le retrait d&apos;une sanction dont vous
+          Pour une demande que cette page ne couvre pas (le retrait d&apos;une sanction dont vous
           avez fait l&apos;objet sur un serveur que vous n&apos;administrez pas, une rectification,
-          ou une question sur le traitement —, écrivez à <Contact /> en indiquant votre identifiant
+          ou une question sur le traitement), écrivez à <Contact /> en indiquant votre identifiant
           Discord (ou celui du serveur concerné). Nous répondons dans un délai d&apos;un mois.
         </p>
         <p>

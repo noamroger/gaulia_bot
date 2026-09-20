@@ -47,11 +47,11 @@ function label(labels: Record<string, string>, value: string): string {
 
 function guildLabel(name: string | null, id: string | null): string {
   if (name) return name;
-  return id ? `Serveur ${id}` : "—";
+  return id ? `Serveur ${id}` : "-";
 }
 
 function duration(seconds: number | null): string {
-  if (seconds === null) return "—";
+  if (seconds === null) return "-";
   if (seconds < 3600) return `${Math.round(seconds / 60)} min`;
   if (seconds < 86_400) return `${Math.round(seconds / 3600)} h`;
   return `${Math.round(seconds / 86_400)} j`;
@@ -467,7 +467,7 @@ export default function MyDataPage() {
                       <tr key={`${entry.guildId}-${entry.caseNumber}`}>
                         <td>{guildLabel(entry.guildName, entry.guildId)}</td>
                         <td>{label(CASE_LABELS, entry.type)}</td>
-                        <td>{entry.reason ?? "—"}</td>
+                        <td>{entry.reason ?? "-"}</td>
                         <td>{duration(entry.durationSecs)}</td>
                         <td>{formatDateTime(entry.createdAt)}</td>
                       </tr>
@@ -502,7 +502,7 @@ export default function MyDataPage() {
                     {data.warnsReceived.map((entry) => (
                       <tr key={`${entry.guildId}-${entry.createdAt}`}>
                         <td>{guildLabel(entry.guildName, entry.guildId)}</td>
-                        <td>{entry.reason ?? "—"}</td>
+                        <td>{entry.reason ?? "-"}</td>
                         <td>{entry.active ? "Actif" : "Retiré"}</td>
                         <td>{formatDateTime(entry.createdAt)}</td>
                       </tr>
@@ -558,7 +558,7 @@ export default function MyDataPage() {
                   <li>
                     <span>Dernier vote</span>
                     <strong>
-                      {data.credits.lastVoteAt ? formatDateTime(data.credits.lastVoteAt) : "—"}
+                      {data.credits.lastVoteAt ? formatDateTime(data.credits.lastVoteAt) : "-"}
                     </strong>
                   </li>
                 </ul>
@@ -586,7 +586,7 @@ export default function MyDataPage() {
                           </td>
                           <td className="numeric">{formatNumber(entry.balanceAfter)}</td>
                           <td>
-                            {entry.guildId ? guildLabel(entry.guildName, entry.guildId) : "—"}
+                            {entry.guildId ? guildLabel(entry.guildName, entry.guildId) : "-"}
                           </td>
                           <td>{formatDateTime(entry.createdAt)}</td>
                         </tr>
@@ -621,9 +621,9 @@ export default function MyDataPage() {
                   <tbody>
                     {data.premiumEntitlements.map((entry) => (
                       <tr key={entry.entitlementId}>
-                        <td>{entry.guildId ? guildLabel(entry.guildName, entry.guildId) : "—"}</td>
-                        <td>{entry.startsAt ? formatDateTime(entry.startsAt) : "—"}</td>
-                        <td>{entry.endsAt ? formatDateTime(entry.endsAt) : "—"}</td>
+                        <td>{entry.guildId ? guildLabel(entry.guildName, entry.guildId) : "-"}</td>
+                        <td>{entry.startsAt ? formatDateTime(entry.startsAt) : "-"}</td>
+                        <td>{entry.endsAt ? formatDateTime(entry.endsAt) : "-"}</td>
                         <td>{entry.deleted ? "Terminé" : "Actif"}</td>
                       </tr>
                     ))}
@@ -683,7 +683,7 @@ export default function MyDataPage() {
                       <strong>
                         {data.adventure.lastPlayedAt
                           ? formatDateTime(data.adventure.lastPlayedAt)
-                          : "—"}
+                          : "-"}
                       </strong>
                     </li>
                   </ul>

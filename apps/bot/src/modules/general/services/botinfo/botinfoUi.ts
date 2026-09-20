@@ -175,7 +175,7 @@ function commandsView(snapshot: BotInfoSnapshot): string[] {
     usage.topCommands.length === 0
       ? ["Aucune commande utilisée sur la période."]
       : usage.topCommands.map(
-          (row, index) => `${index + 1}. \`/${row.commandName}\` — ${formatNumber(row.count)}`,
+          (row, index) => `${index + 1}. \`/${row.commandName}\` - ${formatNumber(row.count)}`,
         );
 
   return [

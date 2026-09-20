@@ -42,7 +42,7 @@ async function postMetrics(serverCount: number, shardCount: number): Promise<voi
 /**
  * Additionne les serveurs vus par chaque shard. `fetchClientValues` interroge tous les process
  * enfants : c'est la seule façon d'obtenir le total réel, `client.guilds.cache` d'un shard ne
- * connaissant que ses propres serveurs — d'où un envoi piloté par le process parent.
+ * connaissant que ses propres serveurs - d'où un envoi piloté par le process parent.
  */
 async function totalGuildCount(manager: ShardingManager): Promise<number> {
   const counts = (await manager.fetchClientValues("guilds.cache.size")) as (number | undefined)[];

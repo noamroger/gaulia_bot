@@ -1,7 +1,7 @@
 {
   "name": "@gaulia/dashboard",
   "version": "1.0.0",
-  "description": "Gaulia — dashboard web (Next.js), communique uniquement avec l'API",
+  "description": "Gaulia - dashboard web (Next.js), communique uniquement avec l'API",
   "private": true,
   "engines": {
     "node": ">=20.0.0"

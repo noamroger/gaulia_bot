@@ -31,7 +31,7 @@ function NumberField({
         className="input input-number"
         type="number"
         inputMode="numeric"
-        placeholder="—"
+        placeholder="-"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />

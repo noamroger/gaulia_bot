@@ -1,7 +1,7 @@
 {
   "name": "gaulia",
   "version": "5.0.0",
-  "description": "Gaulia — bot Discord modulaire (modération, automod, musique, premium) + dashboard web",
+  "description": "Gaulia - bot Discord modulaire (modération, automod, musique, premium) + dashboard web",
   "private": true,
   "engines": {
     "node": ">=20.0.0"

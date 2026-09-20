@@ -71,7 +71,7 @@ export default function ContactPage() {
     let cancelled = false;
 
     // Une session absente n'est pas une erreur ici : la page propose simplement de se connecter.
-    // La liste des serveurs suit la session, donc elle échoue aussi sans elle — sans conséquence.
+    // La liste des serveurs suit la session, donc elle échoue aussi sans elle - sans conséquence.
     void Promise.allSettled([api.get<Session>("/auth/me"), api.get<ManageableGuild[]>("/guilds")])
       .then(([me, guildList]) => {
         if (cancelled) return;

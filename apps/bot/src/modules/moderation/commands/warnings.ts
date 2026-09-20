@@ -36,7 +36,7 @@ const command: ChatInputCommand = {
         warns
           .map(
             (warn) =>
-              `**#${warn.id}** — ${warn.reason ?? "Sans raison"} (<t:${Math.floor(warn.createdAt.getTime() / 1000)}:R>)`,
+              `**#${warn.id}** - ${warn.reason ?? "Sans raison"} (<t:${Math.floor(warn.createdAt.getTime() / 1000)}:R>)`,
           )
           .join("\n"),
       );

@@ -475,7 +475,7 @@ enum AdventureTradeStatus {
 
 /// Proposition d'échange entre deux aventuriers. Les lots sont stockés en JSON (validés par
 /// `adventureTradeItemsSchema`) : ajouter un objet au catalogue ne demande aucune migration. Rien
-/// n'est prélevé à la proposition — tout est vérifié et transféré au moment de l'acceptation, ce
+/// n'est prélevé à la proposition - tout est vérifié et transféré au moment de l'acceptation, ce
 /// qui évite d'immobiliser des ressources dans une offre qui n'aboutira peut-être jamais.
 model AdventureTrade {
   id          Int                  @id @default(autoincrement())

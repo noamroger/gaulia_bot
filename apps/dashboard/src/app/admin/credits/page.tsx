@@ -110,7 +110,7 @@ export default function AdminCreditsPage() {
       });
       mergeAccount(updated);
       setSuccess(
-        `${delta > 0 ? "+" : ""}${formatNumber(delta)} crédit(s) pour ${userId} — nouveau solde : ${formatNumber(updated.balance)}.`,
+        `${delta > 0 ? "+" : ""}${formatNumber(delta)} crédit(s) pour ${userId} - nouveau solde : ${formatNumber(updated.balance)}.`,
       );
       setDialogOpen(false);
       setDialogConfirming(false);
@@ -291,7 +291,7 @@ export default function AdminCreditsPage() {
             <tbody>
               {filtered.map((account) => {
                 const editing = edit?.userId === account.userId;
-                const name = account.username ?? "—";
+                const name = account.username ?? "-";
                 return (
                   <tr key={account.userId}>
                     <td>
@@ -327,7 +327,7 @@ export default function AdminCreditsPage() {
                       )}
                     </td>
                     <td className="numeric">{formatNumber(account.voteCount)}</td>
-                    <td>{account.lastVoteAt ? formatDateTime(account.lastVoteAt) : "—"}</td>
+                    <td>{account.lastVoteAt ? formatDateTime(account.lastVoteAt) : "-"}</td>
                     <td>
                       <div className="table-actions">
                         {!editing ? (

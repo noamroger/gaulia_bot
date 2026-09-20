@@ -18,7 +18,7 @@ export interface V2MessagePayload {
 
 /**
  * Construit un container Components V2 à partir de lignes de texte (markdown), séparées
- * par un séparateur fin. C'est le bloc de base de toute l'UI de Gaulia — jamais d'EmbedBuilder.
+ * par un séparateur fin. C'est le bloc de base de toute l'UI de Gaulia - jamais d'EmbedBuilder.
  */
 export function buildContainer(color: number, lines: string[]): ContainerBuilder {
   const container = new ContainerBuilder().setAccentColor(color);
