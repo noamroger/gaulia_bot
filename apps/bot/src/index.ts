@@ -20,7 +20,7 @@ const manager = new ShardingManager(join(__dirname, "bot.js"), {
 manager.on("shardCreate", (shard) => {
   logger.info(`Shard ${shard.id} started`);
   shard.on("death", () => logger.warn(`Shard ${shard.id} stopped unexpectedly`));
-  shard.on("error", (error) => logger.error({ err: error, shardId: shard.id }, "Erreur de shard"));
+  shard.on("error", (error) => logger.error({ err: error, shardId: shard.id }, "Shard error"));
 });
 
 async function main(): Promise<void> {
