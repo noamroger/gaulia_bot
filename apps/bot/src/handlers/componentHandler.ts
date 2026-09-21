@@ -33,6 +33,9 @@ export function resolveComponent(
     if (customId.startsWith(component.customIdPrefix)) {
       return component;
     }
+    if (component.legacyCustomIdPrefixes?.some((prefix) => customId.startsWith(prefix))) {
+      return component;
+    }
   }
   return undefined;
 }

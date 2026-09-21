@@ -31,7 +31,7 @@ import { chapterStatus, sealChapter } from "../services/progress/storyService";
 import { forgeView, inventoryView, shopView } from "../ui/economyViews";
 import { dungeonResultView, exploreView, travelView } from "../ui/exploreViews";
 import { gold } from "../ui/format";
-import type { AdventureView } from "../ui/navigation";
+import { adventureViewOf } from "../ui/navigation";
 import { sealView, storyView } from "../ui/progressViews";
 import { renderAdventureView } from "../ui/renderView";
 import { tradeClosedView, tradeResultView, upgradeView } from "../ui/tradeViews";
@@ -264,7 +264,7 @@ const navButton: ButtonComponent = {
     if (!(await guard(interaction, t))) return;
 
     await interaction.deferUpdate();
-    const view = (interaction.customId.split(":")[3] ?? "profile") as AdventureView;
+    const view = adventureViewOf(interaction.customId.split(":")[3]);
     await interaction.editReply(await renderAdventureView(interaction.user, view, t));
   },
 };
@@ -366,6 +366,7 @@ const upgradeSelect: StringSelectComponent = {
 const tutorialPageButton: ButtonComponent = {
   type: "button",
   customIdPrefix: "adventure:tutorial-page",
+  legacyCustomIdPrefixes: ["adventure:tuto-page"],
   async execute(interaction, _client, t) {
     if (!(await guard(interaction, t))) return;
 
@@ -379,6 +380,7 @@ const tutorialPageButton: ButtonComponent = {
 const tutorialJumpSelect: StringSelectComponent = {
   type: "stringSelect",
   customIdPrefix: "adventure:tutorial-jump",
+  legacyCustomIdPrefixes: ["adventure:tuto-jump"],
   async execute(interaction, _client, t) {
     if (!(await guard(interaction, t))) return;
 
@@ -399,6 +401,7 @@ const tutorialJumpSelect: StringSelectComponent = {
 const tutorialStartButton: ButtonComponent = {
   type: "button",
   customIdPrefix: "adventure:tutorial-start",
+  legacyCustomIdPrefixes: ["adventure:tuto-start"],
   async execute(interaction, _client, t) {
     if (!(await guard(interaction, t))) return;
 

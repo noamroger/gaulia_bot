@@ -13,6 +13,11 @@ interface BaseComponent {
    * which lets dynamic data follow the prefix (e.g. "music:pause:<guildId>").
    */
   customIdPrefix: string;
+  /**
+   * Prefixes kept only so buttons already posted on Discord keep working. A message stays
+   * clickable forever, so renaming a prefix silently kills every panel posted before the deploy.
+   */
+  legacyCustomIdPrefixes?: readonly string[];
 }
 
 export interface ButtonComponent extends BaseComponent {

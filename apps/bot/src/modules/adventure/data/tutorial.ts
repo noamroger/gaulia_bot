@@ -46,8 +46,19 @@ export const TUTORIAL_PAGES: readonly TutorialPage[] = [
 
 export const TUTORIAL_PAGE_IDS = TUTORIAL_PAGES.map((page) => page.id);
 
+/** Page ids were French until the English rename: jump menus posted before it stay accurate. */
+const LEGACY_PAGE_IDS: Readonly<Record<string, string>> = {
+  bases: "basics",
+  economie: "economy",
+  scenario: "story",
+  echanges: "trading",
+  communaute: "community",
+  rythme: "pace",
+};
+
 export function findTutorialPage(id: string): number {
-  const index = TUTORIAL_PAGES.findIndex((page) => page.id === id);
+  const wanted = LEGACY_PAGE_IDS[id] ?? id;
+  const index = TUTORIAL_PAGES.findIndex((page) => page.id === wanted);
   return index === -1 ? 0 : index;
 }
 

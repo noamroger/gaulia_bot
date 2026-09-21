@@ -43,6 +43,27 @@ const VIEW_EMOJIS: Readonly<Record<AdventureView, string>> = {
   trades: "🤝",
 };
 
+/** Views were named in French until the English rename: panels posted before it stay usable. */
+const LEGACY_VIEWS: Readonly<Record<string, AdventureView>> = {
+  profil: "profile",
+  sac: "bag",
+  carte: "map",
+  histoire: "story",
+  quetes: "quests",
+  boutique: "shop",
+  donjon: "dungeon",
+  classement: "leaderboard",
+  "hauts-faits": "achievements",
+  echanges: "trades",
+};
+
+/** View carried by a `adventure:nav` button, falling back on the profile when it means nothing. */
+export function adventureViewOf(segment: string | undefined): AdventureView {
+  if (!segment) return "profile";
+  if (segment in VIEW_EMOJIS) return segment as AdventureView;
+  return LEGACY_VIEWS[segment] ?? "profile";
+}
+
 /** Button to another view, tied to its player so nobody else can use it. */
 export function viewButton(t: Translator, userId: string, view: AdventureView): ButtonBuilder {
   return new ButtonBuilder()

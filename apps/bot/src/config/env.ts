@@ -9,8 +9,8 @@ import { z } from "zod";
 dotenv.config({ path: path.resolve(__dirname, "../../../../.env") });
 
 const envSchema = z.object({
-  DISCORD_TOKEN: z.string().min(1, "DISCORD_TOKEN est requis"),
-  DISCORD_CLIENT_ID: z.string().min(1, "DISCORD_CLIENT_ID est requis"),
+  DISCORD_TOKEN: z.string().min(1, "DISCORD_TOKEN is required"),
+  DISCORD_CLIENT_ID: z.string().min(1, "DISCORD_CLIENT_ID is required"),
   DISCORD_CLIENT_SECRET: z.string().optional(),
   OWNER_IDS: z
     .string()
@@ -26,7 +26,7 @@ const envSchema = z.object({
 
   TOTAL_SHARDS: z.string().optional().default("auto"),
 
-  DATABASE_URL: z.string().min(1, "DATABASE_URL est requis"),
+  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
 
   LAVALINK_HOST: z.string().min(1),
   LAVALINK_PORT: z.coerce.number().int().positive(),

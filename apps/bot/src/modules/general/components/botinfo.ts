@@ -12,9 +12,17 @@ function ownerOf(customId: string): string {
   return customId.split(":")[2] ?? "";
 }
 
+/** Tabs were named in French until the English rename: panels posted before it stay usable. */
+const LEGACY_VIEWS: Readonly<Record<string, BotInfoView>> = {
+  apercu: "overview",
+  technique: "technical",
+  commandes: "commands",
+};
+
 function viewOf(customId: string): BotInfoView {
   const value = customId.split(":")[3] ?? "";
-  return isBotInfoView(value) ? value : "overview";
+  if (isBotInfoView(value)) return value;
+  return LEGACY_VIEWS[value] ?? "overview";
 }
 
 /**
@@ -47,6 +55,7 @@ async function render(
 const viewButton: ButtonComponent = {
   type: "button",
   customIdPrefix: "botinfo:view",
+  legacyCustomIdPrefixes: ["botinfo:vue"],
   execute: render,
 };
 
