@@ -19,7 +19,16 @@ const nextConfig = {
 
   // Read at build time (Docker argument): the dashboard container has no .env at runtime.
   async redirects() {
-    const redirects = [];
+    // The adventure pages were renamed from French to English: a bookmark kept from before
+    // would otherwise land on a 404.
+    const redirects = [
+      { source: "/admin/aventure", destination: "/admin/adventure", permanent: true },
+      {
+        source: "/dashboard/:guildId/aventure",
+        destination: "/dashboard/:guildId/adventure",
+        permanent: true,
+      },
+    ];
     const botId = process.env.DISCORD_CLIENT_ID;
 
     if (botId) {
