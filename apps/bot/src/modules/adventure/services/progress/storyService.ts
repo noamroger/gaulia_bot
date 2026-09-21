@@ -59,7 +59,6 @@ export function objectiveLabel(
 ): string {
   const custom = `adventure.story.chapters.${chapterId}.objectives.${objectiveKey(objective)}`;
   if (t.has(custom)) return t(custom);
-  if (objective.label) return objective.label;
 
   const target = objective.target;
 

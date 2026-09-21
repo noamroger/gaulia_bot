@@ -68,12 +68,6 @@ export const ADVENTURE_RARITY_EMOJIS: Readonly<Record<AdventureItemRarity, strin
   LEGENDAIRE: "🟧",
 };
 
-export const ADVENTURE_SLOT_LABELS: Readonly<Record<AdventureItemSlot, LocalizedText>> = {
-  arme: { en: "Weapon", fr: "Arme" },
-  armure: { en: "Armour", fr: "Armure" },
-  talisman: { en: "Talisman", fr: "Talisman" },
-};
-
 function gear(
   id: string,
   name: LocalizedText,

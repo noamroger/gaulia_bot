@@ -25,11 +25,6 @@ export interface AdventureChapterObjective {
   zoneId?: string;
   family?: AdventureMonsterFamily;
   itemId?: string;
-  /**
-   * Story-specific wording. The bot overrides it per chapter from its own catalog, which is where
-   * the translated versions live; without either, storyService builds a label from the type.
-   */
-  label?: string;
 }
 
 export interface AdventureChapterReward {
@@ -86,7 +81,6 @@ export const ADVENTURE_ACTS: readonly AdventureActDefinition[] = [
             type: "EXPLORE",
             zoneId: "clairiere",
             target: 15,
-            label: "Battre la campagne autour du puits",
           },
           { type: "DEFEAT_FAMILY", family: "bete", target: 10 },
         ],
@@ -118,7 +112,7 @@ export const ADVENTURE_ACTS: readonly AdventureActDefinition[] = [
         echoCost: 7,
         objectives: [
           { type: "DEFEAT_FAMILY", family: "brigand", target: 12 },
-          { type: "DAILY_SET", target: 3, label: "Tenir trois journées d'aventure complètes" },
+          { type: "DAILY_SET", target: 3 },
         ],
         reward: { xp: 800, gold: 600, items: [{ itemId: "amulette-simple", quantity: 1 }] },
       },
@@ -133,7 +127,7 @@ export const ADVENTURE_ACTS: readonly AdventureActDefinition[] = [
         echoCost: 7,
         objectives: [
           { type: "COLLECT", itemId: "fer-brut", target: 15 },
-          { type: "CRAFT", target: 2, label: "Sortir deux pièces de la forge" },
+          { type: "CRAFT", target: 2 },
         ],
         reward: { xp: 1_300, gold: 900 },
       },
@@ -147,7 +141,7 @@ export const ADVENTURE_ACTS: readonly AdventureActDefinition[] = [
         levelRequirement: 15,
         echoCost: 7,
         objectives: [
-          { type: "DUNGEON", target: 1, label: "Vaincre le gardien de la brume en donjon" },
+          { type: "DUNGEON", target: 1 },
           { type: "COLLECT", itemId: "relique-cor-brume", target: 1 },
         ],
         reward: { xp: 2_200, gold: 1_500, items: [{ itemId: "potion-majeure", quantity: 3 }] },
@@ -205,7 +199,7 @@ export const ADVENTURE_ACTS: readonly AdventureActDefinition[] = [
         levelRequirement: 25,
         echoCost: 11,
         objectives: [
-          { type: "SPEND_GOLD", target: 4_000, label: "Dépenser 4 000 pièces chez les marchands" },
+          { type: "SPEND_GOLD", target: 4_000 },
           { type: "DAILY_SET", target: 5 },
         ],
         reward: { xp: 5_500, gold: 3_000, items: [{ itemId: "oeil-loup", quantity: 1 }] },
@@ -235,7 +229,7 @@ export const ADVENTURE_ACTS: readonly AdventureActDefinition[] = [
         levelRequirement: 31,
         echoCost: 11,
         objectives: [
-          { type: "DUNGEON", target: 1, label: "Vaincre le gardien des tombes en donjon" },
+          { type: "DUNGEON", target: 1 },
           { type: "COLLECT", itemId: "relique-clef-tombes", target: 1 },
         ],
         reward: { xp: 9_000, gold: 5_500, items: [{ itemId: "potion-majeure", quantity: 5 }] },
@@ -323,7 +317,7 @@ export const ADVENTURE_ACTS: readonly AdventureActDefinition[] = [
         levelRequirement: 46,
         echoCost: 16,
         objectives: [
-          { type: "DUNGEON", target: 1, label: "Vaincre le gardien des forges en donjon" },
+          { type: "DUNGEON", target: 1 },
           { type: "COLLECT", itemId: "relique-braise-eternelle", target: 1 },
         ],
         reward: { xp: 28_000, gold: 18_000, items: [{ itemId: "elixir-supreme", quantity: 2 }] },
@@ -411,7 +405,7 @@ export const ADVENTURE_ACTS: readonly AdventureActDefinition[] = [
         levelRequirement: 62,
         echoCost: 21,
         objectives: [
-          { type: "DUNGEON", target: 1, label: "Vaincre le gardien du givre en donjon" },
+          { type: "DUNGEON", target: 1 },
           { type: "COLLECT", itemId: "relique-coeur-gel", target: 1 },
         ],
         reward: { xp: 65_000, gold: 40_000, items: [{ itemId: "elixir-supreme", quantity: 3 }] },
@@ -499,7 +493,7 @@ export const ADVENTURE_ACTS: readonly AdventureActDefinition[] = [
         levelRequirement: 77,
         echoCost: 26,
         objectives: [
-          { type: "DUNGEON", target: 1, label: "Vaincre le gardien des tempêtes en donjon" },
+          { type: "DUNGEON", target: 1 },
           { type: "COLLECT", itemId: "relique-oeil-tempete", target: 1 },
         ],
         reward: { xp: 140_000, gold: 82_000, items: [{ itemId: "elixir-supreme", quantity: 4 }] },
@@ -587,7 +581,7 @@ export const ADVENTURE_ACTS: readonly AdventureActDefinition[] = [
         levelRequirement: 92,
         echoCost: 32,
         objectives: [
-          { type: "DUNGEON", target: 1, label: "Vaincre le gardien de la voûte en donjon" },
+          { type: "DUNGEON", target: 1 },
           { type: "COLLECT", itemId: "relique-voile-astral", target: 1 },
         ],
         reward: { xp: 300_000, gold: 160_000 },
@@ -675,7 +669,7 @@ export const ADVENTURE_ACTS: readonly AdventureActDefinition[] = [
         levelRequirement: 100,
         echoCost: 38,
         objectives: [
-          { type: "DUNGEON", target: 1, label: "Vaincre l'Écho premier en donjon" },
+          { type: "DUNGEON", target: 1 },
           { type: "COLLECT", itemId: "relique-derniere-voix", target: 1 },
         ],
         reward: {

@@ -6,6 +6,7 @@ import {
   listBlindtestPlaylists,
   localized,
   type BlindtestTrack,
+  type LocalizedText,
 } from "@gaulia/database";
 import {
   ActionRowBuilder,
@@ -29,7 +30,7 @@ import type { GauliaClient } from "../../../client/GauliaClient";
 import { GauliaError } from "../../../core/errors";
 import { toV2Payload, type V2MessagePayload } from "../../../core/ui/containers";
 import { formatDurationMs } from "../../../core/utils/duration";
-import { guildTranslatorFor, type Translator } from "../../../i18n";
+import type { Translator } from "../../../i18n";
 import { artistAnswers, matchesAny, normalizeAnswer, titleAnswers } from "./blindtestAnswers";
 import { getOrCreateConfiguredPlayer, guildTranslator } from "./playerUtils";
 
@@ -57,10 +58,13 @@ type FinishReason = "completed" | "stopped" | "interrupted" | "unplayable" | "er
 
 type BlindtestPayload = V2MessagePayload & { allowedMentions: MessageMentionOptions };
 
-/** Preset category or custom server list, ready to be played. */
+/**
+ * Preset category or custom server list, ready to be played. Preset text is bilingual and is read
+ * with the session translator, so the whole game speaks the language of the server.
+ */
 export interface BlindtestCategory {
-  name: string;
-  description: string | null;
+  name: LocalizedText;
+  description: LocalizedText | null;
   guess: "both" | "title";
   tracks: BlindtestTrack[];
 }
@@ -167,6 +171,11 @@ async function availableCategories(guildId: string, t: Translator): Promise<Cate
   return [...custom, ...presets];
 }
 
+/** A custom playlist carries a single name, which stands for both languages. */
+function bothLanguages(text: string): LocalizedText {
+  return { en: text, fr: text };
+}
+
 function truncate(text: string, maxLength: number): string {
   return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1)}…`;
 }
@@ -240,7 +249,12 @@ export async function resolveBlindtestCategory(
         count: BLINDTEST_PLAYLIST_MIN_TRACKS,
       });
     }
-    return { name: playlist.name, description: null, guess: "both", tracks: playlist.tracks };
+    return {
+      name: bothLanguages(playlist.name),
+      description: null,
+      guess: "both",
+      tracks: playlist.tracks,
+    };
   }
 
   const preset = BLINDTEST_PRESET_CATEGORIES.find((category) => category.id === value);
@@ -251,11 +265,9 @@ export async function resolveBlindtestCategory(
   if (settings.blindtestDisabledCategories.includes(preset.id)) {
     throw new GauliaError("music.blindtest.error.disabledCategory");
   }
-  // The game is read by the whole channel, so the category follows the language of the server.
-  const { locale } = await guildTranslatorFor(guildId);
   return {
-    name: localized(preset.name, locale),
-    description: localized(preset.description, locale),
+    name: preset.name,
+    description: preset.description,
     guess: preset.guess,
     tracks: preset.tracks,
   };
@@ -312,6 +324,10 @@ function leaderboard(session: Session, size: number): string[] {
   );
 }
 
+function categoryName(session: Session): string {
+  return localized(session.category.name, session.t.locale);
+}
+
 function foundLine(t: Translator, label: string, userId: string | null, over: boolean): string {
   if (userId) return t("music.blindtest.round.foundBy", { label, user: userId });
   return t(over ? "music.blindtest.round.notFound" : "music.blindtest.round.pending", { label });
@@ -321,8 +337,8 @@ function renderIntro(session: Session): BlindtestPayload {
   const { t } = session;
   return blindtestPayload(
     [
-      `### ${t("music.blindtest.intro.title", { category: escapeMarkdown(session.category.name) })}`,
-      ...(session.category.description ? [session.category.description] : []),
+      `### ${t("music.blindtest.intro.title", { category: escapeMarkdown(categoryName(session)) })}`,
+      ...(session.category.description ? [localized(session.category.description, t.locale)] : []),
       "",
       t("music.blindtest.intro.setup", {
         rounds: roundCount(t, session.totalRounds),
@@ -387,7 +403,7 @@ function renderFinal(session: Session, reason: FinishReason, stoppedBy?: string)
   const { t } = session;
   const heading = t("music.blindtest.final.heading", {
     title: t(`music.blindtest.final.title.${reason}`),
-    category: escapeMarkdown(session.category.name),
+    category: escapeMarkdown(categoryName(session)),
   });
 
   return blindtestPayload([
