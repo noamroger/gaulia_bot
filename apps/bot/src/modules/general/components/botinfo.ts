@@ -22,7 +22,7 @@ const LEGACY_VIEWS: Readonly<Record<string, BotInfoView>> = {
 function viewOf(customId: string): BotInfoView {
   const value = customId.split(":")[3] ?? "";
   if (isBotInfoView(value)) return value;
-  return LEGACY_VIEWS[value] ?? "overview";
+  return Object.hasOwn(LEGACY_VIEWS, value) ? LEGACY_VIEWS[value]! : "overview";
 }
 
 /**

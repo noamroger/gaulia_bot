@@ -1,6 +1,7 @@
 /**
  * Fails on the two translation gaps the compiler cannot see:
- * - a key typed by hand in a `t("...")` call that no English catalogue defines;
+ * - a key typed by hand in a `t("...")` call or a `new GauliaError("...")` that no English
+ *   catalogue defines;
  * - a `{placeholder}` present in one language and missing from another, which would render the
  *   brace literally to the reader.
  *
@@ -193,6 +194,12 @@ function collectUsages(app: App): { used: Usage[]; skipped: number } {
     for (const match of source.matchAll(/\bt\(\s*"([\w.]+)"/g)) add(match[1]!);
     // t(`${KEY}.suffix`)
     for (const match of source.matchAll(/\bt\(\s*`([^`]+)`/g)) add(resolve(match[1]!, constants));
+    // A GauliaError carries a translation key, resolved when the reply to the member is built.
+    for (const match of source.matchAll(/new GauliaError\(\s*"([\w.]+)"/g)) add(match[1]!);
+    for (const match of source.matchAll(/new GauliaError\(\s*`([^`]+)`/g)) {
+      add(resolve(match[1]!, constants));
+    }
+
     // t.list("key") and t.list(`...`)
     for (const match of source.matchAll(/\bt\.list\(\s*"([\w.]+)"/g)) add(match[1]!);
     for (const match of source.matchAll(/\bt\.list\(\s*`([^`]+)`/g)) {

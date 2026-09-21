@@ -60,8 +60,8 @@ const LEGACY_VIEWS: Readonly<Record<string, AdventureView>> = {
 /** View carried by a `adventure:nav` button, falling back on the profile when it means nothing. */
 export function adventureViewOf(segment: string | undefined): AdventureView {
   if (!segment) return "profile";
-  if (segment in VIEW_EMOJIS) return segment as AdventureView;
-  return LEGACY_VIEWS[segment] ?? "profile";
+  if (Object.hasOwn(VIEW_EMOJIS, segment)) return segment as AdventureView;
+  return Object.hasOwn(LEGACY_VIEWS, segment) ? LEGACY_VIEWS[segment]! : "profile";
 }
 
 /** Button to another view, tied to its player so nobody else can use it. */

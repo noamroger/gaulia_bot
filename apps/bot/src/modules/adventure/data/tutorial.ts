@@ -57,7 +57,7 @@ const LEGACY_PAGE_IDS: Readonly<Record<string, string>> = {
 };
 
 export function findTutorialPage(id: string): number {
-  const wanted = LEGACY_PAGE_IDS[id] ?? id;
+  const wanted = Object.hasOwn(LEGACY_PAGE_IDS, id) ? LEGACY_PAGE_IDS[id]! : id;
   const index = TUTORIAL_PAGES.findIndex((page) => page.id === wanted);
   return index === -1 ? 0 : index;
 }
