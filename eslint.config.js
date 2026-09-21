@@ -10,8 +10,8 @@ module.exports = tseslint.config(
   {
     languageOptions: {
       parserOptions: {
-        // Auto-découvre le tsconfig.json le plus proche de chaque fichier linté - nécessaire en
-        // monorepo (packages/*, apps/*) plutôt qu'un chemin de projet unique codé en dur.
+        // Auto discovers the nearest tsconfig.json for each linted file, which a monorepo
+        // (packages/*, apps/*) needs rather than one hardcoded project path.
         projectService: true,
         tsconfigRootDir: __dirname,
       },
@@ -23,6 +23,11 @@ module.exports = tseslint.config(
       "@typescript-eslint/no-floating-promises": "error",
       "no-console": "warn",
     },
+  },
+  {
+    // Repository tooling run from a terminal, where the console is the output.
+    files: ["scripts/**/*.ts"],
+    rules: { "no-console": "off" },
   },
   {
     ignores: [

@@ -12,9 +12,10 @@
   ],
   "scripts": {
     "build": "npm run build -w packages/database && npm run build -w apps/bot && npm run build -w apps/api && npm run build -w apps/dashboard",
-    "typecheck": "npm run typecheck -w packages/database && npm run typecheck -w apps/bot && npm run typecheck -w apps/api && npm run typecheck -w apps/dashboard",
+    "typecheck": "npm run typecheck -w packages/database && npm run typecheck -w apps/bot && npm run typecheck -w apps/api && npm run typecheck -w apps/dashboard && tsc -p scripts/tsconfig.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "i18n:check": "tsx scripts/check-translations.ts",
     "format": "prettier --write .",
     "dev:bot": "npm run dev -w apps/bot",
     "dev:api": "npm run dev -w apps/api",

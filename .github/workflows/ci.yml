@@ -1,51 +1,55 @@
 name: CI
 
-# Vérification automatique : à chaque push et à chaque pull request visant dev ou main.
+# Automatic verification: on every push and every pull request targeting dev or main.
 on:
   push:
     branches: [dev, main]
   pull_request:
     branches: [dev, main]
 
-# Un nouveau push sur une branche annule la vérification encore en cours sur la même branche.
+# A new push on a branch cancels the verification still running on the same branch.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   verification:
-    name: Typecheck et lint
+    name: Typecheck and lint
     runs-on: ubuntu-latest
     env:
-      # `prisma generate` ne se connecte pas à la base (il lui faut juste le schéma), mais le
-      # chargement de prisma.config.ts exige que DATABASE_URL existe - d'où cette valeur factice,
-      # comme dans les Dockerfile. Aucune base n'est démarrée dans ce job.
+      # `prisma generate` never connects to the database (it only needs the schema), but loading
+      # prisma.config.ts requires DATABASE_URL to exist - hence this dummy value, as in the
+      # Dockerfiles. No database is started in this job.
       DATABASE_URL: postgresql://user:pass@localhost:5432/db
 
     steps:
-      - name: Récupérer le dépôt
+      - name: Checkout the repository
         uses: actions/checkout@v4
 
-      # Même version majeure que les images node:20-alpine utilisées en production.
-      - name: Installer Node.js
+      # Same major version as the node:20-alpine images used in production.
+      - name: Install Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: npm
 
-      - name: Installer les dépendances
+      - name: Install the dependencies
         run: npm ci
 
-      - name: Générer le client Prisma
+      - name: Generate the Prisma client
         run: npm run prisma:generate
 
-      # apps/bot, apps/api et apps/dashboard importent @gaulia/database via ses types compilés
-      # (dist/index.d.ts) : sans cette compilation, leur typecheck échoue sur un module introuvable.
-      - name: Compiler @gaulia/database
+      # apps/bot, apps/api and apps/dashboard import @gaulia/database through its compiled types
+      # (dist/index.d.ts): without this build, their typecheck fails on a missing module.
+      - name: Build @gaulia/database
         run: npm run build -w packages/database
 
-      - name: Typecheck des quatre espaces de travail
+      - name: Typecheck the four workspaces
         run: npm run typecheck
 
       - name: Lint
         run: npm run lint
+
+      # Catches a translation key used in the code that no English catalogue defines.
+      - name: Check the translation keys
+        run: npm run i18n:check
