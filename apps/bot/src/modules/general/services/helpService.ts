@@ -4,11 +4,13 @@ import {
   type APIApplicationCommandOption,
   type ApplicationCommandOptionChoiceData,
   type Collection,
+  type Locale,
 } from "discord.js";
 
 import { Colors } from "../../../client/Constants";
 import { PermissionLevel, permissionLevelLabel } from "../../../core/permissions/permissionLevel";
 import { buildContainer, toV2Payload, type V2MessagePayload } from "../../../core/ui/containers";
+import { DISCORD_LOCALES, type AppLocale, type Translator } from "../../../i18n";
 import type {
   ChatInputCommand,
   Command,
@@ -17,28 +19,27 @@ import type {
 } from "../../../structures/Command";
 import { MUSIC_COMMAND_ACCESS } from "../../music/services/musicAccess";
 
-const CATEGORY_LABELS: Readonly<Record<string, string>> = {
-  general: "Général",
-  moderation: "Modération",
-  automod: "Automod",
-  music: "Musique",
-  fun: "Fun",
-  adventure: "Aventure",
-  premium: "Premium",
-};
+const CATEGORY_ORDER = [
+  "general",
+  "moderation",
+  "automod",
+  "music",
+  "fun",
+  "adventure",
+  "premium",
+  "settings",
+];
 
-const CATEGORY_ORDER = Object.keys(CATEGORY_LABELS);
-
-const OPTION_TYPE_LABELS: Readonly<Partial<Record<ApplicationCommandOptionType, string>>> = {
-  [ApplicationCommandOptionType.String]: "texte",
-  [ApplicationCommandOptionType.Integer]: "nombre entier",
-  [ApplicationCommandOptionType.Number]: "nombre",
-  [ApplicationCommandOptionType.Boolean]: "oui/non",
-  [ApplicationCommandOptionType.User]: "membre",
-  [ApplicationCommandOptionType.Channel]: "salon",
-  [ApplicationCommandOptionType.Role]: "rôle",
-  [ApplicationCommandOptionType.Mentionable]: "membre ou rôle",
-  [ApplicationCommandOptionType.Attachment]: "fichier",
+const OPTION_TYPE_KEYS: Readonly<Partial<Record<ApplicationCommandOptionType, string>>> = {
+  [ApplicationCommandOptionType.String]: "string",
+  [ApplicationCommandOptionType.Integer]: "integer",
+  [ApplicationCommandOptionType.Number]: "number",
+  [ApplicationCommandOptionType.Boolean]: "boolean",
+  [ApplicationCommandOptionType.User]: "user",
+  [ApplicationCommandOptionType.Channel]: "channel",
+  [ApplicationCommandOptionType.Role]: "role",
+  [ApplicationCommandOptionType.Mentionable]: "mentionable",
+  [ApplicationCommandOptionType.Attachment]: "attachment",
 };
 
 const MAX_AUTOCOMPLETE_CHOICES = 25;
@@ -50,10 +51,36 @@ interface CommandUsage {
   options: APIApplicationCommandBasicOption[];
 }
 
+/** Anything carrying the localization maps Discord stores next to a name or a description. */
+interface Localizable {
+  name: string;
+  name_localizations?: Partial<Record<Locale, string | null>> | null;
+  description?: string;
+  description_localizations?: Partial<Record<Locale, string | null>> | null;
+}
+
 type ContextMenuCommand = UserContextMenuCommand | MessageContextMenuCommand;
 
-function categoryLabel(category: string): string {
-  return CATEGORY_LABELS[category] ?? category.charAt(0).toUpperCase() + category.slice(1);
+/**
+ * Subcommands and options are already localized inside the command payload, so the help reads them
+ * back from there instead of holding a second copy of every key.
+ */
+function discordLocaleOf(locale: AppLocale): Locale {
+  return DISCORD_LOCALES[locale][0]!;
+}
+
+function localizedName(entry: Localizable, locale: AppLocale): string {
+  return entry.name_localizations?.[discordLocaleOf(locale)] ?? entry.name;
+}
+
+function localizedDescription(entry: Localizable, locale: AppLocale): string {
+  return entry.description_localizations?.[discordLocaleOf(locale)] ?? entry.description ?? "";
+}
+
+function categoryLabel(category: string, t: Translator): string {
+  const key = `general.help.categories.${category}`;
+  const label = t(key);
+  return label === key ? category.charAt(0).toUpperCase() + category.slice(1) : label;
 }
 
 function categoryRank(category: string): number {
@@ -61,28 +88,36 @@ function categoryRank(category: string): number {
   return index === -1 ? CATEGORY_ORDER.length : index;
 }
 
-function displayName(command: Command): string {
-  return command.type === "chatInput" ? `/${command.data.name}` : command.data.name;
+function commandName(command: Command, t: Translator): string {
+  return t(`${command.i18nKey}.name`);
 }
 
-function byDisplayName(a: Command, b: Command): number {
-  return displayName(a).localeCompare(displayName(b), "fr");
+function displayName(command: Command, t: Translator): string {
+  const name = commandName(command, t);
+  return command.type === "chatInput" ? `/${name.toLowerCase()}` : name;
 }
 
-function contextMenuTarget(command: ContextMenuCommand): string {
-  return command.type === "messageContextMenu" ? "un message" : "un membre";
+function byDisplayName(a: Command, b: Command, t: Translator): number {
+  return displayName(a, t).localeCompare(displayName(b, t), t.locale);
 }
 
-function commandSummary(command: Command): string {
+function contextMenuTarget(command: ContextMenuCommand, t: Translator): string {
+  return command.type === "messageContextMenu"
+    ? t("general.help.contextMenu.onMessage")
+    : t("general.help.contextMenu.onUser");
+}
+
+function commandSummary(command: Command, t: Translator): string {
   return command.type === "chatInput"
-    ? command.data.toJSON().description
-    : `Menu contextuel sur ${contextMenuTarget(command)}`;
+    ? t(`${command.i18nKey}.description`)
+    : t("general.help.contextMenu.summary", { target: contextMenuTarget(command, t) });
 }
 
 function collectUsages(
   path: string,
   description: string,
   options: readonly APIApplicationCommandOption[],
+  locale: AppLocale,
 ): CommandUsage[] {
   const usages: CommandUsage[] = [];
   const basicOptions: APIApplicationCommandBasicOption[] = [];
@@ -90,12 +125,17 @@ function collectUsages(
   for (const option of options) {
     if (option.type === ApplicationCommandOptionType.SubcommandGroup) {
       usages.push(
-        ...collectUsages(`${path} ${option.name}`, option.description, option.options ?? []),
+        ...collectUsages(
+          `${path} ${localizedName(option, locale)}`,
+          localizedDescription(option, locale),
+          option.options ?? [],
+          locale,
+        ),
       );
     } else if (option.type === ApplicationCommandOptionType.Subcommand) {
       usages.push({
-        path: `${path} ${option.name}`,
-        description: option.description,
+        path: `${path} ${localizedName(option, locale)}`,
+        description: localizedDescription(option, locale),
         options: option.options ?? [],
       });
     } else {
@@ -106,80 +146,100 @@ function collectUsages(
   return usages.length > 0 ? usages : [{ path, description, options: basicOptions }];
 }
 
-function chatInputUsages(command: ChatInputCommand): CommandUsage[] {
-  const { name, description, options = [] } = command.data.toJSON();
-  return collectUsages(`/${name}`, description, options);
+function chatInputUsages(command: ChatInputCommand, locale: AppLocale): CommandUsage[] {
+  const payload = command.data.toJSON();
+  return collectUsages(
+    `/${localizedName(payload, locale)}`,
+    localizedDescription(payload, locale),
+    payload.options ?? [],
+    locale,
+  );
 }
 
-function formatSignature(usage: CommandUsage): string {
-  const options = usage.options.map((option) =>
-    option.required ? ` <${option.name}>` : ` [${option.name}]`,
-  );
+function formatSignature(usage: CommandUsage, locale: AppLocale): string {
+  const options = usage.options.map((option) => {
+    const name = localizedName(option, locale);
+    return option.required ? ` <${name}>` : ` [${name}]`;
+  });
   return `\`${usage.path}${options.join("")}\``;
 }
 
-function formatOption(option: APIApplicationCommandBasicOption): string {
-  const type = OPTION_TYPE_LABELS[option.type] ?? "valeur";
-  const choices: readonly { name: string }[] = "choices" in option ? (option.choices ?? []) : [];
-  const choiceList =
-    choices.length > 0 ? ` (choix : ${choices.map((choice) => choice.name).join(", ")})` : "";
+function formatOption(option: APIApplicationCommandBasicOption, t: Translator): string {
+  const locale = t.locale;
+  const typeKey = OPTION_TYPE_KEYS[option.type] ?? "fallback";
+  const type = t(`general.help.optionTypes.${typeKey}`);
+  const required = option.required ? t("general.help.required") : "";
 
-  return `- \`${option.name}\` · ${type}${option.required ? ", obligatoire" : ""} - ${option.description}${choiceList}`;
+  const choices: readonly Localizable[] = "choices" in option ? (option.choices ?? []) : [];
+  const choiceList =
+    choices.length > 0
+      ? t("general.help.choices", {
+          list: choices.map((choice) => localizedName(choice, locale)).join(", "),
+        })
+      : "";
+
+  return `- \`${localizedName(option, locale)}\` · ${type}${required} - ${localizedDescription(option, locale)}${choiceList}`;
 }
 
-function overviewLine(command: Command): string {
+function overviewLine(command: Command, t: Translator): string {
   if (command.type !== "chatInput") {
-    return `\`${command.data.name}\` - ${commandSummary(command)}`;
+    return `\`${commandName(command, t)}\` - ${commandSummary(command, t)}`;
   }
 
-  const prefix = `/${command.data.name}`;
-  const subcommands = chatInputUsages(command)
+  const prefix = displayName(command, t);
+  const subcommands = chatInputUsages(command, t.locale)
     .map((usage) => usage.path.slice(prefix.length).trim())
     .filter(Boolean);
 
   const signature = subcommands.length > 0 ? `${prefix} ${subcommands.join("|")}` : prefix;
-  return `\`${signature}\` - ${commandSummary(command)}`;
+  return `\`${signature}\` - ${commandSummary(command, t)}`;
 }
 
-function usageSection(command: Command): string {
+function usageSection(command: Command, t: Translator): string {
   if (command.type !== "chatInput") {
-    return `**Utilisation**\nClic droit sur ${contextMenuTarget(command)} > Applications > ${command.data.name}`;
+    return [
+      `**${t("general.help.usage")}**`,
+      t("general.help.contextMenu.usage", {
+        target: contextMenuTarget(command, t),
+        name: commandName(command, t),
+      }),
+    ].join("\n");
   }
 
-  const usages = chatInputUsages(command);
-  const hasSubcommands = usages.some((usage) => usage.path !== `/${command.data.name}`);
+  const usages = chatInputUsages(command, t.locale);
+  const hasSubcommands = usages.some((usage) => usage.path !== displayName(command, t));
 
   const lines = usages.flatMap((usage) => [
-    hasSubcommands ? `${formatSignature(usage)} - ${usage.description}` : formatSignature(usage),
-    ...usage.options.map(formatOption),
+    hasSubcommands
+      ? `${formatSignature(usage, t.locale)} - ${usage.description}`
+      : formatSignature(usage, t.locale),
+    ...usage.options.map((option) => formatOption(option, t)),
   ]);
 
-  return ["**Utilisation**", ...lines].join("\n");
+  return [`**${t("general.help.usage")}**`, ...lines].join("\n");
 }
 
-function accessSection(command: Command): string {
+function accessSection(command: Command, t: Translator): string {
   const lines = [
-    `Niveau requis : ${permissionLevelLabel(command.permissionLevel ?? PermissionLevel.Everyone)}`,
-    (command.guildOnly ?? true)
-      ? "Utilisable uniquement sur un serveur"
-      : "Utilisable aussi en message privé",
+    t("general.help.accessLevel", {
+      level: permissionLevelLabel(command.permissionLevel ?? PermissionLevel.Everyone, t),
+    }),
+    (command.guildOnly ?? true) ? t("general.help.guildOnly") : t("general.help.alsoInDm"),
   ];
 
-  if (command.premiumOnly) lines.push("Réservée aux serveurs Gaulia Premium");
+  if (command.premiumOnly) lines.push(t("general.help.premiumOnly"));
   if (command.cooldownSeconds) {
-    lines.push(`Délai entre deux utilisations : ${command.cooldownSeconds} s`);
+    lines.push(t("general.help.cooldown", { seconds: command.cooldownSeconds }));
   }
 
   const musicAccess = command.type === "chatInput" && MUSIC_COMMAND_ACCESS[command.data.name];
   if (musicAccess) {
     lines.push(
-      musicAccess === "control"
-        ? "Limitée au salon musique et au rôle DJ s'ils sont configurés"
-        : "Limitée au salon musique s'il est configuré",
+      musicAccess === "control" ? t("general.help.musicControl") : t("general.help.musicListen"),
     );
   }
 
-  return ["**Accès**", ...lines.map((line) => `- ${line}`)].join("\n");
+  return [`**${t("general.help.access")}**`, ...lines.map((line) => `- ${line}`)].join("\n");
 }
 
 function normalizeQuery(input: string): string {
@@ -190,7 +250,10 @@ function truncate(text: string, maxLength: number): string {
   return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1)}…`;
 }
 
-export function buildHelpOverview(commands: Collection<string, Command>): V2MessagePayload {
+export function buildHelpOverview(
+  commands: Collection<string, Command>,
+  t: Translator,
+): V2MessagePayload {
   const categories = new Map<string, Command[]>();
   for (const command of commands.values()) {
     const category = command.category ?? "general";
@@ -200,61 +263,79 @@ export function buildHelpOverview(commands: Collection<string, Command>): V2Mess
   const sections = [...categories]
     .sort(([a], [b]) => categoryRank(a) - categoryRank(b) || a.localeCompare(b))
     .map(([category, list]) =>
-      [`**${categoryLabel(category)}**`, ...list.sort(byDisplayName).map(overviewLine)].join("\n"),
+      [
+        `**${categoryLabel(category, t)}**`,
+        ...list.sort((a, b) => byDisplayName(a, b, t)).map((command) => overviewLine(command, t)),
+      ].join("\n"),
     );
 
   return toV2Payload(
     true,
     buildContainer(Colors.Primary, [
-      "### Aide de Gaulia",
+      `### ${t("general.help.title")}`,
       ...sections,
-      "-# `/help commande:<nom>` affiche l'aide détaillée d'une commande.",
+      `-# ${t("general.help.footer")}`,
     ]),
   );
 }
 
-export function buildCommandHelp(command: Command): V2MessagePayload {
+export function buildCommandHelp(command: Command, t: Translator): V2MessagePayload {
   const lines = [
-    `### ${displayName(command)}\n${commandSummary(command)}`,
-    command.help.details,
-    usageSection(command),
+    `### ${displayName(command, t)}\n${commandSummary(command, t)}`,
+    t(`${command.i18nKey}.help.details`),
+    usageSection(command, t),
   ];
 
-  if (command.help.examples?.length) {
+  const examples = t.list(`${command.i18nKey}.help.examples`);
+  if (examples.length > 0) {
     lines.push(
-      ["**Exemples**", ...command.help.examples.map((example) => `\`/${example}\``)].join("\n"),
+      [`**${t("general.help.examples")}**`, ...examples.map((example) => `\`/${example}\``)].join(
+        "\n",
+      ),
     );
   }
 
-  lines.push(accessSection(command));
+  lines.push(accessSection(command, t));
 
   return toV2Payload(true, buildContainer(Colors.Primary, lines));
 }
 
+/** Matches on the canonical name as well as the reader's own, so both spellings find a command. */
 export function findCommand(
   commands: Collection<string, Command>,
   input: string,
+  t: Translator,
 ): Command | undefined {
   const query = normalizeQuery(input);
-  return commands.find((command) => command.data.name.toLowerCase() === query);
+  return commands.find(
+    (command) =>
+      command.data.name.toLowerCase() === query || commandName(command, t).toLowerCase() === query,
+  );
 }
 
 export function helpAutocompleteChoices(
   commands: Collection<string, Command>,
   input: string,
+  t: Translator,
 ): ApplicationCommandOptionChoiceData<string>[] {
   const query = normalizeQuery(input);
-  const startsWithQuery = (command: Command) => command.data.name.toLowerCase().startsWith(query);
+  const searchable = (command: Command) =>
+    `${command.data.name} ${commandName(command, t)}`.toLowerCase();
 
   return [...commands.values()]
-    .filter((command) => command.data.name.toLowerCase().includes(query))
-    .sort((a, b) => Number(startsWithQuery(b)) - Number(startsWithQuery(a)) || byDisplayName(a, b))
+    .filter((command) => searchable(command).includes(query))
+    .sort(
+      (a, b) =>
+        Number(commandName(b, t).toLowerCase().startsWith(query)) -
+          Number(commandName(a, t).toLowerCase().startsWith(query)) || byDisplayName(a, b, t),
+    )
     .slice(0, MAX_AUTOCOMPLETE_CHOICES)
     .map((command) => ({
       name: truncate(
-        `${displayName(command)} - ${commandSummary(command)}`,
+        `${displayName(command, t)} - ${commandSummary(command, t)}`,
         MAX_CHOICE_NAME_LENGTH,
       ),
+      // The value goes back to Discord, so it stays the canonical name.
       value: command.data.name,
     }));
 }

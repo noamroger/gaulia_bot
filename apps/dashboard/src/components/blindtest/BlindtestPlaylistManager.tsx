@@ -5,18 +5,22 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { SettingsSection } from "@/components/settings/SettingsSection";
+import { useLocale, useTranslation, type Translator } from "@/i18n";
 import { api, ApiError } from "@/lib/api";
 import { BLINDTEST_MAX_PLAYLISTS, BLINDTEST_PLAYLIST_NAME_MAX } from "@/lib/blindtest";
+import { formatNumber } from "@/lib/format";
 import type { BlindtestPlaylist, BlindtestPlaylistSummary } from "@/lib/types";
 
-function errorMessage(error: unknown): string {
-  return error instanceof ApiError && error.status < 500
+function errorMessage(error: unknown, t: Translator): string {
+  return error instanceof ApiError && error.status < 500 && !error.generic
     ? error.message
-    : "Une erreur interne est survenue.";
+    : t("common.state.error");
 }
 
-/** Listes personnalisées du serveur : création et suppression enregistrées immédiatement. */
+/** Custom lists of a server: creating and deleting are saved right away. */
 export function BlindtestPlaylistManager({ guildId }: { guildId: string }) {
+  const t = useTranslation();
+  const locale = useLocale();
   const router = useRouter();
   const [playlists, setPlaylists] = useState<BlindtestPlaylistSummary[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -53,7 +57,7 @@ export function BlindtestPlaylistManager({ guildId }: { guildId: string }) {
       });
       router.push(`/dashboard/${guildId}/music/playlists/${created.id}`);
     } catch (createError) {
-      setError(errorMessage(createError));
+      setError(errorMessage(createError, t));
       setCreating(false);
     }
   }
@@ -66,7 +70,7 @@ export function BlindtestPlaylistManager({ guildId }: { guildId: string }) {
       setPlaylists((current) => current?.filter((playlist) => playlist.id !== id) ?? current);
       setConfirmingId(null);
     } catch (deleteError) {
-      setError(errorMessage(deleteError));
+      setError(errorMessage(deleteError, t));
     } finally {
       setDeletingId(null);
     }
@@ -76,16 +80,16 @@ export function BlindtestPlaylistManager({ guildId }: { guildId: string }) {
 
   return (
     <SettingsSection
-      title="Listes personnalisées"
-      description="Crée tes propres listes de musiques : elles sont proposées dans l'autocomplétion de /blindtest, en plus des catégories activées. La création et la suppression sont enregistrées immédiatement."
+      title={t("music.playlists.title")}
+      description={t("music.playlists.description")}
     >
-      {loadFailed && <p className="notice notice-error">Impossible de charger les listes.</p>}
-      {!loadFailed && !playlists && <p className="text-muted">Chargement…</p>}
+      {loadFailed && <p className="notice notice-error">{t("music.playlists.loadError")}</p>}
+      {!loadFailed && !playlists && <p className="text-muted">{t("common.state.loading")}</p>}
 
       {playlists && (
         <>
           {playlists.length === 0 ? (
-            <p className="setting-hint">Aucune liste pour le moment.</p>
+            <p className="setting-hint">{t("music.playlists.empty")}</p>
           ) : (
             <ul className="playlist-list">
               {playlists.map((playlist) => (
@@ -94,7 +98,12 @@ export function BlindtestPlaylistManager({ guildId }: { guildId: string }) {
                     <Link href={`/dashboard/${guildId}/music/playlists/${playlist.id}`}>
                       {playlist.name}
                     </Link>
-                    <span className="setting-hint">{playlist.trackCount} titres</span>
+                    <span className="setting-hint">
+                      {t("music.playlists.tracks", {
+                        count: playlist.trackCount,
+                        value: formatNumber(playlist.trackCount, locale),
+                      })}
+                    </span>
                   </span>
                   <span className="playlist-row-actions">
                     {confirmingId === playlist.id ? (
@@ -105,7 +114,9 @@ export function BlindtestPlaylistManager({ guildId }: { guildId: string }) {
                           disabled={deletingId === playlist.id}
                           onClick={() => void remove(playlist.id)}
                         >
-                          {deletingId === playlist.id ? "Suppression…" : "Confirmer"}
+                          {deletingId === playlist.id
+                            ? t("music.playlists.deleting")
+                            : t("common.action.confirm")}
                         </button>
                         <button
                           type="button"
@@ -113,7 +124,7 @@ export function BlindtestPlaylistManager({ guildId }: { guildId: string }) {
                           disabled={deletingId === playlist.id}
                           onClick={() => setConfirmingId(null)}
                         >
-                          Annuler
+                          {t("common.action.cancel")}
                         </button>
                       </>
                     ) : (
@@ -122,14 +133,14 @@ export function BlindtestPlaylistManager({ guildId }: { guildId: string }) {
                           href={`/dashboard/${guildId}/music/playlists/${playlist.id}`}
                           className="button-secondary button-small"
                         >
-                          Modifier
+                          {t("music.playlists.edit")}
                         </Link>
                         <button
                           type="button"
                           className="button-secondary button-small"
                           onClick={() => setConfirmingId(playlist.id)}
                         >
-                          Supprimer
+                          {t("common.action.delete")}
                         </button>
                       </>
                     )}
@@ -143,8 +154,8 @@ export function BlindtestPlaylistManager({ guildId }: { guildId: string }) {
             <input
               type="text"
               className="input input-grow"
-              placeholder="Nom de la nouvelle liste"
-              aria-label="Nom de la nouvelle liste"
+              placeholder={t("music.playlists.namePlaceholder")}
+              aria-label={t("music.playlists.nameAria")}
               maxLength={BLINDTEST_PLAYLIST_NAME_MAX}
               value={name}
               disabled={creating || limitReached}
@@ -155,13 +166,12 @@ export function BlindtestPlaylistManager({ guildId }: { guildId: string }) {
               className="button-primary"
               disabled={creating || limitReached || !name.trim()}
             >
-              {creating ? "Création…" : "Créer la liste"}
+              {creating ? t("music.playlists.creating") : t("music.playlists.create")}
             </button>
           </form>
           {limitReached && (
             <p className="field-hint inline-hint">
-              Limite de {BLINDTEST_MAX_PLAYLISTS} listes atteinte : supprimes-en une pour en créer
-              une nouvelle.
+              {t("music.playlists.limit", { count: BLINDTEST_MAX_PLAYLISTS })}
             </p>
           )}
         </>

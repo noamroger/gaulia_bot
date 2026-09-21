@@ -27,8 +27,8 @@ export default async function premiumRoutes(app: FastifyInstance): Promise<void>
         getCreditAccount(request.user.userId),
       ]);
 
-      // Le détail source par source vient de `describePremium` : le dashboard affiche d'où vient
-      // le premium (abonnement Discord ou crédits) et à quelle date il se renouvelle ou expire.
+      // `describePremium` splits it source by source, so the dashboard can show where premium comes
+      // from (Discord subscription or credits) and when it renews or expires.
       const { active, source, subscription, credits } = describePremium(guild);
 
       return {
@@ -48,9 +48,9 @@ export default async function premiumRoutes(app: FastifyInstance): Promise<void>
   );
 
   /**
-   * Échange les crédits de l'utilisateur connecté contre du premium offert sur ce serveur. Le
-   * débit est fait avant l'octroi : si l'octroi échoue, les crédits sont recrédités, ce qui vaut
-   * mieux que d'offrir du premium sans jamais débiter.
+   * Trades the signed-in user credits for gifted premium on this server. The debit happens before
+   * the grant: if the grant fails the credits are given back, which beats handing out premium
+   * without ever charging for it.
    */
   app.post<{ Params: { guildId: string } }>(
     "/guilds/:guildId/premium/redeem",
@@ -58,24 +58,21 @@ export default async function premiumRoutes(app: FastifyInstance): Promise<void>
     async (request, reply) => {
       const parsed = redeemSchema.safeParse(request.body);
       if (!parsed.success) {
-        return reply.status(400).send({ error: "Offre inconnue." });
+        return reply.status(400).send({ error: request.t("errors.premium.unknownOffer") });
       }
 
       const offer = findPremiumOffer(parsed.data.offer);
       if (!offer) {
-        return reply.status(400).send({ error: "Offre inconnue." });
+        return reply.status(400).send({ error: request.t("errors.premium.unknownOffer") });
       }
 
       const { guildId } = request.params;
       const userId = request.user.userId;
 
-      // Les deux premiums courraient en parallèle : les crédits échangés ici seraient perdus.
+      // Both premiums would run side by side and the credits spent here would be lost.
       const guild = await getOrCreateGuild(guildId);
       if (describePremium(guild).subscription.active) {
-        return reply.status(400).send({
-          error:
-            "Ce serveur a déjà un abonnement Gaulia Premium actif : tes crédits seraient dépensés pour rien. Réessaie à la fin de l'abonnement.",
-        });
+        return reply.status(400).send({ error: request.t("errors.premium.subscriptionActive") });
       }
 
       const spend = await spendCredits({
@@ -87,7 +84,10 @@ export default async function premiumRoutes(app: FastifyInstance): Promise<void>
 
       if (!spend.spent) {
         return reply.status(400).send({
-          error: `Crédits insuffisants : ${offer.cost} requis, ${spend.balance} disponible(s).`,
+          error: request.t("errors.premium.notEnoughCredits", {
+            cost: offer.cost,
+            balance: spend.balance,
+          }),
         });
       }
 
@@ -99,14 +99,14 @@ export default async function premiumRoutes(app: FastifyInstance): Promise<void>
           userId,
           amount: offer.cost,
           guildId,
-          reason: "Remboursement : échec de l'activation du premium",
+          reason: "Refund: premium activation failed",
         });
         throw error;
       }
 
       request.log.info(
         { userId, guildId, offer: offer.id, cost: offer.cost },
-        "Premium offert activé contre des crédits",
+        "Gifted premium activated with credits",
       );
 
       return {

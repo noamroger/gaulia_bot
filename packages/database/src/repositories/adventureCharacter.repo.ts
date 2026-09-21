@@ -11,7 +11,7 @@ import type {
 import { prisma } from "../client";
 import type { ChapterProgress } from "../schemas/adventure";
 
-/** Champs modifiables d'un personnage : tout sauf sa clé et ses horodatages automatiques. */
+/** Editable character fields: everything but the key and the automatic timestamps. */
 export type AdventureCharacterPatch = Partial<
   Omit<AdventureCharacter, "userId" | "createdAt" | "updatedAt" | "chapterProgress">
 > & { chapterProgress?: ChapterProgress };
@@ -50,7 +50,7 @@ export async function updateAdventureCharacter(
   return prisma.adventureCharacter.update({ where: { userId }, data: toUpdateData(patch) });
 }
 
-/** Classement global : niveau puis expérience totale, comme affiché par `/aventure classement`. */
+/** Global leaderboard: level, then total xp. */
 export async function listTopAdventurers(limit: number): Promise<AdventureCharacter[]> {
   return prisma.adventureCharacter.findMany({
     orderBy: [{ level: "desc" }, { totalXp: "desc" }],
@@ -58,7 +58,7 @@ export async function listTopAdventurers(limit: number): Promise<AdventureCharac
   });
 }
 
-/** Rang d'un joueur (1 = premier), calculé avec le même ordre que le classement. */
+/** Player rank (1 = first), using the leaderboard order. */
 export async function getAdventureRank(character: AdventureCharacter): Promise<number> {
   const ahead = await prisma.adventureCharacter.count({
     where: {
@@ -75,7 +75,7 @@ export async function listAdventureItems(userId: string): Promise<AdventureItem[
   return prisma.adventureItem.findMany({ where: { userId }, orderBy: { itemId: "asc" } });
 }
 
-/** Ajoute (ou empile) un objet et retourne la ligne d'inventaire résultante. */
+/** Adds (or stacks) an item and returns the resulting inventory row. */
 export async function addAdventureItem(
   userId: string,
   itemId: string,
@@ -88,7 +88,7 @@ export async function addAdventureItem(
   });
 }
 
-/** Monte d'un palier le renforcement de l'exemplaire du joueur. */
+/** Raises the upgrade tier of the player's copy by one step. */
 export async function upgradeAdventureItem(
   userId: string,
   itemId: string,
@@ -101,8 +101,8 @@ export async function upgradeAdventureItem(
 }
 
 /**
- * Retire des exemplaires d'un objet. Retourne faux (sans rien modifier) si l'inventaire n'en
- * contient pas assez, ce qui sert de garde-fou aux achats, crafts et consommations.
+ * Removes copies of an item. Returns false without writing anything when the inventory is short,
+ * which guards purchases, crafts and consumables.
  */
 export async function removeAdventureItem(
   userId: string,
@@ -125,7 +125,7 @@ export async function removeAdventureItem(
   return true;
 }
 
-/** Équipe une pièce et déséquipe d'un même geste toutes celles du même emplacement. */
+/** Equips a piece and unequips every other one in the same slot at once. */
 export async function equipAdventureItem(
   userId: string,
   itemId: string,
@@ -151,7 +151,7 @@ export async function listAdventureAchievements(userId: string): Promise<Adventu
   });
 }
 
-/** Débloque un haut fait ; retourne faux s'il l'était déjà (aucune annonce à refaire au joueur). */
+/** Unlocks an achievement; false when it already was (nothing to announce again). */
 export async function unlockAdventureAchievement(
   userId: string,
   achievementId: string,

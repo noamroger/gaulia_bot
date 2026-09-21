@@ -10,6 +10,7 @@ import {
 } from "@gaulia/database";
 
 import { GauliaError } from "../../../../core/errors";
+import type { Translator } from "../../../../i18n";
 import {
   findItem,
   itemLabel,
@@ -25,7 +26,7 @@ export interface InventoryEntry {
   item: ItemDefinition;
 }
 
-/** Inventaire enrichi des définitions, objets inconnus (retirés du catalogue) exclus. */
+/** Inventory enriched with the definitions, unknown items (dropped from the catalog) excluded. */
 export function describeInventory(items: AdventureItem[]): InventoryEntry[] {
   return items.flatMap((row) => {
     const item = findItem(row.itemId);
@@ -37,7 +38,7 @@ export function countItem(items: AdventureItem[], itemId: string): number {
   return items.find((row) => row.itemId === itemId)?.quantity ?? 0;
 }
 
-/** Ajoute plusieurs objets d'un coup (butin, récompense de chapitre, don du panel admin). */
+/** Adds several items at once (loot, chapter reward, grant from the admin panel). */
 export async function grantItems(
   userId: string,
   loot: { itemId: string; quantity: number }[],
@@ -51,16 +52,21 @@ export async function equipItem(
   character: AdventureCharacter,
   items: AdventureItem[],
   itemId: string,
+  t: Translator,
 ): Promise<AdventureItem[]> {
   const item = requireItem(itemId);
-  if (!item.slot) throw new GauliaError(`${itemLabel(itemId)} ne s'équipe pas.`);
+  if (!item.slot) {
+    throw new GauliaError("adventure.error.notEquippable", { item: itemLabel(t, itemId) });
+  }
   if (countItem(items, itemId) === 0) {
-    throw new GauliaError(`Tu ne possèdes pas ${itemLabel(itemId)}.`);
+    throw new GauliaError("adventure.error.notOwnedSimple", { item: itemLabel(t, itemId) });
   }
   if ((item.level ?? 1) > character.level) {
-    throw new GauliaError(
-      `${itemLabel(itemId)} demande le niveau ${item.level ?? 1} (tu es niveau ${character.level}).`,
-    );
+    throw new GauliaError("adventure.error.itemLevel", {
+      item: itemLabel(t, itemId),
+      required: item.level ?? 1,
+      current: character.level,
+    });
   }
 
   await equipAdventureItem(
@@ -77,8 +83,8 @@ export async function unequipItem(userId: string, itemId: string): Promise<Adven
 }
 
 /**
- * Potions du sac qui rendent des points de vie, de la plus faible à la plus forte : le bouton
- * « Se soigner » prend la première qui suffit, pour ne pas gâcher un élixir sur une égratignure.
+ * Healing potions in the bag, weakest first: the heal button takes the first one that is enough,
+ * so an elixir is not wasted on a scratch.
  */
 export function healingItems(items: AdventureItem[]): InventoryEntry[] {
   return describeInventory(items)
@@ -86,7 +92,7 @@ export function healingItems(items: AdventureItem[]): InventoryEntry[] {
     .sort((a, b) => (a.item.effect?.hp ?? 0) - (b.item.effect?.hp ?? 0));
 }
 
-/** Meilleure potion à boire pour combler `missing` points de vie (la plus économe qui suffit). */
+/** Best potion to drink to fill `missing` health (the cheapest one that is enough). */
 export function bestHealingItem(
   items: AdventureItem[],
   missing: number,
@@ -101,27 +107,31 @@ export function bestHealingItem(
 export interface ConsumeResult {
   character: AdventureCharacter;
   items: AdventureItem[];
-  /** Effets réellement appliqués, pour l'affichage (bornés par les maximums). */
+  /** Effects actually applied, for display (capped by the maximums). */
   healed: number;
   energy: number;
   xp: number;
 }
 
-/** Utilise un consommable : soin, énergie ou expérience, toujours borné par les maximums. */
+/** Uses a consumable: healing, energy or experience, always capped by the maximums. */
 export async function consumeItem(
   character: AdventureCharacter,
   items: AdventureItem[],
   itemId: string,
+  t: Translator,
 ): Promise<ConsumeResult> {
   const item = requireItem(itemId);
   if (item.kind !== "CONSOMMABLE" || !item.effect) {
-    throw new GauliaError(`${itemLabel(itemId)} ne s'utilise pas.`);
+    throw new GauliaError("adventure.error.notUsable", { item: itemLabel(t, itemId) });
   }
   if ((item.level ?? 1) > character.level) {
-    throw new GauliaError(`${itemLabel(itemId)} demande le niveau ${item.level ?? 1}.`);
+    throw new GauliaError("adventure.error.itemLevelSimple", {
+      item: itemLabel(t, itemId),
+      required: item.level ?? 1,
+    });
   }
   if (!(await removeAdventureItem(character.userId, itemId, 1))) {
-    throw new GauliaError(`Tu ne possèdes pas ${itemLabel(itemId)}.`);
+    throw new GauliaError("adventure.error.notOwnedSimple", { item: itemLabel(t, itemId) });
   }
 
   const { maxHp } = computeStats(character, items);

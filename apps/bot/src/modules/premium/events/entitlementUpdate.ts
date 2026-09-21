@@ -14,7 +14,7 @@ const event: GauliaEvent<typeof Events.EntitlementUpdate> = {
     await handleEntitlementUpsert(newEntitlement);
     client.logger.info(
       { entitlementId: newEntitlement.id, guildId: newEntitlement.guildId },
-      "Entitlement premium mis à jour",
+      "Premium entitlement updated",
     );
   },
 };

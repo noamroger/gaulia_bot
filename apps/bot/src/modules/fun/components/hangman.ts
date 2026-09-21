@@ -17,10 +17,10 @@ import {
 const letterSelect: StringSelectComponent = {
   type: "stringSelect",
   customIdPrefix: "fun:hangman-letter:",
-  async execute(interaction) {
+  async execute(interaction, _client, t) {
     const { gameId } = parseCustomId(interaction.customId);
     const letter = interaction.values[0] ?? "";
-    await interaction.update(guessHangmanLetter(gameId, interaction.user.id, letter));
+    await interaction.update(guessHangmanLetter(gameId, interaction.user.id, letter, t));
     hangmanGames.attach(gameId, interaction);
   },
 };
@@ -28,21 +28,21 @@ const letterSelect: StringSelectComponent = {
 const wordButton: ButtonComponent = {
   type: "button",
   customIdPrefix: "fun:hangman-word:",
-  async execute(interaction) {
+  async execute(interaction, _client, t) {
     const { gameId } = parseCustomId(interaction.customId);
     requireHangmanPlayer(gameId, interaction.user.id);
-    await interaction.showModal(hangmanWordModal(gameId));
+    await interaction.showModal(hangmanWordModal(gameId, t));
   },
 };
 
 const wordModal: ModalComponent = {
   type: "modal",
   customIdPrefix: "fun:hangman-solve:",
-  async execute(interaction) {
-    if (!interaction.isFromMessage()) throw new GauliaError("Cette partie n'est plus disponible.");
+  async execute(interaction, _client, t) {
+    if (!interaction.isFromMessage()) throw new GauliaError("fun.error.gameOver");
     const { gameId } = parseCustomId(interaction.customId);
     const word = interaction.fields.getTextInputValue(MODAL_INPUT_ID);
-    await interaction.update(guessHangmanWord(gameId, interaction.user.id, word));
+    await interaction.update(guessHangmanWord(gameId, interaction.user.id, word, t));
     hangmanGames.attach(gameId, interaction);
   },
 };
@@ -50,9 +50,9 @@ const wordModal: ModalComponent = {
 const forfeitButton: ButtonComponent = {
   type: "button",
   customIdPrefix: "fun:hangman-quit:",
-  async execute(interaction) {
+  async execute(interaction, _client, t) {
     const { gameId } = parseCustomId(interaction.customId);
-    await interaction.update(forfeitHangman(gameId, interaction.user.id));
+    await interaction.update(forfeitHangman(gameId, interaction.user.id, t));
   },
 };
 

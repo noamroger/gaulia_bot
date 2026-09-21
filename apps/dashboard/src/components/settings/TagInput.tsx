@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { useTranslation } from "@/i18n";
+
 export function TagInput({
   values,
   placeholder,
@@ -19,6 +21,7 @@ export function TagInput({
   validate?: (value: string) => string | null;
   onChange: (values: string[]) => void;
 }) {
+  const t = useTranslation();
   const [text, setText] = useState("");
   const [problem, setProblem] = useState<string | null>(null);
   const full = values.length >= maxItems;
@@ -52,7 +55,7 @@ export function TagInput({
               {value}
               <button
                 type="button"
-                aria-label={`Retirer ${value}`}
+                aria-label={t("settings.tags.remove", { value })}
                 onClick={() => onChange(values.filter((item) => item !== value))}
               >
                 ×
@@ -65,7 +68,7 @@ export function TagInput({
         <input
           className="input"
           value={text}
-          placeholder={full ? "Limite atteinte" : placeholder}
+          placeholder={full ? t("settings.tags.full") : placeholder}
           aria-label={ariaLabel}
           disabled={full}
           onChange={(event) => {
@@ -85,7 +88,7 @@ export function TagInput({
           disabled={full || text.trim() === ""}
           onClick={commit}
         >
-          Ajouter
+          {t("settings.tags.add")}
         </button>
         <span className="setting-hint">
           {values.length} / {maxItems}

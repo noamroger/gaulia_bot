@@ -4,7 +4,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
+import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useTranslation } from "@/i18n";
 import { api } from "@/lib/api";
 import { userAvatarUrl } from "@/lib/discordCdn";
 import { formatNumber } from "@/lib/format";
@@ -20,6 +22,7 @@ export function TopNav({ session }: { session: Session | null }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuId = useId();
   const { credits } = useCredits();
+  const t = useTranslation();
 
   async function logout(): Promise<void> {
     await api.post("/auth/logout");
@@ -50,17 +53,14 @@ export function TopNav({ session }: { session: Session | null }) {
           <div className="top-nav-actions">
             {session.isOwner && (
               <Link href="/admin" className="text-muted">
-                Admin
+                {t("nav.top.admin")}
               </Link>
             )}
+            <LanguageToggle />
             <ThemeToggle />
             {credits && (
-              <Link
-                href="/dashboard"
-                className="credits-chip"
-                title="Crédits gagnés en votant sur top.gg"
-              >
-                {formatNumber(credits.balance)} crédits
+              <Link href="/dashboard" className="credits-chip" title={t("nav.top.creditsTitle")}>
+                {t("nav.top.credits", { count: formatNumber(credits.balance) })}
               </Link>
             )}
             <span className="user-chip">
@@ -74,7 +74,7 @@ export function TopNav({ session }: { session: Session | null }) {
               <span className="text-muted">{session.username}</span>
             </span>
             <button className="button-secondary" onClick={() => void logout()}>
-              Déconnexion
+              {t("nav.top.logout")}
             </button>
           </div>
 
@@ -83,7 +83,7 @@ export function TopNav({ session }: { session: Session | null }) {
               ref={triggerRef}
               type="button"
               className="account-trigger"
-              aria-label="Menu du compte"
+              aria-label={t("nav.top.accountMenu")}
               aria-expanded={menuOpen}
               aria-controls={menuId}
               onClick={() => setMenuOpen((value) => !value)}
@@ -117,7 +117,7 @@ export function TopNav({ session }: { session: Session | null }) {
                 <li className="menu-header">{session.username}</li>
                 {credits && (
                   <li className="menu-header menu-header-muted">
-                    {formatNumber(credits.balance)} crédit(s)
+                    {t("nav.top.creditsMenu", { count: formatNumber(credits.balance) })}
                   </li>
                 )}
                 <li>
@@ -125,7 +125,7 @@ export function TopNav({ session }: { session: Session | null }) {
                     href="/dashboard"
                     className={`menu-item${pathname === "/dashboard" ? " active" : ""}`}
                   >
-                    Mes serveurs
+                    {t("nav.top.myServers")}
                   </Link>
                 </li>
                 {session.isOwner && (
@@ -134,17 +134,20 @@ export function TopNav({ session }: { session: Session | null }) {
                       href="/admin"
                       className={`menu-item${pathname?.startsWith("/admin") ? " active" : ""}`}
                     >
-                      Admin
+                      {t("nav.top.admin")}
                     </Link>
                   </li>
                 )}
                 <li className="menu-separator" role="separator" />
                 <li>
+                  <LanguageToggle variant="menu" />
+                </li>
+                <li>
                   <ThemeToggle variant="menu" />
                 </li>
                 <li>
                   <button type="button" className="menu-item danger" onClick={() => void logout()}>
-                    Déconnexion
+                    {t("nav.top.logout")}
                   </button>
                 </li>
               </ul>

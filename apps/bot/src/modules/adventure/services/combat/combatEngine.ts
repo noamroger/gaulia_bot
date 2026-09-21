@@ -1,12 +1,14 @@
 import type { AdventureClass } from "@gaulia/database";
 
+import type { Translator } from "../../../../i18n";
+
 import type { MonsterDefinition } from "../../data/monsters";
 import type { DerivedStats } from "../character/statsService";
 
 const MAX_ROUNDS = 30;
 const CRIT_MULTIPLIER = 1.8;
 
-/** Passifs de classe, appliqués au moment du calcul des dégâts. */
+/** Class passives, applied while computing damage. */
 const CLASS_MODIFIERS: Readonly<
   Record<AdventureClass, { dealt: number; taken: number; critBonus: number }>
 > = {
@@ -17,12 +19,12 @@ const CLASS_MODIFIERS: Readonly<
 
 export interface CombatResult {
   victory: boolean;
-  /** Points de vie restants (jamais négatifs : une défaite laisse le personnage à 1 PV). */
+  /** Health left (never negative: a defeat leaves the character at 1 HP). */
   hpLeft: number;
   rounds: number;
   damageDealt: number;
   damageTaken: number;
-  /** Deux ou trois lignes résumant le combat, prêtes à l'affichage. */
+  /** Two or three lines summing up the fight, ready to display. */
   highlights: string[];
 }
 
@@ -31,15 +33,15 @@ function variance(): number {
 }
 
 /**
- * Combat au tour par tour résolu d'un bloc : le joueur n'a pas à cliquer entre chaque échange,
- * mais le résumé raconte ce qui s'est passé. Les deux camps frappent à tour de rôle, le joueur
- * commence.
+ * Turn based fight resolved in one go: the player does not click between exchanges, but the
+ * summary tells what happened. Both sides strike in turn, the player first.
  */
 export function resolveCombat(
   stats: DerivedStats,
   characterClass: AdventureClass,
   hp: number,
   monster: MonsterDefinition,
+  t: Translator,
 ): CombatResult {
   const modifiers = CLASS_MODIFIERS[characterClass];
   const critChance = (stats.crit + modifiers.critBonus) / 100;
@@ -83,13 +85,15 @@ export function resolveCombat(
 
   const victory = monsterHp <= 0;
   const highlights = [
-    `⚔️ ${rounds} échange(s) · ${damageDealt} dégâts infligés · ${damageTaken} subis`,
+    t("adventure.combat.summary", {
+      rounds,
+      dealt: damageDealt,
+      taken: damageTaken,
+    }),
   ];
-  if (crits > 0) highlights.push(`💥 ${crits} coup(s) critique(s) placé(s).`);
-  if (dodges > 0) highlights.push(`🌀 ${dodges} attaque(s) esquivée(s).`);
-  if (!victory && rounds >= MAX_ROUNDS) {
-    highlights.push("🕰️ Le combat s'éternise : tu romps le contact avant l'épuisement.");
-  }
+  if (crits > 0) highlights.push(t("adventure.combat.crits", { count: crits }));
+  if (dodges > 0) highlights.push(t("adventure.combat.dodges", { count: dodges }));
+  if (!victory && rounds >= MAX_ROUNDS) highlights.push(t("adventure.combat.timeout"));
 
   return {
     victory,

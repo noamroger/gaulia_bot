@@ -2,28 +2,27 @@ import { SlashCommandBuilder } from "discord.js";
 
 import { Emojis } from "../../../client/Constants";
 import { GauliaError } from "../../../core/errors";
+import { localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
-import { interventionOf, musicActionPayload, trackLink } from "../services/musicUi";
+import { musicActionPayload, trackLink } from "../services/musicUi";
 import { getPlayerOrThrow, requireSameVoiceChannel, resolveMember } from "../services/playerUtils";
+
+const KEY = "music.commands.skip";
 
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   guildOnly: true,
-  data: new SlashCommandBuilder().setName("skip").setDescription("Passe au morceau suivant"),
 
-  help: {
-    details:
-      "Arrête le morceau en cours et passe au titre suivant de la file. Tu dois être dans le même salon vocal que Gaulia.",
-    examples: ["skip"],
-  },
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY),
 
-  async execute(interaction, client) {
+  async execute(interaction, client, t) {
     const member = await resolveMember(interaction);
     const player = getPlayerOrThrow(client, interaction.guildId!);
     requireSameVoiceChannel(member, player);
 
     if (player.queue.tracks.length === 0) {
-      throw new GauliaError("Aucune musique suivante dans la file d'attente.");
+      throw new GauliaError("music.error.noNextTrack");
     }
 
     const skipped = player.queue.current;
@@ -33,8 +32,11 @@ const command: ChatInputCommand = {
       musicActionPayload(
         interaction.user,
         Emojis.Skip,
-        "Musique passée",
-        `${skipped ? trackLink(skipped) : "La musique"} a été passée ${interventionOf(interaction.user)}.`,
+        t("music.actions.skip.title"),
+        t("music.actions.skip.skipped", {
+          track: skipped ? trackLink(skipped) : t("music.actions.skip.unnamedTrack"),
+          user: interaction.user.id,
+        }),
       ),
     );
   },

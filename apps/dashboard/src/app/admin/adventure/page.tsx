@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { InterventionForm } from "@/components/adventure/InterventionForm";
 import { PlayerSheet } from "@/components/adventure/PlayerSheet";
+import { useLocale, useTranslation, type Translator } from "@/i18n";
 import { api, ApiError } from "@/lib/api";
 import { userAvatarUrl } from "@/lib/discordCdn";
 import { formatDateTime, formatNumber } from "@/lib/format";
@@ -14,16 +15,17 @@ import type {
   AdventurePlayerDetail,
 } from "@/lib/types";
 
+/** Keyed on the class names the API sends. */
 const CLASS_EMOJIS: Record<string, string> = {
   GUERRIER: "🛡️",
   MAGE: "🔮",
   RODEUR: "🏹",
 };
 
-function errorMessage(error: unknown): string {
-  return error instanceof ApiError && error.status < 500
+function errorMessage(error: unknown, t: Translator): string {
+  return error instanceof ApiError && error.status < 500 && !error.generic
     ? error.message
-    : "Une erreur interne est survenue.";
+    : t("common.state.error");
 }
 
 export default function AdminAdventurePage() {
@@ -35,6 +37,9 @@ export default function AdminAdventurePage() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const t = useTranslation();
+  const locale = useLocale();
 
   useEffect(() => {
     api
@@ -60,12 +65,12 @@ export default function AdminAdventurePage() {
         if (!cancelled) setDetail(value);
       })
       .catch((loadError: unknown) => {
-        if (!cancelled) setError(errorMessage(loadError));
+        if (!cancelled) setError(errorMessage(loadError, t));
       });
     return () => {
       cancelled = true;
     };
-  }, [selected]);
+  }, [selected, t]);
 
   const filtered = useMemo(() => {
     if (!players) return null;
@@ -93,9 +98,9 @@ export default function AdminAdventurePage() {
           player.userId === updated.character.userId ? { ...player, ...updated.character } : player,
         ),
       );
-      setSuccess("Intervention appliquée et inscrite dans le journal du joueur.");
+      setSuccess(t("admin.adventure.interventionApplied"));
     } catch (patchError) {
-      setError(errorMessage(patchError));
+      setError(errorMessage(patchError, t));
     } finally {
       setPending(false);
     }
@@ -108,21 +113,27 @@ export default function AdminAdventurePage() {
     <div>
       <div className="kpi-grid">
         <div className="card stat-tile">
-          <span className="stat-label">Aventuriers</span>
-          <span className="stat-value">{formatNumber(totalPlayers)}</span>
-          <span className="stat-hint">personnages créés</span>
+          <span className="stat-label">{t("admin.adventure.tiles.players")}</span>
+          <span className="stat-value">{formatNumber(totalPlayers, locale)}</span>
+          <span className="stat-hint">{t("admin.adventure.tiles.playersHint")}</span>
         </div>
         <div className="card stat-tile">
-          <span className="stat-label">Histoires terminées</span>
-          <span className="stat-value">{formatNumber(finished)}</span>
-          <span className="stat-hint">sur {catalogue?.totalChapters ?? "-"} chapitres</span>
-        </div>
-        <div className="card stat-tile">
-          <span className="stat-label">Niveau le plus élevé</span>
-          <span className="stat-value">
-            {formatNumber(Math.max(0, ...(players ?? []).map((player) => player.level)))}
+          <span className="stat-label">{t("admin.adventure.tiles.finished")}</span>
+          <span className="stat-value">{formatNumber(finished, locale)}</span>
+          <span className="stat-hint">
+            {t("admin.adventure.tiles.finishedHint", {
+              chapters: catalogue?.totalChapters ?? "-",
+            })}
           </span>
-          <span className="stat-hint">maximum : {catalogue?.maxLevel ?? "-"}</span>
+        </div>
+        <div className="card stat-tile">
+          <span className="stat-label">{t("admin.adventure.tiles.topLevel")}</span>
+          <span className="stat-value">
+            {formatNumber(Math.max(0, ...(players ?? []).map((player) => player.level)), locale)}
+          </span>
+          <span className="stat-hint">
+            {t("admin.adventure.tiles.topLevelHint", { level: catalogue?.maxLevel ?? "-" })}
+          </span>
         </div>
       </div>
 
@@ -130,7 +141,8 @@ export default function AdminAdventurePage() {
         <input
           type="search"
           className="search-input"
-          placeholder="Chercher un joueur (pseudo ou identifiant)"
+          placeholder={t("admin.adventure.searchPlaceholder")}
+          aria-label={t("admin.adventure.searchLabel")}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -140,20 +152,20 @@ export default function AdminAdventurePage() {
       {success && <p className="notice notice-success">{success}</p>}
 
       {filtered === null ? (
-        <p className="text-muted">Chargement…</p>
+        <p className="text-muted">{t("common.state.loading")}</p>
       ) : filtered.length === 0 ? (
-        <div className="empty-state">Aucun aventurier pour l&apos;instant.</div>
+        <div className="empty-state">{t("admin.adventure.empty")}</div>
       ) : (
         <div className="card table-scroll">
           <table className="table">
             <thead>
               <tr>
-                <th>Joueur</th>
-                <th className="numeric">Niveau</th>
-                <th>Scénario</th>
-                <th className="numeric">Pièces</th>
-                <th className="numeric">Fragments</th>
-                <th>Dernière partie</th>
+                <th>{t("admin.adventure.table.player")}</th>
+                <th className="numeric">{t("admin.adventure.table.level")}</th>
+                <th>{t("admin.adventure.table.story")}</th>
+                <th className="numeric">{t("admin.adventure.table.gold")}</th>
+                <th className="numeric">{t("admin.adventure.table.echoes")}</th>
+                <th>{t("admin.adventure.table.lastPlayed")}</th>
                 <th />
               </tr>
             </thead>
@@ -178,12 +190,15 @@ export default function AdminAdventurePage() {
                   <td className="numeric">{player.level}</td>
                   <td>
                     {player.storyEndedAt
-                      ? "Terminé"
-                      : `Acte ${player.actIndex + 1} · chapitre ${player.chapterIndex + 1}`}
+                      ? t("admin.adventure.finished")
+                      : t("admin.adventure.progress", {
+                          act: player.actIndex + 1,
+                          chapter: player.chapterIndex + 1,
+                        })}
                   </td>
-                  <td className="numeric">{formatNumber(player.gold)}</td>
-                  <td className="numeric">{formatNumber(player.echoes)}</td>
-                  <td>{player.lastPlayedAt ? formatDateTime(player.lastPlayedAt) : "-"}</td>
+                  <td className="numeric">{formatNumber(player.gold, locale)}</td>
+                  <td className="numeric">{formatNumber(player.echoes, locale)}</td>
+                  <td>{player.lastPlayedAt ? formatDateTime(player.lastPlayedAt, locale) : "-"}</td>
                   <td className="table-actions">
                     <button
                       type="button"
@@ -192,7 +207,9 @@ export default function AdminAdventurePage() {
                         setSelected((current) => (current === player.userId ? null : player.userId))
                       }
                     >
-                      {selected === player.userId ? "Fermer" : "Ouvrir"}
+                      {selected === player.userId
+                        ? t("admin.adventure.close")
+                        : t("admin.adventure.open")}
                     </button>
                   </td>
                 </tr>
@@ -204,7 +221,9 @@ export default function AdminAdventurePage() {
 
       {selected && (
         <>
-          <h2 className="section-title">Partie de {detail?.character.username ?? selected}</h2>
+          <h2 className="section-title">
+            {t("admin.adventure.sheetTitle", { name: detail?.character.username ?? selected })}
+          </h2>
           {detail ? (
             <>
               <PlayerSheet detail={detail} catalogue={catalogue} />
@@ -215,7 +234,7 @@ export default function AdminAdventurePage() {
               />
             </>
           ) : (
-            <p className="text-muted">Chargement de la fiche…</p>
+            <p className="text-muted">{t("admin.adventure.sheetLoading")}</p>
           )}
         </>
       )}

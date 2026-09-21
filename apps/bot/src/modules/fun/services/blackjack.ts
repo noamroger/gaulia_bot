@@ -3,27 +3,24 @@ import { randomInt } from "node:crypto";
 import { ButtonStyle } from "discord.js";
 
 import { GauliaError } from "../../../core/errors";
+import type { Translator } from "../../../i18n";
 import { funButton, funPayload, funRow, type FunPayload } from "./funUi";
 import { GAME_IDLE_MS, GameStore } from "./gameStore";
 
 const SUITS = ["♠", "♥", "♦", "♣"] as const;
-const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "V", "D", "R"] as const;
+const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"] as const;
 const BLACKJACK = 21;
 const DEALER_STANDS_AT = 17;
+const HIDDEN_SCORE = "?";
 
-type Outcome = "blackjack" | "win" | "dealer-bust" | "lose" | "bust" | "push" | null;
+type Rank = (typeof RANKS)[number];
+type Outcome = "blackjack" | "win" | "dealerBust" | "lose" | "bust" | "push" | null;
 
-const OUTCOME_TEXT: Record<Exclude<Outcome, null>, string> = {
-  blackjack: "Blackjack ! Tu gagnes.",
-  win: "Tu gagnes !",
-  "dealer-bust": "Le croupier dépasse 21, tu gagnes !",
-  lose: "Le croupier gagne.",
-  bust: "Tu dépasses 21, perdu.",
-  push: "Égalité.",
-};
+/** Face cards are not written the same way in every language (J/Q/K, V/D/R). */
+const FACE_KEYS: Partial<Record<Rank, string>> = { A: "ace", J: "jack", Q: "queen", K: "king" };
 
 interface Card {
-  rank: (typeof RANKS)[number];
+  rank: Rank;
   suit: (typeof SUITS)[number];
 }
 
@@ -46,11 +43,11 @@ function shuffledDeck(): Card[] {
 
 function cardPoints(card: Card): number {
   if (card.rank === "A") return 11;
-  if (card.rank === "V" || card.rank === "D" || card.rank === "R") return 10;
+  if (card.rank === "J" || card.rank === "Q" || card.rank === "K") return 10;
   return Number(card.rank);
 }
 
-/** Les as valent 11, puis 1 tant que la main dépasse 21. */
+/** Aces count as 11, then as 1 for as long as the hand goes over 21. */
 export function handValue(cards: Card[]): number {
   let total = cards.reduce((sum, card) => sum + cardPoints(card), 0);
   let aces = cards.filter((card) => card.rank === "A").length;
@@ -65,27 +62,44 @@ function draw(game: BlackjackGame): Card {
   return game.deck.pop()!;
 }
 
-function formatHand(cards: Card[], hideHoleCard: boolean): string {
+function rankLabel(rank: Rank, t: Translator): string {
+  const face = FACE_KEYS[rank];
+  return face ? t(`fun.blackjack.faces.${face}`) : rank;
+}
+
+function formatHand(cards: Card[], hideHoleCard: boolean, t: Translator): string {
   return cards
-    .map((card, index) => (hideHoleCard && index === 1 ? "`??`" : `\`${card.rank}${card.suit}\``))
+    .map((card, index) =>
+      hideHoleCard && index === 1 ? "`??`" : `\`${rankLabel(card.rank, t)}${card.suit}\``,
+    )
     .join(" ");
 }
 
-/** `gameId` null : partie expirée, affichée sans contrôles. */
-export function renderBlackjack(game: BlackjackGame, gameId: string | null): FunPayload {
+/** A null `gameId` means the game expired and is shown without controls. */
+export function renderBlackjack(
+  game: BlackjackGame,
+  gameId: string | null,
+  t: Translator,
+): FunPayload {
   const hidden = game.outcome === null;
   const status = game.outcome
-    ? OUTCOME_TEXT[game.outcome]
+    ? t(`fun.blackjack.outcome.${game.outcome}`)
     : gameId === null
-      ? "Partie expirée après 10 minutes d'inactivité."
-      : "Tirer une carte ou rester ?";
+      ? t("fun.game.expired")
+      : t("fun.blackjack.prompt");
 
   const lines = [
-    "### Blackjack",
-    `-# Partie de <@${game.playerId}>`,
+    `### ${t("fun.blackjack.title")}`,
+    `-# ${t("fun.blackjack.owner", { player: `<@${game.playerId}>` })}`,
     "",
-    `**Croupier** (${hidden ? "?" : handValue(game.dealer)}) : ${formatHand(game.dealer, hidden)}`,
-    `**Ta main** (${handValue(game.player)}) : ${formatHand(game.player, false)}`,
+    t("fun.blackjack.dealerHand", {
+      score: hidden ? HIDDEN_SCORE : handValue(game.dealer),
+      cards: formatHand(game.dealer, hidden, t),
+    }),
+    t("fun.blackjack.playerHand", {
+      score: handValue(game.player),
+      cards: formatHand(game.player, false, t),
+    }),
     "",
     status,
   ];
@@ -94,21 +108,27 @@ export function renderBlackjack(game: BlackjackGame, gameId: string | null): Fun
 
   if (game.outcome) {
     return funPayload(lines, [
-      funRow(funButton(`fun:bj-new:${game.playerId}`, "Rejouer", ButtonStyle.Success)),
+      funRow(
+        funButton(
+          `fun:bj-new:${game.playerId}`,
+          t("fun.blackjack.replayButton"),
+          ButtonStyle.Success,
+        ),
+      ),
     ]);
   }
 
   return funPayload(lines, [
     funRow(
-      funButton(`fun:bj-hit:${gameId}`, "Tirer", ButtonStyle.Primary),
-      funButton(`fun:bj-stand:${gameId}`, "Rester", ButtonStyle.Secondary),
+      funButton(`fun:bj-hit:${gameId}`, t("fun.blackjack.hitButton"), ButtonStyle.Primary),
+      funButton(`fun:bj-stand:${gameId}`, t("fun.blackjack.standButton"), ButtonStyle.Secondary),
     ),
   ]);
 }
 
 export const blackjackGames = new GameStore<BlackjackGame>({
   idleMs: GAME_IDLE_MS,
-  renderExpired: (game) => renderBlackjack(game, null),
+  renderExpired: (game, t) => renderBlackjack(game, null, t),
 });
 
 function playDealer(game: BlackjackGame): void {
@@ -117,16 +137,13 @@ function playDealer(game: BlackjackGame): void {
   const player = handValue(game.player);
   const dealer = handValue(game.dealer);
   game.outcome =
-    dealer > BLACKJACK
-      ? "dealer-bust"
-      : player > dealer
-        ? "win"
-        : player < dealer
-          ? "lose"
-          : "push";
+    dealer > BLACKJACK ? "dealerBust" : player > dealer ? "win" : player < dealer ? "lose" : "push";
 }
 
-export function startBlackjack(playerId: string): { gameId: string; payload: FunPayload } {
+export function startBlackjack(
+  playerId: string,
+  t: Translator,
+): { gameId: string; payload: FunPayload } {
   const game: BlackjackGame = {
     deck: shuffledDeck(),
     player: [],
@@ -143,20 +160,18 @@ export function startBlackjack(playerId: string): { gameId: string; payload: Fun
     game.outcome = handValue(game.dealer) === BLACKJACK ? "push" : "blackjack";
   }
 
-  const gameId = blackjackGames.create(game);
+  const gameId = blackjackGames.create(game, t);
   if (game.outcome) blackjackGames.finish(gameId);
-  return { gameId, payload: renderBlackjack(game, gameId) };
+  return { gameId, payload: renderBlackjack(game, gameId, t) };
 }
 
 function requirePlayer(gameId: string, userId: string): BlackjackGame {
   const game = blackjackGames.require(gameId);
-  if (game.playerId !== userId) {
-    throw new GauliaError("Cette partie ne t'appartient pas. Lance la tienne avec `/blackjack`.");
-  }
+  if (game.playerId !== userId) throw new GauliaError("fun.blackjack.notYours");
   return game;
 }
 
-export function hitBlackjack(gameId: string, userId: string): FunPayload {
+export function hitBlackjack(gameId: string, userId: string, t: Translator): FunPayload {
   const game = requirePlayer(gameId, userId);
   game.player.push(draw(game));
 
@@ -168,12 +183,12 @@ export function hitBlackjack(gameId: string, userId: string): FunPayload {
   }
   if (game.outcome) blackjackGames.finish(gameId);
 
-  return renderBlackjack(game, gameId);
+  return renderBlackjack(game, gameId, t);
 }
 
-export function standBlackjack(gameId: string, userId: string): FunPayload {
+export function standBlackjack(gameId: string, userId: string, t: Translator): FunPayload {
   const game = requirePlayer(gameId, userId);
   playDealer(game);
   blackjackGames.finish(gameId);
-  return renderBlackjack(game, gameId);
+  return renderBlackjack(game, gameId, t);
 }

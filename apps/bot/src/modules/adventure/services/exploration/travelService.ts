@@ -5,7 +5,8 @@ import {
 } from "@gaulia/database";
 
 import { GauliaError } from "../../../../core/errors";
-import { requireZone, zonesForAct, type ZoneDefinition } from "../../data/zones";
+import type { Translator } from "../../../../i18n";
+import { requireZone, zoneName, zonesForAct, type ZoneDefinition } from "../../data/zones";
 import { dispatchGameEvents } from "../events/eventDispatcher";
 
 export interface TravelResult {
@@ -14,27 +15,30 @@ export interface TravelResult {
   notices: string[];
 }
 
-/** Change de région. Une zone ne s'ouvre qu'avec l'acte correspondant : la carte suit l'histoire. */
+/** Moves to another region. A zone only opens with its act, so the map follows the story. */
 export async function travelTo(
   character: AdventureCharacter,
   items: AdventureItem[],
   zoneId: string,
+  t: Translator,
 ): Promise<TravelResult> {
   const zone = requireZone(zoneId);
+  const label = `${zone.emoji} ${zoneName(t, zone)}`;
 
   if (!zonesForAct(character.actIndex).some((entry) => entry.id === zone.id)) {
-    throw new GauliaError(
-      `${zone.emoji} ${zone.name} ne s'ouvrira que plus loin dans ton histoire.`,
-    );
+    throw new GauliaError("adventure.error.zoneLocked", { zone: label });
   }
   if (character.zoneId === zone.id) {
-    throw new GauliaError(`Tu es déjà à ${zone.emoji} ${zone.name}.`);
+    throw new GauliaError("adventure.error.alreadyThere", { zone: label });
   }
 
   const moved = await updateAdventureCharacter(character.userId, { zoneId: zone.id });
-  const dispatched = await dispatchGameEvents(moved, items, [
-    { type: "TRAVEL", zoneId: zone.id, amount: 1 },
-  ]);
+  const dispatched = await dispatchGameEvents(
+    moved,
+    items,
+    [{ type: "TRAVEL", zoneId: zone.id, amount: 1 }],
+    t,
+  );
 
   return { character: dispatched.character, zone, notices: dispatched.notices };
 }

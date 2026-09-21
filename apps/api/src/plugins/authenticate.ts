@@ -1,10 +1,10 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 
-/** preHandler à poser sur toute route protégée : vérifie le cookie de session JWT. */
+/** preHandler for every protected route: checks the JWT session cookie. */
 export async function authenticate(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   try {
     await request.jwtVerify();
   } catch {
-    await reply.status(401).send({ error: "Non authentifié." });
+    await reply.status(401).send({ error: request.t("errors.auth.required") });
   }
 }

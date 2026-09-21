@@ -3,13 +3,11 @@ import type { ModerationCaseType } from "@prisma/client";
 import { prisma } from "../client";
 
 /**
- * Export complet des données personnelles d'un utilisateur, destiné à la page « Mes données » du
- * tableau de bord : c'est ce que l'utilisateur voit à l'écran et télécharge en JSON.
+ * Full personal data export for the dashboard "My data" page, shown on screen and downloadable as
+ * JSON.
  *
- * Les identifiants des AUTRES membres (modérateur d'une sanction, partenaire d'un échange) sont
- * volontairement absents : ce sont leurs données, pas celles de la personne qui demande l'export.
- * Le nom des serveurs concernés est repris tel qu'il est connu du bot, pour que la liste soit
- * lisible sans avoir à traduire des identifiants.
+ * Ids of the OTHER members (a case moderator, a trade partner) are deliberately absent: those are
+ * their data, not the requester's.
  */
 export const USER_DATA_EXPORT_VERSION = 1;
 
@@ -27,12 +25,12 @@ export interface ExportedWarn {
   guildId: string;
   guildName: string | null;
   reason: string | null;
-  /** Faux pour un avertissement révoqué par un modérateur. */
+  /** False for a warn revoked by a moderator. */
   active: boolean;
   createdAt: Date;
 }
 
-/** Ce que la personne a fait en tant que modérateur : des compteurs, sans les membres visés. */
+/** What the person did as a moderator: counters only, without the members targeted. */
 export interface ExportedModeratorActivity {
   moderationCases: number;
   warns: number;
@@ -100,7 +98,7 @@ export interface ExportedAdventureLog {
   createdAt: Date;
 }
 
-/** Échange d'objets : le lot des deux côtés, mais pas l'identité du partenaire. */
+/** Item trade: both sides of the deal, but not the partner's identity. */
 export interface ExportedAdventureTrade {
   direction: "sent" | "received";
   status: string;
@@ -160,7 +158,7 @@ export interface UserDataExport {
   adventure: ExportedAdventure | null;
 }
 
-/** Noms des serveurs cités dans l'export, en une seule requête plutôt qu'une par ligne. */
+/** Names of the guilds cited in the export, in one query instead of one per row. */
 async function guildNames(guildIds: string[]): Promise<Map<string, string | null>> {
   const unique = [...new Set(guildIds.filter((id) => id !== ""))];
   if (unique.length === 0) return new Map();
@@ -172,11 +170,7 @@ async function guildNames(guildIds: string[]): Promise<Map<string, string | null
   return new Map(guilds.map((guild) => [guild.id, guild.name]));
 }
 
-/**
- * Rassemble tout ce que Gaulia conserve sur un utilisateur. Rien n'est tronqué : le volume par
- * personne reste petit (quelques sanctions, un personnage, des mouvements de crédits), et un
- * export partiel n'aurait pas d'intérêt.
- */
+/** Everything Gaulia keeps about a user. Nothing is truncated: the per-person volume stays small. */
 export async function exportUserData(userId: string): Promise<UserDataExport> {
   const [
     moderationCases,
@@ -364,18 +358,17 @@ export async function exportUserData(userId: string): Promise<UserDataExport> {
   };
 }
 
-/** Serveur administré par l'utilisateur pour lequel Gaulia a effectivement enregistré quelque chose. */
+/** A guild the user administrates that Gaulia actually stored something for. */
 export interface StoredGuildRef {
   guildId: string;
   name: string | null;
-  /** Faux si le bot a quitté le serveur : les données restent, mais plus rien ne s'y ajoute. */
+  /** False once the bot left the guild: the data stays, but nothing is added to it. */
   botPresent: boolean;
 }
 
 /**
- * Parmi les serveurs que l'utilisateur peut gérer, ceux qui ont une ligne en base - les seuls dont
- * la suppression a un sens. Une seule requête, quel que soit le nombre de serveurs du compte : le
- * détail de ce qui est enregistré se demande ensuite serveur par serveur (`getGuildDataSummary`).
+ * Of the guilds the user can manage, those with a row in database (the only ones worth erasing).
+ * One query whatever the account size; the per-guild detail comes from `getGuildDataSummary`.
  */
 export async function listStoredGuilds(guildIds: string[]): Promise<StoredGuildRef[]> {
   const unique = [...new Set(guildIds)];

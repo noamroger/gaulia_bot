@@ -1,77 +1,77 @@
 /**
- * Équilibrage central de l'aventure. Tout ce qui décide du rythme de la partie est ici, pour que
- * régler la durée de vie du jeu ne demande jamais de toucher aux services.
+ * Central balancing of the adventure. Everything that decides the pace of the game is here, so
+ * tuning how long the game lasts never means touching a service.
  *
- * Objectif de rythme : terminer le scénario demande **au moins un an** sans être une corvée.
- * Deux verrous indépendants s'en chargent :
+ * Pacing goal: finishing the story takes **at least a year** without being a chore. Two
+ * independent locks take care of that:
  *
- * 1. L'énergie borne le nombre d'explorations par jour (32 au maximum absolu, ≈ 24 pour un joueur
- *    qui passe deux ou trois fois par jour). Avec la courbe ci-dessous, le niveau 100 demande
- *    ≈ 3,4 M d'XP : ≈ 8 mois pour un acharné, ≈ 10 mois en rythme régulier.
- * 2. Les fragments d'écho, qui scellent les chapitres, ne s'obtiennent qu'en temps réel : un lot
- *    de quêtes quotidiennes (1/jour), un lot hebdomadaire (2/semaine), un donjon (3/semaine) et
- *    quelques trouvailles rares - soit ≈ 14 échos/semaine au mieux, pour un scénario qui en coûte
- *    755. Impossible de descendre sous ≈ 12 mois, même en jouant parfaitement.
+ * 1. Energy bounds how many explorations fit in a day (32 at the absolute maximum, around 24 for a
+ *    player who drops in two or three times a day). With the curve below, level 100 needs about
+ *    3.4 M XP: around 8 months for a relentless player, around 10 at a steady pace.
+ * 2. Echo shards, which seal the chapters, are only granted by real time: a daily quest set
+ *    (1/day), a weekly set (2/week), a dungeon (3/week) and a few rare finds, so around 14 shards
+ *    a week at best, for a story that costs 755. Going below roughly 12 months is impossible, even
+ *    playing perfectly.
  *
- * Le second verrou est celui qui garantit la durée : il ne récompense pas le bourrinage, seulement
- * la régularité, et laisse le joueur libre de jouer beaucoup ou peu un jour donné. Le premier
- * garde la montée en niveau utile pendant presque toute la traversée du scénario.
+ * The second lock is the one that guarantees the duration: it rewards regularity rather than
+ * grinding, and leaves the player free to play a lot or a little on any given day. The first keeps
+ * levelling up meaningful for almost the whole story.
  */
 
-/** Énergie : une exploration en coûte une, un donjon davantage. */
+/** Energy: one exploration costs one point, a dungeon costs more. */
 export const ADVENTURE_ENERGY_MAX = 20;
 export const ADVENTURE_ENERGY_REGEN_MS = 45 * 60_000;
 export const ADVENTURE_ENERGY_PER_EXPLORE = 1;
 export const ADVENTURE_ENERGY_PER_DUNGEON = 6;
 
-/** Points de vie : régénération hors combat, en part du maximum (soit ≈ 2 h 15 pour tout récupérer). */
+/** Health: out of combat regeneration, as a share of the maximum (about 2 h 15 for a full bar). */
 export const ADVENTURE_HP_REGEN_MS = 4 * 60_000;
 export const ADVENTURE_HP_REGEN_RATIO = 0.03;
-/** En dessous de ce seuil de vie, il faut se soigner avant de repartir explorer. */
+/** Below this share of health, the player has to heal before exploring again. */
 export const ADVENTURE_HP_EXPLORE_THRESHOLD = 0.15;
 
 export const ADVENTURE_MAX_LEVEL = 100;
-/** Points de caractéristique offerts à chaque niveau, à répartir avec `/aventure ameliorer`. */
+/** Stat points granted on each level up, spent through the adventure `upgrade` subcommand. */
 export const ADVENTURE_STAT_POINTS_PER_LEVEL = 3;
 
 /**
- * Expérience nécessaire pour passer du niveau `level` au suivant. Courbe volontairement douce au
- * début (les premiers niveaux tombent en quelques explorations) et longue à la fin (≈ 5 jours de
- * jeu régulier pour le niveau 100), sans jamais devenir un mur.
+ * Experience needed to go from `level` to the next one. The curve is deliberately gentle at the
+ * start (the first levels fall in a few explorations) and long at the end (about 5 days of steady
+ * play for level 100), without ever turning into a wall.
  */
 export function adventureXpToNextLevel(level: number): number {
   if (level >= ADVENTURE_MAX_LEVEL) return 0;
   return Math.round(63 * level ** 1.45 + 30);
 }
 
-/** Expérience d'une exploration réussie, avant bonus de zone et aléa. */
+/** Experience of a successful exploration, before the zone bonus and the random spread. */
 export function adventureBaseExploreXp(level: number): number {
   return Math.round(14 + 2.6 * level);
 }
 
-/** Or de base d'une exploration réussie, avant bonus de zone et aléa. */
+/** Base gold of a successful exploration, before the zone bonus and the random spread. */
 export function adventureBaseExploreGold(level: number): number {
   return Math.round(8 + 1.6 * level);
 }
 
-/** Fragments d'écho accordés par les jalons temporels du jeu. */
+/** Echo shards granted by the time based milestones of the game. */
 export const ADVENTURE_ECHOES_PER_DAILY_SET = 1;
 export const ADVENTURE_ECHOES_PER_WEEKLY_SET = 2;
 export const ADVENTURE_ECHOES_PER_DUNGEON = 3;
-/** Chance qu'une exploration révèle un écho perdu : ≈ 1,8 par semaine en jouant beaucoup. */
+/** Chance that an exploration reveals a lost echo: around 1.8 a week for a heavy player. */
 export const ADVENTURE_ECHO_FIND_CHANCE = 0.008;
 
-/** Un donjon par semaine : c'est le rendez-vous qui cadence la progression du scénario. */
+/** One dungeon a week: the appointment that paces the story. */
 export const ADVENTURE_DUNGEON_COOLDOWN_MS = 7 * 24 * 3_600_000;
 
-/** Bonus de butin accordé par la série de jours consécutifs, plafonné pour rester accessible. */
+/** Loot bonus granted by the streak of consecutive days, capped so it stays reachable. */
 export const ADVENTURE_STREAK_BONUS_PER_DAY = 0.02;
 export const ADVENTURE_STREAK_BONUS_MAX = 0.3;
 
-/** Cooldown court entre deux explorations : rythme la lecture, sans jamais bloquer une session. */
+/** Short cooldown between explorations: it paces the reading without ever blocking a session. */
 export const ADVENTURE_EXPLORE_COOLDOWN_SECONDS = 8;
 
-/** Progression après un gain d'expérience, sans effet de bord : partagée par le bot et l'API. */
+/** Progression after an experience gain, side effect free: shared by the bot and the API. */
 export interface AdventureXpResult {
   level: number;
   xp: number;
@@ -81,8 +81,8 @@ export interface AdventureXpResult {
 }
 
 /**
- * Applique un gain d'expérience et enchaîne les passages de niveau. Le panel admin s'en sert pour
- * offrir de l'expérience exactement comme le jeu la distribue.
+ * Applies an experience gain and chains the level ups. The admin panel uses it to grant experience
+ * exactly the way the game hands it out.
  */
 export function applyAdventureXp(
   current: { level: number; xp: number; totalXp: number; statPoints: number },
@@ -102,7 +102,7 @@ export function applyAdventureXp(
     levelsGained += 1;
   }
 
-  // Niveau maximum : l'expérience excédentaire n'est plus accumulée dans la barre.
+  // At the maximum level the leftover experience is no longer kept in the bar.
   if (level >= ADVENTURE_MAX_LEVEL) xp = 0;
 
   return { level, xp, totalXp: current.totalXp + Math.max(0, amount), statPoints, levelsGained };

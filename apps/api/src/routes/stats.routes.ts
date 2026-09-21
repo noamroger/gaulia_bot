@@ -31,8 +31,8 @@ async function computePublicStats(): Promise<PublicStats> {
 }
 
 /**
- * Statistiques de la page d'accueil, publiques : uniquement des totaux globaux (aucun détail par
- * shard, serveur ou utilisateur), mis en cache 60 s pour qu'un afflux de visites ne sollicite pas la base.
+ * Public home page statistics: global totals only (nothing per shard, server or user), cached for
+ * 60 s so a rush of visits does not hammer the database.
  */
 export default async function statsRoutes(app: FastifyInstance): Promise<void> {
   app.get("/stats", async (_request, reply) => {

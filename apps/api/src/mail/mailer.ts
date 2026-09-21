@@ -6,41 +6,41 @@ import { env } from "../config/env";
 let transporter: Transporter | null = null;
 
 /**
- * Vrai seulement si l'envoi peut réellement aboutir. Sans serveur, expéditeur ou destinataire,
- * la route de contact répond 503 plutôt que de laisser croire à un message parti.
+ * True only when a send can actually go through. Without a server, a sender or a recipient, the
+ * contact route answers 503 rather than letting anyone believe a mail left.
  */
 export function isMailConfigured(): boolean {
   return env.SMTP_HOST !== "" && env.SMTP_FROM !== "" && env.CONTACT_EMAIL_TO !== "";
 }
 
-/** Port du TLS implicite : la connexion est chiffrée d'emblée, sans passer par STARTTLS. */
+/** Implicit TLS port: the connection is encrypted from the start, without STARTTLS. */
 const IMPLICIT_TLS_PORT = 465;
 
 /**
- * Options de connexion au serveur SMTP. `secure` se déduit du port et non de `SMTP_TLS` : sur le
- * 587, le dialogue commence en clair puis bascule en TLS via STARTTLS - annoncer `secure: true`
- * ferait attendre une poignée de main TLS que le serveur n'entamera jamais, et la connexion
- * resterait bloquée. `SMTP_TLS` sert donc à *exiger* le chiffrement (`requireTLS`), ce qui fait
- * échouer l'envoi plutôt que de le laisser partir en clair si le serveur ne propose pas STARTTLS.
+ * SMTP connection options. `secure` follows the port, not `SMTP_TLS`: on 587 the dialogue starts
+ * in the clear then upgrades through STARTTLS, so announcing `secure: true` would wait for a TLS
+ * handshake the server never starts and the connection would hang. `SMTP_TLS` therefore *requires*
+ * encryption (`requireTLS`), which fails the send instead of letting it leave unencrypted when the
+ * server offers no STARTTLS.
  */
 export function smtpOptions(): SMTPTransport.Options {
   return {
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
-    // Sans ces bornes, un serveur injoignable ou muet laisse la requête HTTP en attente plusieurs
-    // minutes (nodemailer patiente très longtemps par défaut) : mieux vaut échouer vite et
-    // afficher au visiteur que l'envoi n'a pas abouti.
+    // Without these bounds, an unreachable or silent server leaves the HTTP request hanging for
+    // minutes (nodemailer waits a very long time by default): better to fail fast and tell the
+    // visitor the message did not go out.
     connectionTimeout: 10_000,
     greetingTimeout: 10_000,
     socketTimeout: 20_000,
     secure: env.SMTP_PORT === IMPLICIT_TLS_PORT,
     requireTLS: env.SMTP_TLS && env.SMTP_PORT !== IMPLICIT_TLS_PORT,
-    // Un relais local peut ne demander aucune authentification.
+    // A local relay may ask for no authentication at all.
     ...(env.SMTP_USER ? { auth: { user: env.SMTP_USER, pass: env.SMTP_PASS } } : {}),
   };
 }
 
-/** Transport créé à la première utilisation, puis réutilisé (pool de connexions nodemailer). */
+/** Transport built on first use, then reused (nodemailer connection pool). */
 function getTransporter(): Transporter {
   transporter ??= nodemailer.createTransport(smtpOptions());
   return transporter;
@@ -50,11 +50,11 @@ export interface OutgoingMail {
   subject: string;
   text: string;
   html: string;
-  /** Adresse à laquelle « Répondre » doit écrire, ici l'auteur du message. */
+  /** Address that "Reply" must write to, here the author of the message. */
   replyTo?: string;
 }
 
-/** Envoie un message à l'adresse de contact du bot. À n'appeler qu'après `isMailConfigured()`. */
+/** Sends a message to the bot contact address. Only call it after `isMailConfigured()`. */
 export async function sendContactMail(mail: OutgoingMail): Promise<void> {
   await getTransporter().sendMail({
     from: env.SMTP_FROM,

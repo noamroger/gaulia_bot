@@ -14,7 +14,7 @@ export interface CreateTradeInput {
   expiresAt: Date;
 }
 
-/** Une proposition avec les deux personnages concernés, pour afficher des noms plutôt que des ID. */
+/** An offer with both characters, so names can be shown instead of ids. */
 export type AdventureTradeWithParties = AdventureTrade & {
   initiator: AdventureCharacter;
   target: AdventureCharacter;
@@ -37,7 +37,7 @@ export async function getAdventureTrade(id: number): Promise<AdventureTradeWithP
   return prisma.adventureTrade.findUnique({ where: { id }, include: WITH_PARTIES });
 }
 
-/** Propositions encore ouvertes concernant un joueur, qu'il les ait faites ou reçues. */
+/** Offers still open for a player, whether sent or received. */
 export async function listPendingAdventureTrades(
   userId: string,
   now = new Date(),
@@ -63,9 +63,8 @@ export async function countPendingAdventureTrades(
 }
 
 /**
- * Change l'état d'une proposition, à condition qu'elle soit encore en attente : la condition
- * `status: "PENDING"` dans le `updateMany` sert de verrou contre un double clic ou deux joueurs
- * qui répondent en même temps.
+ * Resolves an offer only while it is still pending: the `status: "PENDING"` condition inside the
+ * `updateMany` acts as a lock against a double click or both players answering at once.
  */
 export async function resolveAdventureTrade(
   id: number,
@@ -79,8 +78,8 @@ export async function resolveAdventureTrade(
 }
 
 /**
- * Exécute l'échange dans une seule transaction : sans elle, une erreur au milieu laisserait un
- * joueur délesté et l'autre les mains vides.
+ * Runs the whole swap in a single transaction: without it, a failure midway would leave one player
+ * stripped and the other empty-handed.
  */
 export async function applyAdventureTrade(operations: {
   tradeId: number;
@@ -88,7 +87,7 @@ export async function applyAdventureTrade(operations: {
   targetId: string;
   initiatorGoldDelta: number;
   targetGoldDelta: number;
-  /** Retraits d'abord, ajouts ensuite : un même objet peut passer d'un sac à l'autre. */
+  /** Removals first, additions after: the same item can move from one bag to the other. */
   removals: { userId: string; itemId: string; quantity: number }[];
   additions: { userId: string; itemId: string; quantity: number }[];
 }): Promise<void> {
@@ -98,7 +97,7 @@ export async function applyAdventureTrade(operations: {
         where: { userId_itemId: { userId: removal.userId, itemId: removal.itemId } },
       });
       if (!row || row.quantity < removal.quantity) {
-        throw new Error(`Objet manquant pendant l'échange : ${removal.itemId}`);
+        throw new Error(`Missing item during trade: ${removal.itemId}`);
       }
       if (row.quantity === removal.quantity) {
         await tx.adventureItem.delete({ where: { id: row.id } });
@@ -137,7 +136,7 @@ export async function applyAdventureTrade(operations: {
   });
 }
 
-/** Marque expirées les propositions dont le délai est passé (appelé avant chaque affichage). */
+/** Marks offers past their deadline as expired (called before each listing). */
 export async function expireAdventureTrades(now = new Date()): Promise<number> {
   const { count } = await prisma.adventureTrade.updateMany({
     where: { status: "PENDING", expiresAt: { lte: now } },
@@ -146,7 +145,7 @@ export async function expireAdventureTrades(now = new Date()): Promise<number> {
   return count;
 }
 
-/** Purge des propositions terminées, appelée par le job de rétention de l'API. */
+/** Purges resolved offers; called by the API retention job. */
 export async function deleteAdventureTradesBefore(cutoff: Date): Promise<number> {
   const { count } = await prisma.adventureTrade.deleteMany({
     where: { status: { not: "PENDING" }, createdAt: { lt: cutoff } },

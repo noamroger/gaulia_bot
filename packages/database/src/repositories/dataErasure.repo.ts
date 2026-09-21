@@ -1,8 +1,8 @@
 import { prisma } from "../client";
 
-/** Remplace l'identité d'un modérateur effacé, pour garder l'historique des AUTRES membres cohérent. */
+/** Stands in for an erased moderator, to keep the history of the OTHER members consistent. */
 const ANONYMIZED_USER_ID = "0";
-const ANONYMIZED_USER_TAG = "Utilisateur supprimé";
+const ANONYMIZED_USER_TAG = "Deleted user";
 
 export interface GuildDataSummary {
   guildId: string;
@@ -24,10 +24,10 @@ export interface UserDataSummary {
   warnsAsTarget: number;
   warnsAsModerator: number;
   premiumEntitlements: number;
-  /** Solde de crédits (top.gg) qui sera remis à zéro avec la suppression du compte. */
+  /** Credit balance (top.gg), cleared along with the account. */
   creditBalance: number;
   topggVotes: number;
-  /** Personnage d'aventure (niveau atteint), supprimé avec son inventaire et sa progression. */
+  /** Adventure character level, deleted with its inventory and progress. */
   adventureLevel: number | null;
 }
 
@@ -67,9 +67,8 @@ export async function getGuildDataSummary(guildId: string): Promise<GuildDataSum
 }
 
 /**
- * Supprime toutes les données d'un serveur. Modération, avertissements, automod et musique partent
- * en cascade avec la ligne `guilds`. Si le bot est encore sur le serveur, une configuration vierge
- * (nom, icône, nombre de membres) sera recréée à la prochaine synchronisation.
+ * Deletes every record of a guild. Moderation, warns, automod and music cascade with the `guilds`
+ * row. If the bot is still in the guild, a blank config is recreated on the next sync.
  */
 export async function eraseGuildData(guildId: string): Promise<GuildDataSummary> {
   const summary = await getGuildDataSummary(guildId);
@@ -115,15 +114,11 @@ export async function getUserDataSummary(userId: string): Promise<UserDataSummar
 }
 
 /**
- * Suppression complète, réservée au panel admin : elle traite une demande RGPD vérifiée à la main
- * et touche donc aussi l'historique de modération, ce que la suppression en libre-service
- * (`eraseOwnUserData`) ne fait pas.
- *
- * Supprime les sanctions et avertissements reçus par l'utilisateur, anonymise ceux qu'il a donnés
- * en tant que modérateur, et supprime ses droits premium en cache, son personnage d'aventure
- * (inventaire et progression compris) ainsi que son compte de crédits
- * (son historique de votes top.gg part avec, donc un vote déjà encaissé pourra être recrédité si
- * top.gg le relivre - cas marginal accepté pour ne rien conserver de l'utilisateur).
+ * Full erasure, admin panel only: it serves a manually checked GDPR request, so unlike the
+ * self-service path (`eraseOwnUserData`) it also touches the moderation history. Sanctions the user
+ * issued as a moderator are anonymized rather than deleted, so the other members keep their
+ * history. The top.gg vote history goes too, so a cashed vote could be credited again on a
+ * redelivery: accepted, in order to keep nothing about the user.
  */
 export async function eraseUserData(userId: string): Promise<UserDataSummary> {
   const summary = await getUserDataSummary(userId);
@@ -141,23 +136,20 @@ export async function eraseUserData(userId: string): Promise<UserDataSummary> {
     prisma.premiumEntitlement.deleteMany({ where: { userId } }),
     prisma.topggVote.deleteMany({ where: { userId } }),
     prisma.creditAccount.deleteMany({ where: { userId } }),
-    // Inventaire, quêtes, hauts faits et journal partent en cascade avec le personnage.
+    // Inventory, quests, achievements and logs cascade with the character.
     prisma.adventureCharacter.deleteMany({ where: { userId } }),
+    prisma.userPreference.deleteMany({ where: { userId } }),
   ]);
   return summary;
 }
 
 /**
- * Suppression déclenchée par l'utilisateur lui-même depuis la page « Mes données ».
+ * Erasure the user triggers themselves from the "My data" page.
  *
- * L'historique de modération n'y figure pas : une sanction appartient au serveur qui l'a
- * prononcée, pas au membre sanctionné. Sans cela, il suffirait d'être banni pour effacer son
- * propre casier, et les modérateurs perdraient l'historique sur lequel repose l'escalade des
- * avertissements. Il part avec les données du serveur (`eraseGuildData`), ou sur demande traitée
- * depuis le panel admin (`eraseUserData`).
- *
- * Le reste - droits premium en cache, votes top.gg, compte de crédits, personnage d'aventure avec
- * son inventaire et sa progression - suit le compte et est bien supprimé.
+ * The moderation history is left out: a sanction belongs to the guild that issued it, not to the
+ * sanctioned member. Otherwise being banned would be enough to wipe one's own record, and
+ * moderators would lose the history warn escalation relies on. It goes with the guild data
+ * (`eraseGuildData`), or through a request handled in the admin panel (`eraseUserData`).
  */
 export async function eraseOwnUserData(userId: string): Promise<UserDataSummary> {
   const summary = await getUserDataSummary(userId);
@@ -165,8 +157,9 @@ export async function eraseOwnUserData(userId: string): Promise<UserDataSummary>
     prisma.premiumEntitlement.deleteMany({ where: { userId } }),
     prisma.topggVote.deleteMany({ where: { userId } }),
     prisma.creditAccount.deleteMany({ where: { userId } }),
-    // Inventaire, quêtes, hauts faits et journal partent en cascade avec le personnage.
+    // Inventory, quests, achievements and logs cascade with the character.
     prisma.adventureCharacter.deleteMany({ where: { userId } }),
+    prisma.userPreference.deleteMany({ where: { userId } }),
   ]);
   return summary;
 }

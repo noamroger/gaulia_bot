@@ -13,19 +13,18 @@ import type { GauliaClient } from "../../../client/GauliaClient";
 import { env } from "../../../config/env";
 
 /**
- * Cache en mémoire (par process de shard) des serveurs disposant de l'abonnement Gaulia Premium.
- * Source de vérité : les entitlements Discord (Monetization API), synchronisés au boot puis en
- * temps réel via les événements gateway entitlementCreate/Update/Delete. La table Postgres
- * `premium_entitlements` sert de cache de secours si l'appel REST échoue au démarrage, et
- * `Guild.premium`/`premiumExpiresAt` sont mis à jour en miroir pour que l'API du dashboard (qui
- * n'a pas accès à ce cache mémoire) puisse lire le statut sans dépendre du process du bot.
+ * In memory cache, per shard process, of the servers holding a Gaulia Premium subscription. The
+ * source of truth is the Discord entitlements (Monetization API), synced at boot then live through
+ * the entitlementCreate/Update/Delete gateway events. The `premium_entitlements` table is the
+ * fallback when the REST call fails at startup, and `Guild.premium`/`premiumExpiresAt` mirror the
+ * status so the dashboard API, which has no access to this cache, can read it without the bot.
  */
 const premiumGuildIds = new Set<string>();
 
 /**
- * Serveurs dont le premium a été offert en échange de crédits (Guild.premiumGrantedUntil). Ces
- * octrois viennent du dashboard, pas de la gateway Discord : le bot n'en est jamais notifié, d'où
- * une relecture périodique en base plutôt qu'un événement.
+ * Servers whose premium was granted against credits (Guild.premiumGrantedUntil). Those grants come
+ * from the dashboard, not from the Discord gateway, so the bot is never notified: hence a periodic
+ * reread rather than an event.
  */
 const grantedPremiumGuildIds = new Set<string>();
 
@@ -70,14 +69,14 @@ async function persistEntitlement(entitlement: Entitlement): Promise<void> {
 }
 
 /**
- * Synchronisation complète au démarrage : hydrate d'abord depuis le cache Postgres (résilience si
- * l'API Discord est momentanément indisponible), puis récupère la liste réelle des entitlements.
+ * Full sync at startup: hydrate from the Postgres cache first, in case the Discord API is briefly
+ * unavailable, then fetch the real entitlement list.
  */
 export async function initEntitlements(client: GauliaClient): Promise<void> {
   await hydrateFromDatabaseCache();
 
   if (!client.application) {
-    client.logger.warn("client.application indisponible, sync entitlements reportée");
+    client.logger.warn("client.application unavailable, entitlement sync postponed");
     return;
   }
 
@@ -101,7 +100,7 @@ export async function initEntitlements(client: GauliaClient): Promise<void> {
     );
   }
 
-  client.logger.info(`${premiumGuildIds.size} serveur(s) premium synchronisé(s) depuis Discord`);
+  client.logger.info(`${premiumGuildIds.size} premium server(s) synced from Discord`);
 }
 
 export async function handleEntitlementUpsert(entitlement: Entitlement): Promise<void> {
@@ -114,13 +113,13 @@ export async function handleEntitlementUpsert(entitlement: Entitlement): Promise
 }
 
 /**
- * Souscription d'un abonnement payant. En plus de la mise à jour du statut, le premium offert
- * encore en cours est reconverti en crédits au prorata du temps restant : sans cela il brûlerait
- * en parallèle de l'abonnement, sans rien apporter à celui qui l'a payé de ses votes.
+ * A paid subscription starts. Beyond the status update, any granted premium still running is
+ * converted back into credits, prorated on the time left: otherwise it would burn alongside the
+ * subscription, giving nothing back to whoever paid for it with their votes.
  *
- * Seule la CRÉATION d'un entitlement déclenche cette conversion, jamais une mise à jour ni la
- * resynchronisation du démarrage : un octroi posé à la main depuis le panel admin sur un serveur
- * déjà abonné ne doit pas disparaître au prochain redémarrage du bot.
+ * Only the CREATION of an entitlement triggers that conversion, never an update nor the startup
+ * resync: a grant set by hand from the admin panel on an already subscribed server must not
+ * vanish on the next restart.
  */
 export async function handleEntitlementCreate(
   client: GauliaClient,
@@ -142,13 +141,13 @@ export async function handleEntitlementCreate(
         recipients: refund.recipients,
         ratio: Number(refund.ratio.toFixed(3)),
       },
-      "Premium offert reconverti en crédits après souscription",
+      "Granted premium converted back into credits after a subscription",
     );
   } catch (error) {
-    // L'abonnement reste actif : mieux vaut un remboursement manqué qu'un premium non appliqué.
+    // The subscription stays active: a missed refund beats a premium that never applies.
     client.logger.error(
       { err: error, guildId: entitlement.guildId },
-      "Échec du remboursement du premium offert après souscription",
+      "Could not refund the granted premium after a subscription",
     );
   }
 }
@@ -160,7 +159,7 @@ export async function handleEntitlementDelete(entitlement: Entitlement): Promise
   }
 }
 
-/** Recharge la liste des serveurs au premium offert encore valide (les échéances passées sortent). */
+/** Reloads the servers whose granted premium is still valid; expired ones drop out. */
 export async function refreshPremiumGrants(): Promise<void> {
   const guildIds = await listPremiumGrantedGuildIds();
   grantedPremiumGuildIds.clear();
@@ -169,11 +168,11 @@ export async function refreshPremiumGrants(): Promise<void> {
   }
 }
 
-/** Démarre la synchronisation périodique des premiums offerts (appelée une fois depuis ready). */
+/** Starts the periodic sync of granted premiums, called once from ready. */
 export function startPremiumGrantSync(client: GauliaClient): void {
   const refresh = (): void => {
     refreshPremiumGrants().catch((error: unknown) => {
-      client.logger.error({ err: error }, "Échec de la synchronisation des premiums offerts");
+      client.logger.error({ err: error }, "Could not sync the granted premiums");
     });
   };
 
@@ -181,12 +180,12 @@ export function startPremiumGrantSync(client: GauliaClient): void {
   setInterval(refresh, GRANT_REFRESH_INTERVAL_MS).unref();
 }
 
-/** Un serveur est premium via un entitlement Discord OU via du premium offert (crédits). */
+/** A server is premium through a Discord entitlement OR through granted premium (credits). */
 export function isPremiumGuild(guildId: string): boolean {
   return premiumGuildIds.has(guildId) || grantedPremiumGuildIds.has(guildId);
 }
 
-/** Vrai uniquement pour le premium offert : permet de l'afficher différemment d'un abonnement. */
+/** True for granted premium only, so it can be displayed differently from a subscription. */
 export function isGrantedPremiumGuild(guildId: string): boolean {
   return grantedPremiumGuildIds.has(guildId);
 }

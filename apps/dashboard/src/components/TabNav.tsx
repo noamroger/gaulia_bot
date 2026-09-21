@@ -12,10 +12,7 @@ export interface TabItem {
   active: boolean;
 }
 
-/**
- * Onglets horizontaux qui basculent en menu déroulant dès qu'ils ne tiennent plus sur une ligne
- * (largeur mesurée en continu : petit écran ou onglets ajoutés).
- */
+/** Horizontal tabs that fold into a dropdown as soon as they no longer fit on one line. */
 export function TabNav({ items, label }: { items: TabItem[]; label: string }) {
   const navRef = useRef<HTMLElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);

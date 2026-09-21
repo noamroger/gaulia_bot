@@ -3,24 +3,24 @@ import { prisma } from "../client";
 const DAY_MS = 86_400_000;
 const BUCKET_MS = 10 * 60_000;
 
-/** Durée de conservation de l'historique des shards (annoncée dans la politique de confidentialité). */
+/** Shard history retention, as announced in the privacy policy. */
 export const SHARD_METRICS_RETENTION_DAYS = 90;
 
-/** Pas d'affichage par période, pour garder entre 120 et 180 points par graphique. */
+/** Display step per range, to keep 120 to 180 points per chart. */
 const STEP_MINUTES_BY_DAYS: Readonly<Record<number, number>> = { 7: 60, 30: 240, 90: 720 };
 
 export interface ShardMetricInput {
   shardId: number;
   guildCount: number;
   memberCount: number;
-  /** null tant que le ping de la gateway n'a pas encore été mesuré. */
+  /** null until the gateway ping has been measured. */
   ping: number | null;
 }
 
 export interface ShardMetricPoint {
-  /** Début de la tranche (ISO). */
+  /** Bucket start (ISO). */
   at: string;
-  /** null : aucun shard n'a envoyé de heartbeat pendant la tranche. */
+  /** null: no shard sent a heartbeat during the bucket. */
   guildCount: number | null;
   memberCount: number | null;
   ping: number | null;
@@ -31,7 +31,7 @@ export interface ShardMetricHistory {
   points: ShardMetricPoint[];
 }
 
-/** Met à jour la tranche de 10 minutes courante du shard ; appelé à chaque heartbeat. */
+/** Updates the shard's current 10 minute bucket; called on every heartbeat. */
 export async function recordShardMetrics(input: ShardMetricInput): Promise<void> {
   const bucket = new Date(Math.floor(Date.now() / BUCKET_MS) * BUCKET_MS);
   const pingTotal = input.ping ?? 0;
@@ -65,8 +65,8 @@ export async function purgeExpiredShardMetrics(): Promise<number> {
 }
 
 /**
- * Historique mutualisé de tous les shards : pour chaque pas d'affichage, moyenne de chaque shard
- * sur le pas, puis somme des shards (serveurs, membres) ou moyenne (ping).
+ * Pooled history of every shard: for each display step, average each shard over the step, then sum
+ * across shards (guilds, members) or average them (ping).
  */
 export async function getShardMetricHistory(days: number): Promise<ShardMetricHistory> {
   const stepMinutes = STEP_MINUTES_BY_DAYS[days] ?? 60;

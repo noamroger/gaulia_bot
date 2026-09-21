@@ -2,38 +2,46 @@ import { SlashCommandBuilder } from "discord.js";
 
 import { Colors, Emojis } from "../../../client/Constants";
 import { buildContainer, toV2Payload } from "../../../core/ui/containers";
+import { localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
 import { getPlayerOrThrow } from "../services/playerUtils";
 
+const KEY = "music.commands.queue";
+const PREVIEW_SIZE = 10;
+
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   guildOnly: true,
-  data: new SlashCommandBuilder().setName("queue").setDescription("Affiche la file d'attente"),
 
-  help: {
-    details:
-      "Affiche le morceau en cours et les 10 prochains titres avec leur position, à utiliser avec `/remove`.",
-    examples: ["queue"],
-  },
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY),
 
-  async execute(interaction, client) {
+  async execute(interaction, client, t) {
     const player = getPlayerOrThrow(client, interaction.guildId!);
     const current = player.queue.current;
-    const upcoming = player.queue.tracks.slice(0, 10);
+    const upcoming = player.queue.tracks.slice(0, PREVIEW_SIZE);
 
-    const lines = [`### ${Emojis.Music} File d'attente`];
+    const lines = [`### ${Emojis.Music} ${t("music.actions.queue.title")}`];
     lines.push(
-      current ? `**En cours :** ${current.info.title}` : "Rien n'est en cours de lecture.",
+      current
+        ? t("music.actions.queue.current", { title: current.info.title })
+        : t("music.actions.queue.nothingPlaying"),
     );
 
     if (upcoming.length === 0) {
-      lines.push("La file d'attente est vide.");
+      lines.push(t("music.actions.queue.empty"));
     } else {
       lines.push(
-        upcoming.map((track, index) => `**${index + 1}.** ${track.info.title}`).join("\n"),
+        upcoming
+          .map((track, index) =>
+            t("music.actions.queue.entry", { position: index + 1, title: track.info.title }),
+          )
+          .join("\n"),
       );
       if (player.queue.tracks.length > upcoming.length) {
-        lines.push(`… et ${player.queue.tracks.length - upcoming.length} autre(s) titre(s).`);
+        lines.push(
+          t("music.actions.queue.more", { count: player.queue.tracks.length - upcoming.length }),
+        );
       }
     }
 

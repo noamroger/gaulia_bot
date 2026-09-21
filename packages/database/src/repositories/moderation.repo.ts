@@ -15,8 +15,8 @@ export interface CreateCaseInput {
 }
 
 /**
- * Crée un nouveau cas de modération avec un numéro auto-incrémenté par serveur.
- * Utilise une transaction pour éviter les collisions de numéro sous forte concurrence.
+ * Creates a moderation case with a per-guild auto-incremented number. The transaction avoids
+ * number collisions under concurrency.
  */
 export async function createModerationCase(input: CreateCaseInput): Promise<ModerationCase> {
   await getOrCreateGuild(input.guildId);

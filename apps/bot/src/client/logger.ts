@@ -2,7 +2,7 @@ import pino from "pino";
 
 import { env } from "../config/env";
 
-// Défini automatiquement par le ShardingManager discord.js sur chaque process enfant.
+// Set automatically by the discord.js ShardingManager on every child process.
 const shards = process.env["SHARDS"];
 
 export const logger = pino({

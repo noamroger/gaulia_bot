@@ -10,7 +10,7 @@ const event: GauliaEvent<typeof Events.EntitlementCreate> = {
     await handleEntitlementCreate(client, entitlement);
     client.logger.info(
       { entitlementId: entitlement.id, guildId: entitlement.guildId },
-      "Nouvel entitlement premium",
+      "New premium entitlement",
     );
   },
 };

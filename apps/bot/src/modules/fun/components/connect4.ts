@@ -5,9 +5,9 @@ import { parseCustomId } from "../services/funUi";
 const columnButton: ButtonComponent = {
   type: "button",
   customIdPrefix: "fun:c4:",
-  async execute(interaction) {
+  async execute(interaction, _client, t) {
     const { gameId, value } = parseCustomId(interaction.customId);
-    await interaction.update(playConnect4(gameId, interaction.user.id, Number(value)));
+    await interaction.update(playConnect4(gameId, interaction.user.id, Number(value), t));
     connect4Games.attach(gameId, interaction);
   },
 };
@@ -15,9 +15,9 @@ const columnButton: ButtonComponent = {
 const forfeitButton: ButtonComponent = {
   type: "button",
   customIdPrefix: "fun:c4-quit:",
-  async execute(interaction) {
+  async execute(interaction, _client, t) {
     const { gameId } = parseCustomId(interaction.customId);
-    await interaction.update(forfeitConnect4(gameId, interaction.user.id));
+    await interaction.update(forfeitConnect4(gameId, interaction.user.id, t));
   },
 };
 

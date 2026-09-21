@@ -1,6 +1,7 @@
 import { GuildMember, PermissionFlagsBits } from "discord.js";
 
 import { env } from "../../config/env";
+import type { Translator } from "../../i18n";
 
 export enum PermissionLevel {
   Everyone = 0,
@@ -16,10 +17,7 @@ const MODERATOR_PERMISSIONS = [
   PermissionFlagsBits.ManageMessages,
 ];
 
-/**
- * Détermine le niveau de permission le plus élevé d'un membre.
- * L'ordre est important : on retourne dès que le niveau le plus haut applicable est trouvé.
- */
+/** Highest permission level of a member; the order matters, the first match wins. */
 export function resolvePermissionLevel(member: GuildMember): PermissionLevel {
   if (env.OWNER_IDS.includes(member.id)) {
     return PermissionLevel.Owner;
@@ -43,15 +41,15 @@ export function hasPermissionLevel(member: GuildMember, required: PermissionLeve
   return resolvePermissionLevel(member) >= required;
 }
 
-export function permissionLevelLabel(level: PermissionLevel): string {
+export function permissionLevelLabel(level: PermissionLevel, t: Translator): string {
   switch (level) {
     case PermissionLevel.Owner:
-      return "Propriétaire du bot";
+      return t("common.permissionLevel.owner");
     case PermissionLevel.Administrator:
-      return "Administrateur";
+      return t("common.permissionLevel.administrator");
     case PermissionLevel.Moderator:
-      return "Modérateur";
+      return t("common.permissionLevel.moderator");
     default:
-      return "Tout le monde";
+      return t("common.permissionLevel.everyone");
   }
 }

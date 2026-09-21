@@ -2,10 +2,10 @@ import type { CreditAccount, CreditTransaction, CreditTransactionType } from "@p
 
 import { prisma } from "../client";
 
-/** Crédits attribués à chaque vote sur top.gg. */
+/** Credits granted for each top.gg vote. */
 export const CREDITS_PER_VOTE = 10;
 
-/** Solde maximum d'un compte : borne les ajustements admin et évite tout dépassement d'entier. */
+/** Account balance cap: bounds admin adjustments and avoids any integer overflow. */
 export const MAX_CREDIT_BALANCE = 1_000_000;
 
 export interface CreditAccountSummary {
@@ -32,7 +32,7 @@ function toSummary(account: CreditAccount): CreditAccountSummary {
   };
 }
 
-/** Compte de crédits d'un utilisateur, ou un compte vide (non persisté) s'il n'a jamais voté. */
+/** A user's credit account, or an empty (unsaved) one when they never voted. */
 export async function getCreditAccount(userId: string): Promise<CreditAccountSummary> {
   const account = await prisma.creditAccount.findUnique({ where: { userId } });
   if (account) return toSummary(account);
@@ -60,7 +60,7 @@ export async function listCreditTransactions(
   });
 }
 
-/** Tous les comptes ayant déjà eu une activité, du plus gros solde au plus petit (panel admin). */
+/** Every account with some activity, largest balance first (admin panel). */
 export async function listCreditAccounts(): Promise<CreditAccountSummary[]> {
   const accounts = await prisma.creditAccount.findMany({
     orderBy: [{ balance: "desc" }, { updatedAt: "desc" }],
@@ -69,7 +69,7 @@ export async function listCreditAccounts(): Promise<CreditAccountSummary[]> {
 }
 
 export interface RecordVoteInput {
-  /** Identifiant du vote fourni par top.gg : garantit l'idempotence en cas de nouvelle livraison. */
+  /** Vote id provided by top.gg: makes a redelivered webhook idempotent. */
   voteId: string;
   userId: string;
   username?: string | null | undefined;
@@ -79,14 +79,14 @@ export interface RecordVoteInput {
 }
 
 export interface RecordVoteResult {
-  /** Faux si ce vote avait déjà été traité : aucun crédit n'a été ajouté. */
+  /** False when the vote was already processed: nothing was credited. */
   credited: boolean;
   balance: number;
 }
 
 /**
- * Crédite un vote top.gg. L'insertion du vote et l'ajout des crédits sont dans la même transaction :
- * si le vote existe déjà (nouvelle tentative de livraison du webhook), rien n'est crédité.
+ * Credits a top.gg vote. The vote insert and the credit grant share one transaction: if the vote
+ * already exists (webhook redelivery), nothing is credited.
  */
 export async function recordVote(input: RecordVoteInput): Promise<RecordVoteResult> {
   return prisma.$transaction(async (tx) => {
@@ -135,7 +135,7 @@ export async function recordVote(input: RecordVoteInput): Promise<RecordVoteResu
         type: "VOTE",
         amount: CREDITS_PER_VOTE,
         balanceAfter: account.balance,
-        reason: "Vote sur top.gg",
+        reason: "top.gg vote",
       },
     });
 
@@ -152,15 +152,14 @@ export interface SpendCreditsInput {
 }
 
 export interface SpendCreditsResult {
-  /** Faux si le solde était insuffisant : rien n'a été débité. */
+  /** False when the balance was too low: nothing was debited. */
   spent: boolean;
   balance: number;
 }
 
 /**
- * Débite un compte si (et seulement si) son solde le permet. Le `updateMany` conditionné sur
- * `balance >= amount` rend l'opération atomique : deux échanges simultanés ne peuvent pas passer
- * le solde en négatif.
+ * Debits an account if (and only if) its balance allows it. The `updateMany` guarded by
+ * `balance >= amount` makes the operation atomic: two concurrent spends cannot go negative.
  */
 export async function spendCredits(input: SpendCreditsInput): Promise<SpendCreditsResult> {
   return prisma.$transaction(async (tx) => {
@@ -193,17 +192,17 @@ export async function spendCredits(input: SpendCreditsInput): Promise<SpendCredi
 
 export interface AdjustCreditsInput {
   userId: string;
-  /** Variation à appliquer (négative pour un retrait). */
+  /** Delta to apply (negative to remove credits). */
   delta: number;
-  /** Identifiant du propriétaire du bot à l'origine de l'ajustement. */
+  /** Bot owner behind the adjustment. */
   actorId: string;
   reason?: string | null | undefined;
 }
 
 /**
- * Ajustement manuel depuis le panel admin. Le solde est borné à [0, MAX_CREDIT_BALANCE] : retirer
- * plus que le solde le ramène à 0 plutôt que d'échouer. La variation réellement appliquée est
- * journalisée, pas celle demandée.
+ * Manual adjustment from the admin panel. The balance is clamped to [0, MAX_CREDIT_BALANCE], so
+ * removing more than the balance lands on 0 instead of failing. The delta actually applied is
+ * logged, not the requested one.
  */
 export async function adjustCredits(input: AdjustCreditsInput): Promise<CreditAccountSummary> {
   return prisma.$transaction(async (tx) => {
@@ -242,7 +241,7 @@ export async function adjustCredits(input: AdjustCreditsInput): Promise<CreditAc
   });
 }
 
-/** Annule un débit quand l'action payée a échoué juste après (ex: octroi du premium en erreur). */
+/** Reverses a debit when the paid action failed right after (e.g. a premium grant error). */
 export async function refundCredits(input: {
   userId: string;
   amount: number;

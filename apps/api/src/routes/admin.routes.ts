@@ -38,9 +38,8 @@ const userIdParamsSchema = z.object({
 });
 
 /**
- * Deux façons d'écrire un solde depuis le panel admin : `delta` (ajout/retrait via la boîte de
- * dialogue) ou `balance` (valeur cible saisie directement dans la liste). Exactement l'une des
- * deux, jamais les deux à la fois.
+ * Two ways to write a balance from the admin panel: `delta` (add or remove through the dialog) or
+ * `balance` (target value typed straight into the list). Exactly one of them, never both.
  */
 const creditAdjustSchema = z
   .object({
@@ -50,16 +49,16 @@ const creditAdjustSchema = z
   })
   .refine(
     (value) => (value.delta === undefined) !== (value.balance === undefined),
-    "Fournis soit delta, soit balance.",
+    "Provide either delta or balance.",
   );
 
 /**
- * Filtres de la liste des serveurs du panel admin. Tout est optionnel et `all` vaut « sans
- * contrainte » : une URL sans aucun paramètre rend la liste complète, comme avant les filtres.
+ * Filters of the admin server list. Everything is optional and `all` means "no constraint", so a
+ * URL without any parameter returns the whole list.
  */
 const flagFilterSchema = z.enum(["all", "yes", "no"]).default("all");
 
-/** Date saisie dans un champ jour (AAAA-MM-JJ), ramenée au début ou à la fin de la journée UTC. */
+/** Date from a day field (YYYY-MM-DD), pinned to the start or the end of the UTC day. */
 function dayBoundarySchema(edge: "start" | "end") {
   return z
     .string()
@@ -73,10 +72,8 @@ function dayBoundarySchema(edge: "start" | "end") {
 const guildsQuerySchema = z.object({
   q: z.string().trim().max(120).optional(),
   premium: z.enum(["all", "active", "none", "subscription", "credits", "expiring"]).default("all"),
-  language: z
-    .string()
-    .regex(/^[a-z]{2}(-[A-Za-z]{2})?$/)
-    .optional(),
+  // A server is forced to "en" or "fr", or left on "auto" to follow the Discord locale.
+  language: z.enum(["en", "fr", "auto"]).optional(),
   membersMin: z.coerce.number().int().min(0).max(100_000_000).optional(),
   membersMax: z.coerce.number().int().min(0).max(100_000_000).optional(),
   createdFrom: dayBoundarySchema("start"),
@@ -118,8 +115,8 @@ const guildsQuerySchema = z.object({
 });
 
 /**
- * Un champ de filtre vidé dans le navigateur arrive en `?membersMin=` : sans ce nettoyage, la
- * chaîne vide serait convertie en 0 (ou refusée) au lieu d'être comprise comme « pas de filtre ».
+ * A filter field cleared in the browser arrives as `?membersMin=`: without this cleanup the empty
+ * string would become 0 (or be refused) instead of meaning "no filter".
  */
 function withoutEmptyValues(query: unknown): Record<string, unknown> {
   if (typeof query !== "object" || query === null) return {};
@@ -130,7 +127,7 @@ function withoutEmptyValues(query: unknown): Record<string, unknown> {
 
 const statsQuerySchema = z.object({
   days: z.enum(["7", "30", "90"]).default("30").transform(Number),
-  /** Catégories de commandes à retirer des statistiques, séparées par des virgules. */
+  /** Command categories to leave out of the statistics, comma separated. */
   exclude: z
     .string()
     .max(400)
@@ -139,7 +136,7 @@ const statsQuerySchema = z.object({
     .pipe(z.array(z.string().regex(/^[a-z0-9-]{1,32}$/)).max(20)),
 });
 
-/** Routes réservées aux OWNER_IDS (panel admin global, toutes guildes confondues). */
+/** Routes restricted to OWNER_IDS (global admin panel, across every server). */
 export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   app.addHook("preHandler", authenticate);
   app.addHook("preHandler", requireOwner);
@@ -147,7 +144,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   app.get("/admin/guilds", async (request, reply) => {
     const parsed = guildsQuerySchema.safeParse(withoutEmptyValues(request.query));
     if (!parsed.success) {
-      return reply.status(400).send({ error: "Paramètres invalides." });
+      return reply.status(400).send({ error: request.t("errors.validation.parameters") });
     }
 
     const filters = parsed.data;
@@ -184,7 +181,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   app.get("/admin/stats", async (request, reply) => {
     const parsed = statsQuerySchema.safeParse(request.query);
     if (!parsed.success) {
-      return reply.status(400).send({ error: "Paramètres invalides." });
+      return reply.status(400).send({ error: request.t("errors.validation.parameters") });
     }
 
     const { days, exclude } = parsed.data;
@@ -225,11 +222,11 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
     };
   });
 
-  // Traitement des demandes de suppression (RGPD) : aperçu puis suppression définitive.
+  // Handling of erasure requests (GDPR): preview, then permanent deletion.
   app.get("/admin/data/guilds/:id", async (request, reply) => {
     const parsed = snowflakeParamsSchema.safeParse(request.params);
     if (!parsed.success) {
-      return reply.status(400).send({ error: "Identifiant invalide." });
+      return reply.status(400).send({ error: request.t("errors.validation.id") });
     }
     return getGuildDataSummary(parsed.data.id);
   });
@@ -237,12 +234,12 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   app.delete("/admin/data/guilds/:id", async (request, reply) => {
     const parsed = snowflakeParamsSchema.safeParse(request.params);
     if (!parsed.success) {
-      return reply.status(400).send({ error: "Identifiant invalide." });
+      return reply.status(400).send({ error: request.t("errors.validation.id") });
     }
     const summary = await eraseGuildData(parsed.data.id);
     request.log.info(
       { ownerId: request.user.userId, guildId: parsed.data.id },
-      "Données d'un serveur supprimées",
+      "Server data deleted",
     );
     return summary;
   });
@@ -250,7 +247,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   app.get("/admin/data/users/:id", async (request, reply) => {
     const parsed = snowflakeParamsSchema.safeParse(request.params);
     if (!parsed.success) {
-      return reply.status(400).send({ error: "Identifiant invalide." });
+      return reply.status(400).send({ error: request.t("errors.validation.id") });
     }
     return getUserDataSummary(parsed.data.id);
   });
@@ -258,18 +255,14 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   app.delete("/admin/data/users/:id", async (request, reply) => {
     const parsed = snowflakeParamsSchema.safeParse(request.params);
     if (!parsed.success) {
-      return reply.status(400).send({ error: "Identifiant invalide." });
+      return reply.status(400).send({ error: request.t("errors.validation.id") });
     }
     const summary = await eraseUserData(parsed.data.id);
-    request.log.info(
-      { ownerId: request.user.userId, userId: parsed.data.id },
-      "Données d'un utilisateur supprimées",
-    );
+    request.log.info({ ownerId: request.user.userId, userId: parsed.data.id }, "User data deleted");
     return summary;
   });
 
-  // Crédits : liste des comptes, puis ajustement par identifiant (boîte de dialogue du panel ou
-  // édition directe d'une ligne de la liste).
+  // Credits: list of accounts, then an adjustment by id (panel dialog or direct edit of a row).
   app.get("/admin/credits", async () => {
     return listCreditAccounts();
   });
@@ -277,7 +270,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   app.get("/admin/credits/:userId", async (request, reply) => {
     const parsed = userIdParamsSchema.safeParse(request.params);
     if (!parsed.success) {
-      return reply.status(400).send({ error: "Identifiant invalide." });
+      return reply.status(400).send({ error: request.t("errors.validation.id") });
     }
 
     const [account, transactions] = await Promise.all([
@@ -290,26 +283,26 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   app.patch("/admin/credits/:userId", async (request, reply) => {
     const params = userIdParamsSchema.safeParse(request.params);
     if (!params.success) {
-      return reply.status(400).send({ error: "Identifiant invalide." });
+      return reply.status(400).send({ error: request.t("errors.validation.id") });
     }
 
     const body = creditAdjustSchema.safeParse(request.body);
     if (!body.success) {
-      return reply.status(400).send({ error: "Corps de requête invalide." });
+      return reply.status(400).send({ error: request.t("errors.validation.body") });
     }
 
     const { userId } = params.data;
     const { delta: requestedDelta, balance: targetBalance } = body.data;
 
-    // Édition directe du solde : convertie en variation, pour que le journal des crédits
-    // enregistre toujours un mouvement et jamais une valeur absolue.
+    // A balance typed directly is turned into a delta, so the credit ledger always records a
+    // movement and never an absolute value.
     let delta: number;
     if (requestedDelta !== undefined) {
       delta = requestedDelta;
     } else if (targetBalance !== undefined) {
       delta = targetBalance - (await getCreditAccount(userId)).balance;
     } else {
-      return reply.status(400).send({ error: "Corps de requête invalide." });
+      return reply.status(400).send({ error: request.t("errors.validation.body") });
     }
 
     const account = await adjustCredits({
@@ -321,7 +314,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
 
     request.log.info(
       { ownerId: request.user.userId, userId, delta, balance: account.balance },
-      "Crédits ajustés depuis le panel admin",
+      "Credits adjusted from the admin panel",
     );
     return account;
   });
@@ -331,7 +324,7 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const parsed = setPremiumSchema.safeParse(request.body);
       if (!parsed.success) {
-        return reply.status(400).send({ error: "Corps de requête invalide." });
+        return reply.status(400).send({ error: request.t("errors.validation.body") });
       }
 
       const { premium, premiumExpiresAt } = parsed.data;
@@ -340,8 +333,8 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
         premium,
         premiumExpiresAt ? new Date(premiumExpiresAt) : null,
       );
-      // La liste attend des lignes enrichies (compteurs, réglages) : on renvoie le même format
-      // pour que le tableau se mette à jour sans avoir à tout recharger.
+      // The list expects enriched rows (counters, settings), so we answer in that same shape and
+      // the table refreshes without reloading everything.
       return (await getAdminGuild(guild.id)) ?? guild;
     },
   );

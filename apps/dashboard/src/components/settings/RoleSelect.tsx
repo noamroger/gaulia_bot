@@ -1,3 +1,6 @@
+"use client";
+
+import { useTranslation } from "@/i18n";
 import type { GuildRoleOption } from "@/lib/types";
 
 export function RoleSelect({
@@ -13,6 +16,7 @@ export function RoleSelect({
   ariaLabel: string;
   onChange: (roleId: string | null) => void;
 }) {
+  const t = useTranslation();
   const missing = value !== null && !roles.some((role) => role.id === value);
 
   return (
@@ -23,7 +27,7 @@ export function RoleSelect({
       onChange={(event) => onChange(event.target.value || null)}
     >
       <option value="">{emptyLabel}</option>
-      {missing && <option value={value ?? ""}>Rôle introuvable</option>}
+      {missing && <option value={value ?? ""}>{t("settings.role.missing")}</option>}
       {roles.map((role) => (
         <option key={role.id} value={role.id}>
           @{role.name}

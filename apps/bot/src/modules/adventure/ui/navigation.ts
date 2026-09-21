@@ -7,60 +7,60 @@ import {
 } from "discord.js";
 
 import type { V2MessagePayload } from "../../../core/ui/containers";
+import type { Translator } from "../../../i18n";
 
 /**
- * Vues de l'aventure atteignables d'un simple bouton. Le composant `adventure:nav` sait toutes les
- * afficher (voir ui/renderView.ts) : ajouter une entrée ici suffit à la rendre navigable, sans
- * nouveau composant à enregistrer.
+ * Adventure views reachable from a single button. The `adventure:nav` component knows how to
+ * render them all (see ui/renderView.ts), so adding an entry here is enough to make a view
+ * navigable, with no new component to register.
  */
 export type AdventureView =
-  | "profil"
-  | "sac"
-  | "carte"
-  | "histoire"
-  | "quetes"
-  | "boutique"
+  | "profile"
+  | "bag"
+  | "map"
+  | "story"
+  | "quests"
+  | "shop"
   | "forge"
-  | "donjon"
-  | "classement"
-  | "hauts-faits"
+  | "dungeon"
+  | "leaderboard"
+  | "achievements"
   | "journal"
-  | "echanges";
+  | "trades";
 
-const VIEW_BUTTONS: Readonly<Record<AdventureView, { label: string; emoji: string }>> = {
-  profil: { label: "Profil", emoji: "🧝" },
-  sac: { label: "Sac", emoji: "🎒" },
-  carte: { label: "Carte", emoji: "🗺️" },
-  histoire: { label: "Histoire", emoji: "📖" },
-  quetes: { label: "Quêtes", emoji: "📜" },
-  boutique: { label: "Boutique", emoji: "🏪" },
-  forge: { label: "Forge", emoji: "⚒️" },
-  donjon: { label: "Donjon", emoji: "🚪" },
-  classement: { label: "Classement", emoji: "🏅" },
-  "hauts-faits": { label: "Hauts faits", emoji: "🏆" },
-  journal: { label: "Journal", emoji: "📓" },
-  echanges: { label: "Échanges", emoji: "🤝" },
+const VIEW_EMOJIS: Readonly<Record<AdventureView, string>> = {
+  profile: "🧝",
+  bag: "🎒",
+  map: "🗺️",
+  story: "📖",
+  quests: "📜",
+  shop: "🏪",
+  forge: "⚒️",
+  dungeon: "🚪",
+  leaderboard: "🏅",
+  achievements: "🏆",
+  journal: "📓",
+  trades: "🤝",
 };
 
-/** Bouton menant à une autre vue, rattaché à son joueur pour que personne d'autre ne l'utilise. */
-export function viewButton(userId: string, view: AdventureView): ButtonBuilder {
-  const { label, emoji } = VIEW_BUTTONS[view];
+/** Button to another view, tied to its player so nobody else can use it. */
+export function viewButton(t: Translator, userId: string, view: AdventureView): ButtonBuilder {
   return new ButtonBuilder()
     .setCustomId(`adventure:nav:${userId}:${view}`)
-    .setLabel(label)
-    .setEmoji(emoji)
+    .setLabel(t(`adventure.buttons.${view}`))
+    .setEmoji(VIEW_EMOJIS[view])
     .setStyle(ButtonStyle.Secondary);
 }
 
-export function exploreButton(userId: string, label = "Explorer"): ButtonBuilder {
+export function exploreButton(t: Translator, userId: string, label?: string): ButtonBuilder {
   return new ButtonBuilder()
     .setCustomId(`adventure:explore:${userId}`)
-    .setLabel(label)
+    .setLabel(label ?? t("adventure.buttons.explore"))
     .setEmoji("🧭")
     .setStyle(ButtonStyle.Primary);
 }
 
-/** Ajoute une rangée de composants au premier container du payload. */
+/** Appends a row of components to the first container of the payload. */
 export function appendRow(
   payload: V2MessagePayload,
   components: MessageActionRowComponentBuilder[],
@@ -76,19 +76,20 @@ export function appendRow(
   return payload;
 }
 
-/** Rangée de navigation en bas d'une vue : cinq boutons au maximum, limite de Discord. */
+/** Navigation row at the bottom of a view: five buttons at most, a Discord limit. */
 export function navigationRow(
   payload: V2MessagePayload,
+  t: Translator,
   userId: string,
   views: AdventureView[],
 ): V2MessagePayload {
   return appendRow(
     payload,
-    views.slice(0, 5).map((view) => viewButton(userId, view)),
+    views.slice(0, 5).map((view) => viewButton(t, userId, view)),
   );
 }
 
-/** Ajoute un menu déroulant sous le container (listes d'objets, de recettes, d'achats). */
+/** Adds a dropdown under the container (item, recipe and purchase lists). */
 export function withSelect(
   payload: V2MessagePayload,
   select: StringSelectMenuBuilder,

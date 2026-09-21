@@ -2,21 +2,21 @@ import { GuildMember } from "discord.js";
 
 export interface HierarchyCheckResult {
   allowed: boolean;
-  reason?: string;
+  /** Translation key explaining the refusal, resolved by the caller in the reader's language. */
+  reasonKey?: string;
 }
 
 /**
- * Vérifie qu'un modérateur peut agir sur un membre cible (ban/kick/timeout/warn) :
- * pas d'auto-modération, pas d'action sur le propriétaire du serveur, et hiérarchie de rôles respectée
- * (sauf pour le propriétaire du serveur, qui passe outre la hiérarchie).
+ * Checks that a moderator may act on a target (ban/kick/timeout/warn): no self moderation, nothing
+ * against the server owner, and role hierarchy respected. The server owner bypasses the hierarchy.
  */
 export function canModerate(moderator: GuildMember, target: GuildMember): HierarchyCheckResult {
   if (moderator.id === target.id) {
-    return { allowed: false, reason: "Tu ne peux pas effectuer cette action sur toi-même." };
+    return { allowed: false, reasonKey: "common.hierarchy.self" };
   }
 
   if (target.id === target.guild.ownerId) {
-    return { allowed: false, reason: "Impossible d'agir sur le propriétaire du serveur." };
+    return { allowed: false, reasonKey: "common.hierarchy.targetOwner" };
   }
 
   if (moderator.id === moderator.guild.ownerId) {
@@ -24,28 +24,20 @@ export function canModerate(moderator: GuildMember, target: GuildMember): Hierar
   }
 
   if (moderator.roles.highest.position <= target.roles.highest.position) {
-    return {
-      allowed: false,
-      reason: "Ce membre a un rôle égal ou supérieur au tien.",
-    };
+    return { allowed: false, reasonKey: "common.hierarchy.targetHigher" };
   }
 
   return { allowed: true };
 }
 
-/**
- * Vérifie que le bot a un rôle assez élevé pour agir sur la cible.
- */
+/** Checks that the bot's own role is high enough to act on the target. */
 export function canBotModerate(botMember: GuildMember, target: GuildMember): HierarchyCheckResult {
   if (target.id === target.guild.ownerId) {
-    return { allowed: false, reason: "Je ne peux pas agir sur le propriétaire du serveur." };
+    return { allowed: false, reasonKey: "common.hierarchy.botTargetOwner" };
   }
 
   if (botMember.roles.highest.position <= target.roles.highest.position) {
-    return {
-      allowed: false,
-      reason: "Mon rôle est trop bas dans la hiérarchie pour agir sur ce membre.",
-    };
+    return { allowed: false, reasonKey: "common.hierarchy.botRoleTooLow" };
   }
 
   return { allowed: true };

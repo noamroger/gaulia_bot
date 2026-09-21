@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslation } from "@/i18n";
 import type { EditableResource } from "@/lib/useEditableResource";
 
 type SaveBarState = Pick<
@@ -14,12 +15,13 @@ export function SaveBar({
   editor: SaveBarState;
   invalidReason?: string | null;
 }) {
+  const t = useTranslation();
   const { dirty, saving, justSaved, error } = editor;
   if (!dirty && !saving && !error && !justSaved) return null;
 
   const message =
     error ??
-    (dirty ? (invalidReason ?? "Modifications non enregistrées.") : "Modifications enregistrées.");
+    (dirty ? (invalidReason ?? t("settings.saveBar.unsaved")) : t("settings.saveBar.saved"));
   const isError = Boolean(error) || (dirty && Boolean(invalidReason));
 
   return (
@@ -33,7 +35,7 @@ export function SaveBar({
             disabled={saving}
             onClick={editor.reset}
           >
-            Annuler
+            {t("common.action.cancel")}
           </button>
           <button
             type="button"
@@ -41,7 +43,7 @@ export function SaveBar({
             disabled={saving || Boolean(invalidReason)}
             onClick={() => void editor.save()}
           >
-            {saving ? "Enregistrement…" : "Enregistrer"}
+            {saving ? t("settings.saveBar.saving") : t("common.action.save")}
           </button>
         </div>
       )}

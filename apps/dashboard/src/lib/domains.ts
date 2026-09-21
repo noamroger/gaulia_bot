@@ -1,4 +1,4 @@
-/** Même normalisation que l'API : "https://www.Exemple.com/page" → "exemple.com". */
+/** Same normalization as the API: "https://www.Example.com/page" -> "example.com". */
 export function normalizeDomain(value: string): string {
   return (
     value
@@ -10,8 +10,7 @@ export function normalizeDomain(value: string): string {
   );
 }
 
-export function domainError(domain: string): string | null {
-  return /^(?:[a-z0-9-]+\.)+[a-z]{2,}$/.test(domain)
-    ? null
-    : `« ${domain} » n'est pas un nom de domaine valide.`;
+/** Validity only: the wording of the error comes from the caller's catalog. */
+export function isValidDomain(domain: string): boolean {
+  return /^(?:[a-z0-9-]+\.)+[a-z]{2,}$/.test(domain);
 }

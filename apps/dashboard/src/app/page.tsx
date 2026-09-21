@@ -3,13 +3,15 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { LiveStats } from "@/components/home/LiveStats";
+import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import type { Translator } from "@/i18n";
+import { getTranslator } from "@/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Gaulia - Bot Discord de modération, musique et jeux",
-  description:
-    "Gaulia modère, protège et anime ton serveur Discord : modération, automod, musique, blindtest et jeux, configurables depuis un tableau de bord.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslator();
+  return { title: t("home.meta.title"), description: t("home.meta.description") };
+}
 
 function Icon({ children }: { children: ReactNode }) {
   return (
@@ -29,23 +31,18 @@ function Icon({ children }: { children: ReactNode }) {
   );
 }
 
-const FEATURES: { title: string; description: string; icon: ReactNode }[] = [
+/** Only the drawing lives here: each card reads its title and text from `home.features.<id>`. */
+const FEATURES: { id: string; icon: ReactNode }[] = [
   {
-    title: "Modération",
-    description:
-      "Bannissements, expulsions, sourdines et avertissements, avec l'historique des sanctions, des logs dans le salon de ton choix et des sanctions automatiques au-delà d'un nombre d'avertissements.",
+    id: "moderation",
     icon: <path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6L12 3Z" />,
   },
   {
-    title: "Automod",
-    description:
-      "Sept règles pour bloquer liens, invitations, mots interdits, mentions de masse, majuscules, messages en double et flood, chacune avec sa sanction, en plus de l'AutoMod natif de Discord.",
+    id: "automod",
     icon: <path d="M4 5h16l-6 7.5V19l-4 2v-8.5L4 5Z" />,
   },
   {
-    title: "Musique",
-    description:
-      "Lecture depuis SoundCloud et les liens Spotify, file d'attente, filtres audio, salon dédié et rôle DJ pour garder la main sur la lecture.",
+    id: "music",
     icon: (
       <>
         <path d="M9 18V6l11-2v12" />
@@ -55,15 +52,11 @@ const FEATURES: { title: string; description: string; icon: ReactNode }[] = [
     ),
   },
   {
-    title: "Blindtest",
-    description:
-      "Des extraits de 30 secondes à deviner dans ton salon vocal, des catégories prêtes à jouer et tes propres listes de musiques.",
+    id: "blindtest",
     icon: <path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4" />,
   },
   {
-    title: "Jeux",
-    description:
-      "Puissance 4, morpion, pendu, Wordle, blackjack et démineur pour animer le serveur entre deux discussions.",
+    id: "games",
     icon: (
       <>
         <rect x="2.5" y="7" width="19" height="10" rx="5" />
@@ -73,60 +66,43 @@ const FEATURES: { title: string; description: string; icon: ReactNode }[] = [
     ),
   },
   {
-    title: "Premium",
-    description:
-      "Musique en continu 24/7 et file d'attente étendue, avec un abonnement Discord ou grâce aux crédits gagnés en votant pour Gaulia sur top.gg.",
+    id: "premium",
     icon: (
       <path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9L12 3.5Z" />
     ),
   },
 ];
 
-const STEPS = [
-  {
-    title: "Ajoute Gaulia",
-    description:
-      "Invite le bot sur ton serveur en un clic, avec uniquement les permissions dont il a besoin.",
-  },
-  {
-    title: "Connecte-toi",
-    description:
-      "Ouvre le tableau de bord avec ton compte Discord : tu y retrouves les serveurs que tu gères.",
-  },
-  {
-    title: "Configure",
-    description:
-      "Choisis tes salons de logs, tes règles d'automod, la musique et le blindtest, puis enregistre.",
-  },
-];
+const STEPS = ["add", "signIn", "configure"] as const;
 
-/** Aperçu décoratif d'une manche de blindtest, fidèle au message envoyé par le bot. */
-function DiscordPreview() {
+/** Decorative preview of a blindtest round, faithful to the message the bot posts. */
+function DiscordPreview({ t }: { t: Translator }) {
   return (
     <div className="landing-preview" aria-hidden="true">
       <div className="preview-header">
         <span className="preview-hash">#</span>
-        blindtest
+        {t("home.preview.channel")}
       </div>
       <div className="preview-messages">
         <div className="preview-message">
           <span className="preview-avatar">G</span>
           <div>
             <div className="preview-author">
-              Gaulia <span className="preview-badge">APP</span>
-              <span className="preview-time">Aujourd&apos;hui à 21:04</span>
+              Gaulia <span className="preview-badge">{t("home.preview.app")}</span>
+              <span className="preview-time">{t("home.preview.time")}</span>
             </div>
             <div className="preview-container">
-              <strong>Manche 3 / 10</strong>
-              <p>Écoute bien ! Fin de la manche dans 18 secondes.</p>
+              <strong>{t("home.preview.round")}</strong>
+              <p>{t("home.preview.hint")}</p>
               <p>
-                Titre : trouvé par <span className="preview-mention">@Léa</span>
+                {t("home.preview.trackFound")}{" "}
+                <span className="preview-mention">{t("home.preview.mention")}</span>
                 <br />
-                Artiste : à trouver
+                {t("home.preview.artistPending")}
               </p>
               <div className="preview-buttons">
-                <span className="preview-button">Passer la manche</span>
-                <span className="preview-button is-danger">Arrêter</span>
+                <span className="preview-button">{t("home.preview.skip")}</span>
+                <span className="preview-button is-danger">{t("home.preview.stop")}</span>
               </div>
             </div>
           </div>
@@ -135,9 +111,10 @@ function DiscordPreview() {
           <span className="preview-avatar is-user">T</span>
           <div>
             <div className="preview-author">
-              Tom <span className="preview-time">Aujourd&apos;hui à 21:04</span>
+              {t("home.preview.player")}{" "}
+              <span className="preview-time">{t("home.preview.time")}</span>
             </div>
-            <p className="preview-text">c&apos;est Daft Punk !</p>
+            <p className="preview-text">{t("home.preview.guess")}</p>
           </div>
         </div>
       </div>
@@ -145,7 +122,9 @@ function DiscordPreview() {
   );
 }
 
-export default function HomePage() {
+export default async function HomePage() {
+  const t = await getTranslator();
+
   return (
     <div className="landing">
       <div className="landing-backdrop" aria-hidden="true" />
@@ -158,13 +137,14 @@ export default function HomePage() {
             </span>
             Gaulia
           </Link>
-          <nav className="landing-nav-links" aria-label="Navigation principale">
-            <a href="#fonctionnalites" className="landing-nav-link">
-              Fonctionnalités
+          <nav className="landing-nav-links" aria-label={t("home.nav.ariaLabel")}>
+            <a href="#features" className="landing-nav-link">
+              {t("home.nav.features")}
             </a>
+            <LanguageToggle />
             <ThemeToggle />
             <Link href="/dashboard" className="button-secondary">
-              Tableau de bord
+              {t("home.nav.dashboard")}
             </Link>
           </nav>
         </div>
@@ -173,42 +153,41 @@ export default function HomePage() {
       <main className="landing-main">
         <section className="landing-hero">
           <div>
-            <span className="landing-eyebrow">Bot Discord francophone</span>
+            <span className="landing-eyebrow">{t("home.hero.eyebrow")}</span>
             <h1>
-              Modère, protège et <span className="landing-gradient">anime</span> ton serveur Discord
+              {t("home.hero.titleStart")}{" "}
+              <span className="landing-gradient">{t("home.hero.titleAccent")}</span>{" "}
+              {t("home.hero.titleEnd")}
             </h1>
-            <p className="landing-tagline">
-              Modération, automod, musique, blindtest et jeux dans un seul bot, configurable en
-              quelques clics depuis ton navigateur.
-            </p>
+            <p className="landing-tagline">{t("home.hero.tagline")}</p>
             <div className="landing-actions">
               <a className="button-primary" href="/invite">
-                Ajouter Gaulia à mon serveur
+                {t("home.hero.addBot")}
               </a>
               <Link className="button-secondary" href="/dashboard">
-                Gérer mes serveurs
+                {t("home.hero.manage")}
               </Link>
             </div>
           </div>
-          <DiscordPreview />
+          <DiscordPreview t={t} />
         </section>
 
         <LiveStats />
 
-        <section id="fonctionnalites" className="landing-section" aria-labelledby="features-title">
+        <section id="features" className="landing-section" aria-labelledby="features-title">
           <div className="landing-section-head">
-            <span className="landing-eyebrow">Fonctionnalités</span>
-            <h2 id="features-title">Tout ce qu&apos;il faut pour ton serveur</h2>
-            <p>Chaque module s&apos;active et se règle depuis le tableau de bord.</p>
+            <span className="landing-eyebrow">{t("home.features.eyebrow")}</span>
+            <h2 id="features-title">{t("home.features.title")}</h2>
+            <p>{t("home.features.subtitle")}</p>
           </div>
           <div className="feature-grid">
             {FEATURES.map((feature) => (
-              <article key={feature.title} className="landing-card">
+              <article key={feature.id} className="landing-card">
                 <span className="feature-icon">
                   <Icon>{feature.icon}</Icon>
                 </span>
-                <h3>{feature.title}</h3>
-                <p>{feature.description}</p>
+                <h3>{t(`home.features.${feature.id}.title`)}</h3>
+                <p>{t(`home.features.${feature.id}.description`)}</p>
               </article>
             ))}
           </div>
@@ -216,32 +195,29 @@ export default function HomePage() {
 
         <section className="landing-section" aria-labelledby="steps-title">
           <div className="landing-section-head">
-            <span className="landing-eyebrow">Démarrage</span>
-            <h2 id="steps-title">Prêt en trois étapes</h2>
+            <span className="landing-eyebrow">{t("home.steps.eyebrow")}</span>
+            <h2 id="steps-title">{t("home.steps.title")}</h2>
           </div>
           <ol className="steps-grid">
             {STEPS.map((step, index) => (
-              <li key={step.title} className="landing-card">
+              <li key={step} className="landing-card">
                 <span className="step-number">{index + 1}</span>
-                <h3>{step.title}</h3>
-                <p>{step.description}</p>
+                <h3>{t(`home.steps.${step}.title`)}</h3>
+                <p>{t(`home.steps.${step}.description`)}</p>
               </li>
             ))}
           </ol>
         </section>
 
         <section className="landing-cta">
-          <h2>Prêt à essayer Gaulia ?</h2>
-          <p>
-            Ajoute le bot à ton serveur, puis configure-le depuis le tableau de bord avec ton compte
-            Discord.
-          </p>
+          <h2>{t("home.cta.title")}</h2>
+          <p>{t("home.cta.description")}</p>
           <div className="landing-actions">
             <a className="button-primary" href="/invite">
-              Ajouter Gaulia
+              {t("home.cta.addBot")}
             </a>
             <a className="button-secondary" href="/vote">
-              Voter sur top.gg
+              {t("home.cta.vote")}
             </a>
           </div>
         </section>

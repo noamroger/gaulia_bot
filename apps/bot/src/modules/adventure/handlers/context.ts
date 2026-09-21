@@ -7,9 +7,8 @@ import {
 } from "../services/character/characterService";
 
 /**
- * Préambule commun à toutes les commandes d'aventure : le personnage existe, ses jauges sont à
- * jour et son passage du jour est enregistré (série de jours consécutifs, pseudo affiché au panel
- * admin).
+ * Preamble shared by every adventure command: the character exists, its gauges are up to date and
+ * the visit of the day is recorded (streak of consecutive days, username shown in the admin panel).
  */
 export async function playerContext(
   interaction: ChatInputCommandInteraction,

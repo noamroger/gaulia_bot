@@ -1,4 +1,5 @@
 import { GauliaError } from "../errors";
+import type { Translator } from "../../i18n";
 
 const UNIT_TO_MS: Record<string, number> = {
   s: 1000,
@@ -7,7 +8,7 @@ const UNIT_TO_MS: Record<string, number> = {
   d: 86_400_000,
 };
 
-/** Parse une durée type "10m", "2h", "1d", "45s" ou un nombre brut de secondes. */
+/** Parses "10m", "2h", "1d", "45s" or a bare number of seconds. */
 export function parseDurationMs(input: string): number {
   const trimmed = input.trim().toLowerCase();
 
@@ -17,14 +18,15 @@ export function parseDurationMs(input: string): number {
 
   const match = /^(\d+)\s*(s|m|h|d)$/.exec(trimmed);
   if (!match) {
-    throw new GauliaError("Format de durée invalide. Exemples valides : `30s`, `10m`, `2h`, `1d`.");
+    throw new GauliaError("common.duration.invalid");
   }
 
   const [, amount, unit] = match;
   return Number(amount) * UNIT_TO_MS[unit!]!;
 }
 
-export function formatDurationMs(ms: number): string {
+/** Human readable duration, whose unit letters differ per language ("2d" against "2j"). */
+export function formatDurationMs(ms: number, t: Translator): string {
   const totalSeconds = Math.floor(ms / 1000);
   const days = Math.floor(totalSeconds / 86_400);
   const hours = Math.floor((totalSeconds % 86_400) / 3600);
@@ -32,10 +34,10 @@ export function formatDurationMs(ms: number): string {
   const seconds = totalSeconds % 60;
 
   const parts: string[] = [];
-  if (days) parts.push(`${days}j`);
-  if (hours) parts.push(`${hours}h`);
-  if (minutes) parts.push(`${minutes}m`);
-  if (seconds && parts.length === 0) parts.push(`${seconds}s`);
+  if (days) parts.push(t("common.duration.day", { count: days }));
+  if (hours) parts.push(t("common.duration.hour", { count: hours }));
+  if (minutes) parts.push(t("common.duration.minute", { count: minutes }));
+  if (seconds && parts.length === 0) parts.push(t("common.duration.second", { count: seconds }));
 
-  return parts.length ? parts.join(" ") : "0s";
+  return parts.length ? parts.join(" ") : t("common.duration.zero");
 }

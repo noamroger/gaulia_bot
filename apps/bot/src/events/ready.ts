@@ -14,28 +14,28 @@ const event: GauliaEvent<typeof Events.ClientReady> = {
   once: true,
   async execute(client: GauliaClient, readyClient: Client<true>) {
     client.logger.info(
-      `Connecté en tant que ${readyClient.user.tag} (shard ${client.shard?.ids.join(",") ?? "0"})`,
+      `Logged in as ${readyClient.user.tag} (shard ${client.shard?.ids.join(",") ?? "0"})`,
     );
 
-    // Une indisponibilité momentanée de Lavalink ou Postgres au démarrage ne doit pas faire
-    // planter tout le process de shard : on log et on continue (lavalink-client retente la
-    // connexion tout seul ; les commandes touchant la base réessaieront à leur prochain appel).
+    // A brief Lavalink or Postgres outage at startup must not bring the shard process down: log
+    // and carry on. lavalink-client retries on its own, and database commands retry on their next
+    // call.
     try {
       await client.lavalink.init({ id: readyClient.user.id, username: readyClient.user.username });
     } catch (error) {
-      client.logger.error({ err: error }, "Échec de l'initialisation de Lavalink au démarrage");
+      client.logger.error({ err: error }, "Could not initialise Lavalink at startup");
     }
 
     try {
       await initEntitlements(client);
     } catch (error) {
-      client.logger.error({ err: error }, "Échec de la synchronisation premium au démarrage");
+      client.logger.error({ err: error }, "Could not sync premium at startup");
     }
 
     try {
       await syncGuildPresence(client);
     } catch (error) {
-      client.logger.error({ err: error }, "Échec de la synchronisation de présence des serveurs");
+      client.logger.error({ err: error }, "Could not sync the server presence");
     }
 
     startGuildPresenceResync(client);

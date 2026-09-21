@@ -1,13 +1,15 @@
 /**
- * Le catalogue d'objets est défini dans `@gaulia/database` : l'API et le panel admin doivent
- * pouvoir nommer un inventaire et valider un objet offert à un joueur. Ce fichier ne fait que le
- * ré-exposer sous les noms courts utilisés par le module.
+ * The item catalog lives in `@gaulia/database`: the API and the admin panel need it to name an
+ * inventory and to validate an item granted to a player. It holds both languages, so this file
+ * only re-exposes it under the short names the module uses and picks the reader's language.
  */
+import { adventureItemLabel, findAdventureItem, localized } from "@gaulia/database";
+
+import type { Translator } from "../../../i18n";
+
 export {
   ADVENTURE_ITEMS as ITEMS,
   ADVENTURE_RARITY_EMOJIS as RARITY_EMOJIS,
-  ADVENTURE_SLOT_LABELS as SLOT_LABELS,
-  adventureItemLabel as itemLabel,
   adventureItemsBySlot as itemsBySlot,
   adventureShopItems as shopItems,
   findAdventureItem as findItem,
@@ -19,3 +21,22 @@ export {
   type AdventureItemRarity as ItemRarity,
   type AdventureItemSlot as ItemSlot,
 } from "@gaulia/database";
+
+export function itemName(t: Translator, itemId: string): string {
+  const item = findAdventureItem(itemId);
+  return item ? localized(item.name, t.locale) : itemId;
+}
+
+export function itemDescription(t: Translator, itemId: string): string {
+  const item = findAdventureItem(itemId);
+  return item ? localized(item.description, t.locale) : "";
+}
+
+/** Emoji plus name, the form every list and message uses. */
+export function itemLabel(t: Translator, itemId: string): string {
+  return adventureItemLabel(itemId, t.locale);
+}
+
+export function slotLabel(t: Translator, slot: string): string {
+  return t(`adventure.slots.${slot}`);
+}

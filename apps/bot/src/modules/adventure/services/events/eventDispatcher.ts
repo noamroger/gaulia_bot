@@ -1,5 +1,6 @@
 import type { AdventureCharacter, AdventureItem } from "@gaulia/database";
 
+import type { Translator } from "../../../../i18n";
 import { checkAchievements } from "../progress/achievementService";
 import { applyQuestProgress } from "../progress/questService";
 import { applyStoryProgress } from "../progress/storyService";
@@ -7,30 +8,31 @@ import type { GameEvent } from "./gameEvents";
 
 export interface DispatchResult {
   character: AdventureCharacter;
-  /** Lignes à afficher sous le résultat de l'action (quêtes, hauts faits). */
+  /** Lines to show under the result of the action (quests, achievements). */
   notices: string[];
 }
 
 /**
- * Point de passage unique après une action : les évènements alimentent le chapitre en cours, les
- * quêtes, puis les hauts faits. Une nouvelle action n'a donc qu'à produire ses évènements et
- * appeler cette fonction - elle n'a rien à connaître du scénario ni des quêtes.
+ * Single hop after an action: the events feed the current chapter, then the quests, then the
+ * achievements. A new action only has to produce its events and call this, knowing nothing about
+ * the story or the quests.
  */
 export async function dispatchGameEvents(
   character: AdventureCharacter,
   items: AdventureItem[],
   events: GameEvent[],
+  t: Translator,
 ): Promise<DispatchResult> {
   let current = await applyStoryProgress(character, events);
 
-  const quests = await applyQuestProgress(current, items, events);
+  const quests = await applyQuestProgress(current, items, events, t);
   current = quests.character;
 
-  // Un lot de quêtes terminé est lui-même un évènement de scénario (objectif « DAILY_SET »).
+  // A completed quest set is itself a story event (the "DAILY_SET" objective).
   if (quests.events.length > 0) {
     current = await applyStoryProgress(current, quests.events);
   }
 
-  const achievements = await checkAchievements(current);
+  const achievements = await checkAchievements(current, t);
   return { character: current, notices: [...quests.notices, ...achievements] };
 }

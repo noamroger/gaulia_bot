@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale, useTranslation } from "@/i18n";
 import { formatDay, formatNumber } from "@/lib/format";
 
 import { TimeSeriesChart } from "./TimeSeriesChart";
@@ -10,16 +11,19 @@ export interface DailyPoint {
 }
 
 export function DailyUsageChart({ points }: { points: DailyPoint[] }) {
+  const t = useTranslation();
+  const locale = useLocale();
+
   return (
     <TimeSeriesChart
       points={points.map((point) => ({ key: point.date, value: point.count }))}
-      ariaLabel={`Commandes utilisées par jour sur ${points.length} jours`}
+      ariaLabel={t("admin.charts.daily.ariaLabel", { days: points.length })}
       zeroBaseline
-      formatTick={formatNumber}
-      formatAxisLabel={formatDay}
+      formatTick={(value) => formatNumber(value, locale)}
+      formatAxisLabel={(key) => formatDay(key, locale)}
       formatTooltip={({ key, value }) => ({
-        value: formatNumber(value ?? 0),
-        detail: `commandes · ${formatDay(key)}`,
+        value: formatNumber(value ?? 0, locale),
+        detail: t("admin.charts.daily.tooltip", { day: formatDay(key, locale) }),
       })}
     />
   );

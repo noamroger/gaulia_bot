@@ -5,57 +5,36 @@ import { Colors, Emojis } from "../../../client/Constants";
 import { GauliaError } from "../../../core/errors";
 import { PermissionLevel } from "../../../core/permissions/permissionLevel";
 import { buildContainer, successPayload, toV2Payload } from "../../../core/ui/containers";
+import { localizeOption, localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
 import { deleteRule, listRules, setupBaselineRules } from "../services/nativeAutoModService";
 
+const KEY = "automod.commands.automod";
+
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   guildOnly: true,
   permissionLevel: PermissionLevel.Administrator,
-  data: new SlashCommandBuilder()
-    .setName("automod")
-    .setDescription("Configure la modération automatique de ce serveur")
+
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY)
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .addSubcommand((sub) =>
-      sub
-        .setName("setup")
-        .setDescription("Crée les règles AutoMod natives de base (spam, mentions, mots interdits)"),
+    .addSubcommand((subcommand) => localizeSlashCommand(subcommand, `${KEY}.subcommands.setup`))
+    .addSubcommand((subcommand) => localizeSlashCommand(subcommand, `${KEY}.subcommands.rules`))
+    .addSubcommand((subcommand) =>
+      localizeSlashCommand(subcommand, `${KEY}.subcommands.ruleDelete`).addStringOption((option) =>
+        localizeOption(option, `${KEY}.subcommands.ruleDelete.options.id`).setRequired(true),
+      ),
     )
-    .addSubcommand((sub) =>
-      sub.setName("rules").setDescription("Liste les règles AutoMod natives actives"),
-    )
-    .addSubcommand((sub) =>
-      sub
-        .setName("rule-delete")
-        .setDescription("Supprime une règle AutoMod native")
-        .addStringOption((option) =>
-          option.setName("id").setDescription("ID de la règle").setRequired(true),
-        ),
-    )
-    .addSubcommand((sub) =>
-      sub
-        .setName("config")
-        .setDescription("Choisit le salon des logs automod (règles et sanctions : dashboard)")
-        .addChannelOption((option) =>
-          option
-            .setName("salon_logs")
-            .setDescription("Salon où envoyer les logs automod")
-            .addChannelTypes(ChannelType.GuildText)
-            .setRequired(true),
-        ),
+    .addSubcommand((subcommand) =>
+      localizeSlashCommand(subcommand, `${KEY}.subcommands.config`).addChannelOption((option) =>
+        localizeOption(option, `${KEY}.subcommands.config.options.logChannel`)
+          .addChannelTypes(ChannelType.GuildText)
+          .setRequired(true),
+      ),
     ),
 
-  help: {
-    details:
-      "Gère l'AutoMod natif de Discord. `setup` crée des règles de base qui bloquent le spam, les messages de plus de 5 mentions et les mots interdits des listes prédéfinies de Discord. `rules` liste les règles natives avec leur identifiant, à utiliser avec `rule-delete`. `config` choisit le salon des logs automod. Les règles propres à Gaulia (liens, invitations, mots interdits, majuscules, doublons, flood) et leurs sanctions se configurent sur le dashboard.",
-    examples: [
-      "automod setup",
-      "automod rule-delete id:123456789012345678",
-      "automod config salon_logs:#logs-automod",
-    ],
-  },
-
-  async execute(interaction) {
+  async execute(interaction, _client, t) {
     const guild = interaction.guild!;
     const subcommand = interaction.options.getSubcommand(true);
 
@@ -64,8 +43,8 @@ const command: ChatInputCommand = {
       await interaction.reply(
         successPayload(
           false,
-          "Règles AutoMod créées",
-          `${rules.length} règle(s) native(s) créée(s) avec succès.`,
+          t("automod.setup.title"),
+          t("automod.setup.description", { count: rules.length }),
         ),
       );
       return;
@@ -73,14 +52,17 @@ const command: ChatInputCommand = {
 
     if (subcommand === "rules") {
       const rules = await listRules(guild);
-      const lines = [`### ${Emojis.Automod} Règles AutoMod natives`];
+      const lines = [`### ${Emojis.Automod} ${t("automod.rules.title")}`];
       lines.push(
         rules.length === 0
-          ? "Aucune règle configurée."
+          ? t("automod.rules.empty")
           : rules
-              .map(
-                (rule) =>
-                  `**${rule.name}** - \`${rule.id}\` (${rule.enabled ? "activée" : "désactivée"})`,
+              .map((rule) =>
+                t("automod.rules.entry", {
+                  name: rule.name,
+                  id: rule.id,
+                  state: t(rule.enabled ? "automod.rules.enabled" : "automod.rules.disabled"),
+                }),
               )
               .join("\n"),
       );
@@ -91,24 +73,24 @@ const command: ChatInputCommand = {
     if (subcommand === "rule-delete") {
       const ruleId = interaction.options.getString("id", true);
       await deleteRule(guild, ruleId);
-      await interaction.reply(successPayload(false, "Règle supprimée"));
+      await interaction.reply(successPayload(false, t("automod.rules.deleted")));
       return;
     }
 
     if (subcommand === "config") {
-      const logChannel = interaction.options.getChannel("salon_logs", true);
+      const logChannel = interaction.options.getChannel("log_channel", true);
       await updateGuild(guild.id, { automodLogChannelId: logChannel.id });
       await interaction.reply(
         successPayload(
           false,
-          "Configuration automod mise à jour",
-          `Les logs automod seront envoyés dans <#${logChannel.id}>. Les règles (liens, invitations, mots interdits, flood…) et leurs sanctions se configurent depuis le dashboard Gaulia.`,
+          t("automod.config.title"),
+          t("automod.config.description", { channel: logChannel.id }),
         ),
       );
       return;
     }
 
-    throw new GauliaError("Sous-commande inconnue.");
+    throw new GauliaError("automod.errors.unknownSubcommand");
   },
 };
 

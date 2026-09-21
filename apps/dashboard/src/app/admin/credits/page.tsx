@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
+import { useLocale, useTranslation, type AppLocale, type Translator } from "@/i18n";
 import { api, ApiError } from "@/lib/api";
 import { userAvatarUrl } from "@/lib/discordCdn";
 import { formatDateTime, formatNumber } from "@/lib/format";
@@ -9,20 +10,25 @@ import type { AdminCreditAccount } from "@/lib/types";
 
 const SNOWFLAKE = /^\d{17,20}$/;
 
-/** L'avatar vient du webhook top.gg (URL complète) ; sinon, avatar Discord par défaut. */
+/** The avatar comes from the top.gg webhook (full URL); otherwise, the default Discord avatar. */
 function avatarUrl(account: AdminCreditAccount): string {
   return account.avatar?.startsWith("http")
     ? account.avatar
     : userAvatarUrl(account.userId, account.avatar);
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof ApiError && error.status < 500
-    ? error.message
-    : "Une erreur interne est survenue.";
+/** Keeps the explicit "+" that number formatting drops on a positive change. */
+function signedAmount(value: number, locale: AppLocale): string {
+  return `${value > 0 ? "+" : ""}${formatNumber(value, locale)}`;
 }
 
-/** Édition en cours sur une ligne : nouvelle valeur saisie, puis confirmation avant sauvegarde. */
+function errorMessage(error: unknown, t: Translator): string {
+  return error instanceof ApiError && error.status < 500 && !error.generic
+    ? error.message
+    : t("common.state.error");
+}
+
+/** Edit in progress on a row: the typed value, then a confirmation before saving. */
 interface RowEdit {
   userId: string;
   value: string;
@@ -38,12 +44,15 @@ export default function AdminCreditsPage() {
 
   const [edit, setEdit] = useState<RowEdit | null>(null);
 
-  // Boîte de dialogue « ajouter / retirer par identifiant ».
+  // "Add / remove by ID" dialog.
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogUserId, setDialogUserId] = useState("");
   const [dialogAmount, setDialogAmount] = useState("");
   const [dialogReason, setDialogReason] = useState("");
   const [dialogConfirming, setDialogConfirming] = useState(false);
+
+  const t = useTranslation();
+  const locale = useLocale();
 
   useEffect(() => {
     api
@@ -86,9 +95,15 @@ export default function AdminCreditsPage() {
       const updated = await api.patch<AdminCreditAccount>(`/admin/credits/${userId}`, { balance });
       mergeAccount(updated);
       setEdit(null);
-      setSuccess(`Solde de ${userId} fixé à ${formatNumber(updated.balance)} crédit(s).`);
+      setSuccess(
+        t("admin.credits.balanceSet", {
+          count: updated.balance,
+          userId,
+          amount: formatNumber(updated.balance, locale),
+        }),
+      );
     } catch (saveError) {
-      setError(errorMessage(saveError));
+      setError(errorMessage(saveError, t));
     } finally {
       setPendingUserId(null);
     }
@@ -110,7 +125,12 @@ export default function AdminCreditsPage() {
       });
       mergeAccount(updated);
       setSuccess(
-        `${delta > 0 ? "+" : ""}${formatNumber(delta)} crédit(s) pour ${userId} - nouveau solde : ${formatNumber(updated.balance)}.`,
+        t("admin.credits.deltaApplied", {
+          count: Math.abs(delta),
+          amount: signedAmount(delta, locale),
+          userId,
+          balance: formatNumber(updated.balance, locale),
+        }),
       );
       setDialogOpen(false);
       setDialogConfirming(false);
@@ -118,7 +138,7 @@ export default function AdminCreditsPage() {
       setDialogAmount("");
       setDialogReason("");
     } catch (adjustError) {
-      setError(errorMessage(adjustError));
+      setError(errorMessage(adjustError, t));
       setDialogConfirming(false);
     } finally {
       setPendingUserId(null);
@@ -138,8 +158,8 @@ export default function AdminCreditsPage() {
         <input
           type="search"
           className="search-input"
-          placeholder="Rechercher par pseudo ou ID…"
-          aria-label="Rechercher un utilisateur par pseudo ou ID"
+          placeholder={t("admin.credits.searchPlaceholder")}
+          aria-label={t("admin.credits.searchLabel")}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -153,24 +173,24 @@ export default function AdminCreditsPage() {
             setSuccess(null);
           }}
         >
-          Ajouter / retirer des crédits
+          {t("admin.credits.adjust")}
         </button>
         {accounts && filtered && (
           <span className="text-muted">
-            {filtered.length} / {accounts.length} compte(s) · {formatNumber(totalCredits)} crédits
-            en circulation
+            {t("admin.credits.accounts", {
+              count: accounts.length,
+              shown: filtered.length,
+              total: accounts.length,
+            })}{" "}
+            · {t("admin.credits.circulation", { credits: formatNumber(totalCredits, locale) })}
           </span>
         )}
       </div>
 
       {dialogOpen && (
-        <section className="card credit-dialog" aria-label="Ajouter ou retirer des crédits">
-          <h2 className="card-title">Ajouter ou retirer des crédits</h2>
-          <p className="card-subtitle">
-            Saisis l&apos;identifiant Discord de l&apos;utilisateur et la variation à appliquer : un
-            nombre positif ajoute des crédits, un nombre négatif en retire. Le compte est créé
-            s&apos;il n&apos;existe pas encore.
-          </p>
+        <section className="card credit-dialog" aria-label={t("admin.credits.dialog.title")}>
+          <h2 className="card-title">{t("admin.credits.dialog.title")}</h2>
+          <p className="card-subtitle">{t("admin.credits.dialog.description")}</p>
 
           <form
             className="credit-dialog-form"
@@ -180,12 +200,12 @@ export default function AdminCreditsPage() {
             }}
           >
             <label className="field">
-              <span>Identifiant Discord</span>
+              <span>{t("admin.credits.dialog.userId")}</span>
               <input
                 type="text"
                 inputMode="numeric"
                 className="input"
-                placeholder="123456789012345678"
+                placeholder={t("admin.credits.dialog.userIdPlaceholder")}
                 value={dialogUserId}
                 onChange={(event) => {
                   setDialogUserId(event.target.value);
@@ -194,11 +214,11 @@ export default function AdminCreditsPage() {
               />
             </label>
             <label className="field">
-              <span>Crédits (+ / −)</span>
+              <span>{t("admin.credits.dialog.amount")}</span>
               <input
                 type="number"
                 className="input input-number"
-                placeholder="150"
+                placeholder={t("admin.credits.dialog.amountPlaceholder")}
                 value={dialogAmount}
                 onChange={(event) => {
                   setDialogAmount(event.target.value);
@@ -207,11 +227,11 @@ export default function AdminCreditsPage() {
               />
             </label>
             <label className="field">
-              <span>Motif (facultatif)</span>
+              <span>{t("admin.credits.dialog.reason")}</span>
               <input
                 type="text"
                 className="input"
-                placeholder="Compensation, concours…"
+                placeholder={t("admin.credits.dialog.reasonPlaceholder")}
                 maxLength={200}
                 value={dialogReason}
                 onChange={(event) => setDialogReason(event.target.value)}
@@ -224,7 +244,7 @@ export default function AdminCreditsPage() {
                 className="button-primary"
                 disabled={!dialogUserIdValid || !dialogAmountValid}
               >
-                Continuer
+                {t("admin.credits.dialog.submit")}
               </button>
             ) : (
               <div className="toolbar" style={{ margin: 0 }}>
@@ -235,8 +255,8 @@ export default function AdminCreditsPage() {
                   onClick={() => void applyDelta()}
                 >
                   {pendingUserId !== null
-                    ? "Enregistrement…"
-                    : `Confirmer ${dialogDelta > 0 ? "+" : ""}${formatNumber(dialogDelta)}`}
+                    ? t("admin.credits.saving")
+                    : t("admin.credits.confirm", { amount: signedAmount(dialogDelta, locale) })}
                 </button>
                 <button
                   type="button"
@@ -244,14 +264,14 @@ export default function AdminCreditsPage() {
                   disabled={pendingUserId !== null}
                   onClick={() => setDialogConfirming(false)}
                 >
-                  Annuler
+                  {t("common.action.cancel")}
                 </button>
               </div>
             )}
           </form>
 
           {dialogUserId.trim() !== "" && !dialogUserIdValid && (
-            <p className="field-hint">Un identifiant Discord contient 17 à 20 chiffres.</p>
+            <p className="field-hint">{t("admin.credits.invalidId")}</p>
           )}
         </section>
       )}
@@ -268,23 +288,21 @@ export default function AdminCreditsPage() {
       )}
 
       {accounts === null || filtered === null ? (
-        <p className="text-muted">Chargement…</p>
+        <p className="text-muted">{t("common.state.loading")}</p>
       ) : accounts.length === 0 ? (
-        <div className="empty-state">
-          Aucun utilisateur ne possède de crédits pour l&apos;instant.
-        </div>
+        <div className="empty-state">{t("admin.credits.empty")}</div>
       ) : filtered.length === 0 ? (
-        <div className="empty-state">Aucun compte ne correspond à « {query.trim()} ».</div>
+        <div className="empty-state">{t("admin.credits.noMatch", { query: query.trim() })}</div>
       ) : (
         <div style={{ overflowX: "auto", marginTop: 16 }}>
           <table className="table">
             <thead>
               <tr>
-                <th>Utilisateur</th>
-                <th>ID</th>
-                <th>Crédits</th>
-                <th>Votes</th>
-                <th>Dernier vote</th>
+                <th>{t("admin.credits.table.user")}</th>
+                <th>{t("admin.credits.table.id")}</th>
+                <th>{t("admin.credits.table.credits")}</th>
+                <th>{t("admin.credits.table.votes")}</th>
+                <th>{t("admin.credits.table.lastVote")}</th>
                 <th></th>
               </tr>
             </thead>
@@ -323,11 +341,11 @@ export default function AdminCreditsPage() {
                           }
                         />
                       ) : (
-                        formatNumber(account.balance)
+                        formatNumber(account.balance, locale)
                       )}
                     </td>
-                    <td className="numeric">{formatNumber(account.voteCount)}</td>
-                    <td>{account.lastVoteAt ? formatDateTime(account.lastVoteAt) : "-"}</td>
+                    <td className="numeric">{formatNumber(account.voteCount, locale)}</td>
+                    <td>{account.lastVoteAt ? formatDateTime(account.lastVoteAt, locale) : "-"}</td>
                     <td>
                       <div className="table-actions">
                         {!editing ? (
@@ -344,7 +362,7 @@ export default function AdminCreditsPage() {
                               setSuccess(null);
                             }}
                           >
-                            Modifier
+                            {t("admin.credits.edit")}
                           </button>
                         ) : edit.confirming ? (
                           <>
@@ -355,8 +373,10 @@ export default function AdminCreditsPage() {
                               onClick={() => void saveBalance(account.userId, editValue)}
                             >
                               {pendingUserId === account.userId
-                                ? "Enregistrement…"
-                                : `Confirmer ${formatNumber(editValue)}`}
+                                ? t("admin.credits.saving")
+                                : t("admin.credits.confirm", {
+                                    amount: formatNumber(editValue, locale),
+                                  })}
                             </button>
                             <button
                               type="button"
@@ -364,7 +384,7 @@ export default function AdminCreditsPage() {
                               disabled={pendingUserId === account.userId}
                               onClick={() => setEdit({ ...edit, confirming: false })}
                             >
-                              Annuler
+                              {t("common.action.cancel")}
                             </button>
                           </>
                         ) : (
@@ -375,14 +395,14 @@ export default function AdminCreditsPage() {
                               disabled={!editValid || editValue === account.balance}
                               onClick={() => setEdit({ ...edit, confirming: true })}
                             >
-                              Enregistrer
+                              {t("common.action.save")}
                             </button>
                             <button
                               type="button"
                               className="button-secondary"
                               onClick={() => setEdit(null)}
                             >
-                              Annuler
+                              {t("common.action.cancel")}
                             </button>
                           </>
                         )}
@@ -398,8 +418,11 @@ export default function AdminCreditsPage() {
 
       {edit?.confirming && (
         <p className="text-muted" style={{ fontSize: 13, marginTop: 12 }}>
-          Le solde de {edit.userId} passera à {formatNumber(editValue)} crédit(s). La variation est
-          enregistrée dans l&apos;historique du compte.
+          {t("admin.credits.pendingEdit", {
+            count: editValue,
+            userId: edit.userId,
+            amount: formatNumber(editValue, locale),
+          })}
         </p>
       )}
     </div>

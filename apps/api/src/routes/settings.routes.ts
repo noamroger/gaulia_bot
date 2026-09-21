@@ -74,7 +74,7 @@ export default async function settingsRoutes(app: FastifyInstance): Promise<void
     async (request, reply) => {
       const resources = await getGuildResources(request.params.guildId);
       if (!resources) {
-        return reply.status(404).send({ error: "Gaulia n'a pas accès à ce serveur." });
+        return reply.status(404).send({ error: request.t("errors.guild.botMissing") });
       }
       return resources;
     },
@@ -92,16 +92,16 @@ export default async function settingsRoutes(app: FastifyInstance): Promise<void
     async (request, reply) => {
       const parsed = updateSettingsSchema.safeParse(request.body);
       if (!parsed.success) {
-        return reply.status(400).send({ error: "Paramètres invalides." });
+        return reply.status(400).send({ error: request.t("errors.validation.settings") });
       }
 
       const { guildId } = request.params;
       const body = parsed.data;
 
-      // Empêche de viser un salon ou un rôle d'un autre serveur.
+      // Blocks pointing at a channel or a role of another server.
       const resources = await getGuildResources(guildId);
       if (!resources) {
-        return reply.status(404).send({ error: "Gaulia n'a pas accès à ce serveur." });
+        return reply.status(404).send({ error: request.t("errors.guild.botMissing") });
       }
       const channelsKnown = allIdsKnown(
         [
@@ -115,7 +115,7 @@ export default async function settingsRoutes(app: FastifyInstance): Promise<void
         resources.channels,
       );
       if (!channelsKnown || !allIdsKnown([body.djRoleId], resources.roles)) {
-        return reply.status(400).send({ error: "Salon ou rôle introuvable sur ce serveur." });
+        return reply.status(400).send({ error: request.t("errors.guild.unknownChannelOrRole") });
       }
 
       const guild = await getOrCreateGuild(guildId);
@@ -139,7 +139,7 @@ export default async function settingsRoutes(app: FastifyInstance): Promise<void
         definedOnly({
           volume: body.musicVolume,
           defaultLoop: body.musicDefaultLoop,
-          // Le 24/7 est premium : on autorise toujours sa désactivation, jamais son activation sans abonnement.
+          // 24/7 is premium: turning it off is always allowed, turning it on never is without premium.
           stay247: body.musicStay247 === true && !guild.premium ? undefined : body.musicStay247,
           blindtestChannelIds: body.blindtestChannelIds && [...new Set(body.blindtestChannelIds)],
           blindtestDisabledCategories: body.blindtestDisabledCategories && [

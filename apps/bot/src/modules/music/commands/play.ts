@@ -2,9 +2,10 @@ import { SlashCommandBuilder } from "discord.js";
 
 import { Emojis, FREE_QUEUE_LIMIT, PREMIUM_QUEUE_LIMIT } from "../../../client/Constants";
 import { GauliaError } from "../../../core/errors";
+import { localizeOption, localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
 import { isPremiumGuild } from "../../premium/services/entitlementService";
-import { interventionOf, musicActionPayload, trackLink } from "../services/musicUi";
+import { musicActionPayload, trackLink } from "../services/musicUi";
 import { isShuffleEnabled } from "../services/playbackControls";
 import {
   getOrCreateConfiguredPlayer,
@@ -12,29 +13,22 @@ import {
   resolveMember,
 } from "../services/playerUtils";
 
+const KEY = "music.commands.play";
+
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   guildOnly: true,
   cooldownSeconds: 2,
-  data: new SlashCommandBuilder()
-    .setName("play")
-    .setDescription("Joue une musique ou l'ajoute à la file d'attente")
-    .addStringOption((option) =>
-      option.setName("recherche").setDescription("Titre, artiste ou lien").setRequired(true),
-    ),
 
-  help: {
-    details: `Recherche un titre sur SoundCloud à partir d'un nom ou d'un artiste, ou charge directement un lien (titre ou playlist), puis l'ajoute à la file d'attente. Gaulia rejoint ton salon vocal et lance la lecture si rien n'est en cours. La file est limitée à ${FREE_QUEUE_LIMIT} titres, ${PREMIUM_QUEUE_LIMIT} avec Premium.`,
-    examples: [
-      "play recherche:Daft Punk One More Time",
-      "play recherche:https://soundcloud.com/artiste/titre",
-    ],
-  },
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY).addStringOption((option) =>
+    localizeOption(option, `${KEY}.options.query`).setRequired(true),
+  ),
 
-  async execute(interaction, client) {
+  async execute(interaction, client, t) {
     const member = await resolveMember(interaction);
     const voiceChannelId = requireVoiceChannelId(member);
-    const query = interaction.options.getString("recherche", true);
+    const query = interaction.options.getString("query", true);
     const guildId = interaction.guildId!;
 
     await interaction.deferReply();
@@ -49,21 +43,17 @@ const command: ChatInputCommand = {
       await player.connect();
     }
 
-    // YouTube bloque la lecture depuis le serveur (403 / "confirm you're not a bot") sans compte.
+    // YouTube blocks server side playback (403 / "confirm you're not a bot") without an account.
     const result = await player.search({ query, source: "scsearch" }, interaction.user);
 
     if (!result.tracks.length) {
-      throw new GauliaError("Aucun résultat trouvé pour cette recherche.");
+      throw new GauliaError("music.error.noResult");
     }
 
     const limit = isPremiumGuild(guildId) ? PREMIUM_QUEUE_LIMIT : FREE_QUEUE_LIMIT;
     if (player.queue.tracks.length >= limit) {
-      throw new GauliaError(
-        `La file d'attente est limitée à ${limit} titres sur ce serveur. Passe en Gaulia Premium pour l'étendre.`,
-      );
+      throw new GauliaError("music.error.queueFull", { limit });
     }
-
-    const intervention = interventionOf(interaction.user);
 
     if (result.loadType === "playlist") {
       await player.queue.add(result.tracks);
@@ -71,8 +61,12 @@ const command: ChatInputCommand = {
         musicActionPayload(
           interaction.user,
           Emojis.Music,
-          "Playlist ajoutée",
-          `\`${result.tracks.length}\` musique(s) de **${result.playlist?.name ?? "la playlist"}** ont été ajoutées à la file ${intervention}.`,
+          t("music.actions.play.playlistTitle"),
+          t("music.actions.play.playlistAdded", {
+            count: result.tracks.length,
+            playlist: result.playlist?.name ?? t("music.actions.play.unnamedPlaylist"),
+            user: interaction.user.id,
+          }),
         ),
       );
     } else {
@@ -82,8 +76,11 @@ const command: ChatInputCommand = {
         musicActionPayload(
           interaction.user,
           Emojis.Music,
-          "Musique ajoutée",
-          `${trackLink(track)} a été ajoutée à la file ${intervention}.`,
+          t("music.actions.play.trackTitle"),
+          t("music.actions.play.trackAdded", {
+            track: trackLink(track),
+            user: interaction.user.id,
+          }),
         ),
       );
     }

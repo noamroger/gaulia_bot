@@ -16,7 +16,7 @@ export async function loadCommands(client: GauliaClient): Promise<void> {
     const command = loadDefaultExport<Command>(file);
 
     if (!command || !("data" in command)) {
-      client.logger.warn({ file }, "Fichier de commande ignoré : pas d'export par défaut valide");
+      client.logger.warn({ file }, "Command file skipped: no valid default export");
       continue;
     }
 
@@ -24,5 +24,5 @@ export async function loadCommands(client: GauliaClient): Promise<void> {
     client.commands.set(command.data.name, command);
   }
 
-  client.logger.info(`${client.commands.size} commande(s) chargée(s)`);
+  client.logger.info(`${client.commands.size} command(s) loaded`);
 }

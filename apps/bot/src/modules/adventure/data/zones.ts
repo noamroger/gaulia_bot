@@ -1,11 +1,14 @@
 /**
- * Régions explorables. Une zone s'ouvre quand le scénario atteint l'acte correspondant : la carte
- * suit donc l'histoire, et le joueur ne peut pas sauter de palier en farmant.
+ * Explorable regions. A zone opens when the story reaches the matching act, so the map follows the
+ * story and a player cannot skip a tier by grinding. Names, descriptions and ambience lines live in
+ * the catalog, keyed by `id`.
  */
+
+import type { Translator } from "../../../i18n";
 
 export interface ZoneLoot {
   itemId: string;
-  /** Poids relatif dans le tirage de la trouvaille (plus élevé = plus fréquent). */
+  /** Relative weight in the find draw (higher = more frequent). */
   weight: number;
   min: number;
   max: number;
@@ -13,28 +16,22 @@ export interface ZoneLoot {
 
 export interface ZoneDefinition {
   id: string;
-  name: string;
   emoji: string;
-  description: string;
-  /** Index d'acte à partir duquel la zone est accessible (0 = dès le début). */
+  /** Act index from which the zone is reachable (0 = from the start). */
   minAct: number;
-  /** Niveau conseillé, affiché sur la carte et vérifié au voyage. */
+  /** Suggested level, shown on the map and checked when travelling. */
   minLevel: number;
   monsters: string[];
   loot: ZoneLoot[];
-  /** Multiplicateurs sur les gains de base (voir data/pacing.ts). */
+  /** Multipliers on the base rewards (see data/pacing.ts). */
   xpMultiplier: number;
   goldMultiplier: number;
-  /** Textes d'ambiance tirés au hasard quand l'exploration ne donne rien de notable. */
-  ambiances: string[];
 }
 
 export const ZONES: readonly ZoneDefinition[] = [
   {
     id: "clairiere",
-    name: "Clairière des Semailles",
     emoji: "🌾",
-    description: "Des champs, un puits, et des histoires qu'on raconte le soir.",
     minAct: 0,
     minLevel: 1,
     monsters: ["lapin-hargneux", "loup-gris", "sanglier-furieux"],
@@ -46,17 +43,10 @@ export const ZONES: readonly ZoneDefinition[] = [
     ],
     xpMultiplier: 1,
     goldMultiplier: 1,
-    ambiances: [
-      "Le vent couche les blés et les relève, sans rien te dire.",
-      "Un vieux te salue de loin, puis retourne à son puits.",
-      "Tu suis un sentier jusqu'à une borne effacée par la pluie.",
-    ],
   },
   {
     id: "bois-bas",
-    name: "Bois-Bas",
     emoji: "🌲",
-    description: "La brume y reste accrochée aux troncs jusqu'à midi.",
     minAct: 0,
     minLevel: 8,
     monsters: ["loup-gris", "detrousseur", "araignee-sylve", "ours-bois-bas"],
@@ -68,17 +58,10 @@ export const ZONES: readonly ZoneDefinition[] = [
     ],
     xpMultiplier: 1.15,
     goldMultiplier: 1.1,
-    ambiances: [
-      "Un craquement, puis plus rien. La brume avale les bruits.",
-      "Tu trouves un campement éteint depuis longtemps.",
-      "Des marques fraîches sur un tronc : quelque chose est passé avant toi.",
-    ],
   },
   {
     id: "tombes",
-    name: "Nécropole des Sept Tombes",
     emoji: "⚰️",
-    description: "Sept dalles, six noms. La septième n'a jamais été gravée.",
     minAct: 1,
     minLevel: 18,
     monsters: ["goule-affamee", "spectre-plaintif", "chevalier-tombe"],
@@ -90,17 +73,10 @@ export const ZONES: readonly ZoneDefinition[] = [
     ],
     xpMultiplier: 1.3,
     goldMultiplier: 1.2,
-    ambiances: [
-      "Tes pas résonnent deux fois : une fois pour toi, une fois pour autre chose.",
-      "Une bougie brûle encore sur une tombe. Personne alentour.",
-      "Le vent passe entre les dalles avec un bruit de voix.",
-    ],
   },
   {
     id: "forges",
-    name: "Forges Noires",
     emoji: "⚒️",
-    description: "On y bat le métal depuis si longtemps que le ciel est resté gris.",
     minAct: 2,
     minLevel: 30,
     monsters: ["forgeron-cendre", "golem-scories", "salamandre-forge"],
@@ -112,17 +88,10 @@ export const ZONES: readonly ZoneDefinition[] = [
     ],
     xpMultiplier: 1.45,
     goldMultiplier: 1.35,
-    ambiances: [
-      "Un marteau frappe au loin, toujours au même rythme.",
-      "La suie se dépose sur tes épaules comme une neige tiède.",
-      "Tu croises un convoi de minerai, personne pour le mener.",
-    ],
   },
   {
     id: "haut-givre",
-    name: "Haut-Givre",
     emoji: "🏔️",
-    description: "Au-dessus des nuages, là où le froid tient lieu de loi.",
     minAct: 3,
     minLevel: 42,
     monsters: ["veneur-givre", "drake-blanc", "colosse-gel"],
@@ -134,17 +103,10 @@ export const ZONES: readonly ZoneDefinition[] = [
     ],
     xpMultiplier: 1.6,
     goldMultiplier: 1.45,
-    ambiances: [
-      "La pente monte encore. Tu arrêtes de compter les heures.",
-      "Une empreinte large comme un bouclier, déjà à demi comblée.",
-      "Le silence ici est si complet qu'il siffle.",
-    ],
   },
   {
     id: "cote-tempetes",
-    name: "Côte des Tempêtes",
     emoji: "🌊",
-    description: "Des falaises, des épaves, et une mer qui ne se calme jamais.",
     minAct: 4,
     minLevel: 55,
     monsters: ["corsaire-tempete", "noye-rancunier", "drake-orage"],
@@ -156,17 +118,10 @@ export const ZONES: readonly ZoneDefinition[] = [
     ],
     xpMultiplier: 1.75,
     goldMultiplier: 1.6,
-    ambiances: [
-      "Une cloche sonne au large, sans navire pour la porter.",
-      "L'écume dessine des formes sur le sable, puis les efface.",
-      "Tu fouilles une épave : quelqu'un est passé avant toi, récemment.",
-    ],
   },
   {
     id: "voute-astrale",
-    name: "Voûte Astrale",
     emoji: "🌌",
-    description: "Un plafond d'étoiles sous la terre. Personne ne sait qui les a posées.",
     minAct: 5,
     minLevel: 68,
     monsters: ["veilleur-astral", "marcheur-vide", "choeur-brise"],
@@ -178,17 +133,10 @@ export const ZONES: readonly ZoneDefinition[] = [
     ],
     xpMultiplier: 1.9,
     goldMultiplier: 1.75,
-    ambiances: [
-      "Une étoile se détache et tombe lentement, très loin.",
-      "Ton ombre part dans une direction que la lumière n'explique pas.",
-      "Tu entends ton propre nom, prononcé par ta propre voix.",
-    ],
   },
   {
     id: "coeur-echos",
-    name: "Cœur des Échos",
     emoji: "✨",
-    description: "L'endroit d'où les Terres se souviennent. Et où elles répondent.",
     minAct: 6,
     minLevel: 82,
     monsters: ["reflet-soi", "silence-ancien", "choeur-brise"],
@@ -199,11 +147,6 @@ export const ZONES: readonly ZoneDefinition[] = [
     ],
     xpMultiplier: 2.1,
     goldMultiplier: 1.9,
-    ambiances: [
-      "Tout ce que tu dis revient, un instant plus tard, légèrement différent.",
-      "Le sol porte tes traces avant que tu poses le pied.",
-      "Une porte sans mur s'ouvre, puis se referme sur rien.",
-    ],
   },
 ] as const;
 
@@ -215,11 +158,25 @@ export function findZone(zoneId: string): ZoneDefinition | undefined {
 
 export function requireZone(zoneId: string): ZoneDefinition {
   const zone = BY_ID.get(zoneId);
-  if (!zone) throw new Error(`Zone d'aventure inconnue : ${zoneId}`);
+  if (!zone) throw new Error(`Unknown adventure zone: ${zoneId}`);
   return zone;
 }
 
-/** Zones ouvertes à un personnage, d'après l'acte atteint (le niveau n'est qu'un conseil affiché). */
+/** Zones open to a character, from the act reached (the level is only displayed advice). */
 export function zonesForAct(actIndex: number): ZoneDefinition[] {
   return ZONES.filter((zone) => zone.minAct <= actIndex);
+}
+
+export function zoneName(t: Translator, zone: ZoneDefinition): string {
+  return t(`adventure.zones.${zone.id}.name`);
+}
+
+export function zoneDescription(t: Translator, zone: ZoneDefinition): string {
+  return t(`adventure.zones.${zone.id}.description`);
+}
+
+/** One ambience line at random, shown when an exploration turns up nothing notable. */
+export function zoneAmbiance(t: Translator, zone: ZoneDefinition): string {
+  const lines = t.list(`adventure.zones.${zone.id}.ambiances`);
+  return lines[Math.floor(Math.random() * lines.length)] ?? "";
 }

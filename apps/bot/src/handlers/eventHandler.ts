@@ -16,14 +16,17 @@ export async function loadEvents(client: GauliaClient): Promise<void> {
     const event = loadDefaultExport<GauliaEvent>(file);
 
     if (!event || !event.name || typeof event.execute !== "function") {
-      client.logger.warn({ file }, "Fichier d'event ignoré : export par défaut invalide");
+      client.logger.warn({ file }, "Event file skipped: invalid default export");
       continue;
     }
 
-    client[event.once ? "once" : "on"](event.name, (...args) => void event.execute(client, ...args));
+    client[event.once ? "once" : "on"](
+      event.name,
+      (...args) => void event.execute(client, ...args),
+    );
 
     count += 1;
   }
 
-  client.logger.info(`${count} event(s) enregistré(s)`);
+  client.logger.info(`${count} event(s) registered`);
 }

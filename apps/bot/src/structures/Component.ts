@@ -5,29 +5,33 @@ import type {
 } from "discord.js";
 
 import type { GauliaClient } from "../client/GauliaClient";
+import type { Translator } from "../i18n";
 
 interface BaseComponent {
   /**
-   * Préfixe du custom_id à matcher (ex: "music:pause"). Le routage se fait par
-   * `customId.startsWith(prefix)`, ce qui permet d'encoder des données dynamiques après le préfixe
-   * (ex: "music:pause:<guildId>").
+   * custom_id prefix to match (e.g. "music:pause"). Routing uses `customId.startsWith(prefix)`,
+   * which lets dynamic data follow the prefix (e.g. "music:pause:<guildId>").
    */
   customIdPrefix: string;
 }
 
 export interface ButtonComponent extends BaseComponent {
   type: "button";
-  execute(interaction: ButtonInteraction, client: GauliaClient): Promise<void>;
+  execute(interaction: ButtonInteraction, client: GauliaClient, t: Translator): Promise<void>;
 }
 
 export interface StringSelectComponent extends BaseComponent {
   type: "stringSelect";
-  execute(interaction: StringSelectMenuInteraction, client: GauliaClient): Promise<void>;
+  execute(
+    interaction: StringSelectMenuInteraction,
+    client: GauliaClient,
+    t: Translator,
+  ): Promise<void>;
 }
 
 export interface ModalComponent extends BaseComponent {
   type: "modal";
-  execute(interaction: ModalSubmitInteraction, client: GauliaClient): Promise<void>;
+  execute(interaction: ModalSubmitInteraction, client: GauliaClient, t: Translator): Promise<void>;
 }
 
 export type GauliaComponent = ButtonComponent | StringSelectComponent | ModalComponent;

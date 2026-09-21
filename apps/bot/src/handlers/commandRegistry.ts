@@ -12,7 +12,7 @@ const CHAT_INPUT_COMMAND_TYPE = 1;
 
 type CommandBody = ReturnType<Command["data"]["toJSON"]>;
 
-/** Définitions JSON de toutes les commandes du code ; refuse deux commandes du même nom et du même type. */
+/** JSON definitions of every command in the code; refuses two commands of the same name and type. */
 export function loadCommandBodies(): CommandBody[] {
   const bodies: CommandBody[] = [];
   const seen = new Set<string>();
@@ -24,7 +24,7 @@ export function loadCommandBodies(): CommandBody[] {
     const body = command.data.toJSON();
     const key = `${body.type ?? CHAT_INPUT_COMMAND_TYPE}:${body.name}`;
     if (seen.has(key)) {
-      throw new Error(`La commande « ${body.name} » est définie plusieurs fois (${file}).`);
+      throw new Error(`Command "${body.name}" is defined more than once (${file}).`);
     }
     seen.add(key);
     bodies.push(body);
@@ -38,26 +38,26 @@ function createRest(): REST {
 }
 
 /**
- * Remplace toutes les commandes globales par celles du code (les anciennes disparaissent), puis vide
- * les commandes propres au serveur de dev : un ancien `deploy:guild` y laisse sinon des doublons
- * (deux `/ban` aux options différentes, par exemple).
+ * Replaces every global command with the ones in the code, dropping the old ones, then clears the
+ * dev server's own commands: an earlier `deploy:guild` would otherwise leave duplicates there, for
+ * instance two `/ban` with different options.
  */
 export async function syncApplicationCommands(): Promise<void> {
   const body = loadCommandBodies();
   const rest = createRest();
 
   await rest.put(Routes.applicationCommands(env.DISCORD_CLIENT_ID), { body });
-  logger.info(`${body.length} commande(s) slash synchronisée(s) globalement`);
+  logger.info(`${body.length} slash command(s) synced globally`);
 
   if (env.DEV_GUILD_ID) {
     await rest.put(Routes.applicationGuildCommands(env.DISCORD_CLIENT_ID, env.DEV_GUILD_ID), {
       body: [],
     });
-    logger.info(`Commandes propres au serveur ${env.DEV_GUILD_ID} supprimées (évite les doublons)`);
+    logger.info(`Guild commands of ${env.DEV_GUILD_ID} cleared, which avoids duplicates`);
   }
 }
 
-/** Déploiement instantané sur un seul serveur, pour tester en développement. */
+/** Instant deployment to a single server, for local testing. */
 export async function deployGuildCommands(guildId: string): Promise<number> {
   const body = loadCommandBodies();
   await createRest().put(Routes.applicationGuildCommands(env.DISCORD_CLIENT_ID, guildId), { body });

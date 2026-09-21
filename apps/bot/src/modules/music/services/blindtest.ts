@@ -4,6 +4,7 @@ import {
   getBlindtestPlaylist,
   getMusicSettings,
   listBlindtestPlaylists,
+  localized,
   type BlindtestTrack,
 } from "@gaulia/database";
 import {
@@ -27,10 +28,12 @@ import { Colors } from "../../../client/Constants";
 import type { GauliaClient } from "../../../client/GauliaClient";
 import { GauliaError } from "../../../core/errors";
 import { toV2Payload, type V2MessagePayload } from "../../../core/ui/containers";
+import { formatDurationMs } from "../../../core/utils/duration";
+import { guildTranslatorFor, type Translator } from "../../../i18n";
 import { artistAnswers, matchesAny, normalizeAnswer, titleAnswers } from "./blindtestAnswers";
-import { getOrCreateConfiguredPlayer } from "./playerUtils";
+import { getOrCreateConfiguredPlayer, guildTranslator } from "./playerUtils";
 
-/** Donnée posée sur le player Lavalink pendant une partie (masque la carte « en cours »). */
+/** Flag set on the Lavalink player while a game runs (it hides the "now playing" card). */
 export const BLINDTEST_PLAYER_FLAG = "blindtest";
 
 export const BLINDTEST_DEFAULT_ROUNDS = 10;
@@ -44,6 +47,7 @@ const FALLBACK_SEARCH_RESULTS = 5;
 const FALLBACK_DURATION_TOLERANCE_MS = 10_000;
 const MAX_ANSWER_LENGTH = 200;
 const LEADERBOARD_SIZE = 10;
+const ROUND_LEADERBOARD_SIZE = 5;
 const MAX_AUTOCOMPLETE_CHOICES = 25;
 const MAX_CHOICE_NAME_LENGTH = 100;
 const MAX_LISTED_CHANNELS = 5;
@@ -53,7 +57,7 @@ type FinishReason = "completed" | "stopped" | "interrupted" | "unplayable" | "er
 
 type BlindtestPayload = V2MessagePayload & { allowedMentions: MessageMentionOptions };
 
-/** Catégorie prédéfinie ou liste personnalisée du serveur, prête à être jouée. */
+/** Preset category or custom server list, ready to be played. */
 export interface BlindtestCategory {
   name: string;
   description: string | null;
@@ -89,6 +93,8 @@ interface Session {
   round: Round | null;
   pending: NodeJS.Timeout | null;
   ended: boolean;
+  /** Language of the server: every message of a game is read by the whole channel. */
+  t: Translator;
 }
 
 interface PlayableClip {
@@ -97,7 +103,7 @@ interface PlayableClip {
   endTime?: number;
 }
 
-/** Parties en cours, par serveur, uniquement en mémoire du process de shard. */
+/** Running games, per server, in memory of the shard process only. */
 const sessions = new Map<string, Session>();
 
 export function isBlindtestRunning(guildId: string): boolean {
@@ -105,8 +111,8 @@ export function isBlindtestRunning(guildId: string): boolean {
 }
 
 /**
- * Applique les salons du blindtest choisis sur le dashboard (vide = partout), indépendamment du
- * salon des commandes musique. Un fil suit son salon parent ; les administrateurs ne sont jamais bloqués.
+ * Applies the blindtest channels set on the dashboard (empty means anywhere), which are separate
+ * from the music command channel. A thread follows its parent; administrators are never blocked.
  */
 export async function assertBlindtestChannel(
   member: GuildMember,
@@ -126,7 +132,7 @@ export async function assertBlindtestChannel(
     .map((id) => `<#${id}>`)
     .join(", ");
   const more = blindtestChannelIds.length > MAX_LISTED_CHANNELS ? "…" : "";
-  throw new GauliaError(`Le blindtest est réservé aux salons suivants : ${listed}${more}`);
+  throw new GauliaError("music.blindtest.error.channelOnly", { channels: `${listed}${more}` });
 }
 
 interface CategoryOption {
@@ -136,8 +142,8 @@ interface CategoryOption {
   custom: boolean;
 }
 
-/** Catégories prédéfinies non désactivées, puis listes personnalisées du serveur. */
-async function availableCategories(guildId: string): Promise<CategoryOption[]> {
+/** Preset categories that are not turned off, then the custom lists of the server. */
+async function availableCategories(guildId: string, t: Translator): Promise<CategoryOption[]> {
   const [settings, playlists] = await Promise.all([
     getMusicSettings(guildId),
     listBlindtestPlaylists(guildId),
@@ -153,7 +159,7 @@ async function availableCategories(guildId: string): Promise<CategoryOption[]> {
     (category) => !settings.blindtestDisabledCategories.includes(category.id),
   ).map((category) => ({
     value: category.id,
-    name: category.name,
+    name: localized(category.name, t.locale),
     trackCount: category.tracks.length,
     custom: false,
   }));
@@ -165,38 +171,59 @@ function truncate(text: string, maxLength: number): string {
   return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1)}…`;
 }
 
+function trackCount(t: Translator, count: number): string {
+  return t("music.blindtest.category.tracks", { count });
+}
+
 export async function blindtestCategoryChoices(
   guildId: string,
   input: string,
+  t: Translator,
 ): Promise<ApplicationCommandOptionChoiceData<string>[]> {
   const query = normalizeAnswer(input);
-  const options = await availableCategories(guildId);
+  const options = await availableCategories(guildId, t);
 
   return options
     .filter((option) => !query || normalizeAnswer(option.name).includes(query))
     .slice(0, MAX_AUTOCOMPLETE_CHOICES)
     .map((option) => ({
       name: truncate(
-        `${option.name}${option.custom ? " (liste du serveur)" : ""} · ${option.trackCount} titres`,
+        t("music.blindtest.category.choice", {
+          name: option.custom
+            ? t("music.blindtest.category.customName", { name: option.name })
+            : option.name,
+          tracks: trackCount(t, option.trackCount),
+        }),
         MAX_CHOICE_NAME_LENGTH,
       ),
       value: option.value,
     }));
 }
 
-export async function listBlindtestCategoryLines(guildId: string): Promise<string[]> {
-  const options = await availableCategories(guildId);
+export async function listBlindtestCategoryLines(
+  guildId: string,
+  t: Translator,
+): Promise<string[]> {
+  const options = await availableCategories(guildId, t);
   if (options.length === 0) {
-    return ["Aucune catégorie n'est disponible sur ce serveur."];
+    return [t("music.blindtest.category.none")];
   }
 
-  const line = (option: CategoryOption) => `- **${option.name}** · ${option.trackCount} titres`;
+  const line = (option: CategoryOption) =>
+    t("music.blindtest.category.line", {
+      name: option.name,
+      tracks: trackCount(t, option.trackCount),
+    });
   const custom = options.filter((option) => option.custom);
   const presets = options.filter((option) => !option.custom);
 
   return [
-    ...(custom.length > 0 ? [["**Listes du serveur**", ...custom.map(line)].join("\n")] : []),
-    ...(presets.length > 0 ? [["**Catégories**", ...presets.map(line)].join("\n")] : []),
+    ...(custom.length > 0
+      ? [[t("music.blindtest.category.customHeading"), ...custom.map(line)].join("\n")]
+      : []),
+    ...(presets.length > 0
+      ? [[t("music.blindtest.category.presetHeading"), ...presets.map(line)].join("\n")]
+      : []),
   ];
 }
 
@@ -206,26 +233,29 @@ export async function resolveBlindtestCategory(
 ): Promise<BlindtestCategory> {
   if (value.startsWith(CUSTOM_PREFIX)) {
     const playlist = await getBlindtestPlaylist(guildId, value.slice(CUSTOM_PREFIX.length));
-    if (!playlist) throw new GauliaError("Cette liste n'existe plus sur ce serveur.");
+    if (!playlist) throw new GauliaError("music.blindtest.error.unknownPlaylist");
     if (playlist.tracks.length < BLINDTEST_PLAYLIST_MIN_TRACKS) {
-      throw new GauliaError(
-        `La liste « ${playlist.name} » doit contenir au moins ${BLINDTEST_PLAYLIST_MIN_TRACKS} titres.`,
-      );
+      throw new GauliaError("music.blindtest.error.playlistTooSmall", {
+        name: playlist.name,
+        count: BLINDTEST_PLAYLIST_MIN_TRACKS,
+      });
     }
     return { name: playlist.name, description: null, guess: "both", tracks: playlist.tracks };
   }
 
   const preset = BLINDTEST_PRESET_CATEGORIES.find((category) => category.id === value);
   if (!preset) {
-    throw new GauliaError("Choisis une catégorie proposée dans la liste.");
+    throw new GauliaError("music.blindtest.error.unknownCategory");
   }
   const settings = await getMusicSettings(guildId);
   if (settings.blindtestDisabledCategories.includes(preset.id)) {
-    throw new GauliaError("Cette catégorie est désactivée sur ce serveur.");
+    throw new GauliaError("music.blindtest.error.disabledCategory");
   }
+  // The game is read by the whole channel, so the category follows the language of the server.
+  const { locale } = await guildTranslatorFor(guildId);
   return {
-    name: preset.name,
-    description: preset.description,
+    name: localized(preset.name, locale),
+    description: localized(preset.description, locale),
     guess: preset.guess,
     tracks: preset.tracks,
   };
@@ -240,10 +270,6 @@ function shuffled<T>(values: readonly T[]): T[] {
   return copy;
 }
 
-function plural(count: number, word: string): string {
-  return `${count} ${word}${count > 1 ? "s" : ""}`;
-}
-
 function blindtestPayload(
   lines: string[],
   rows: ActionRowBuilder<MessageActionRowComponentBuilder>[] = [],
@@ -256,112 +282,129 @@ function blindtestPayload(
   return { ...toV2Payload(false, container), allowedMentions: { parse: [] } };
 }
 
-function controlButton(action: "skip" | "stop", guildId: string): ButtonBuilder {
+function controlButton(action: "skip" | "stop", guildId: string, t: Translator): ButtonBuilder {
   return new ButtonBuilder()
     .setCustomId(`blindtest:${action}:${guildId}`)
-    .setLabel(action === "skip" ? "Passer la manche" : "Arrêter")
+    .setLabel(t(`music.blindtest.button.${action}`))
     .setStyle(action === "skip" ? ButtonStyle.Secondary : ButtonStyle.Danger);
 }
 
-function controlRow(guildId: string, actions: ("skip" | "stop")[]) {
+function controlRow(session: Session, actions: ("skip" | "stop")[]) {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-    actions.map((action) => controlButton(action, guildId)),
+    actions.map((action) => controlButton(action, session.guildId, session.t)),
   );
 }
 
-function rulesLine(category: BlindtestCategory): string {
-  return category.guess === "both"
-    ? "Le titre et l'artiste rapportent chacun 1 point au premier qui les trouve."
-    : "Le titre (ou le nom de l'œuvre) rapporte 1 point au premier qui le trouve.";
+function roundCount(t: Translator, count: number): string {
+  return t("music.blindtest.rounds", { count });
 }
 
 function leaderboard(session: Session, size: number): string[] {
+  const { t } = session;
   const ranking = [...session.scores].sort((a, b) => b[1] - a[1]).slice(0, size);
-  if (ranking.length === 0) return ["Personne n'a encore marqué de point."];
-  return ranking.map(
-    ([userId, score], index) => `${index + 1}. <@${userId}> · ${plural(score, "point")}`,
+  if (ranking.length === 0) return [t("music.blindtest.leaderboard.empty")];
+  return ranking.map(([userId, score], index) =>
+    t("music.blindtest.leaderboard.entry", {
+      rank: index + 1,
+      user: userId,
+      points: t("music.blindtest.leaderboard.points", { count: score }),
+    }),
   );
 }
 
-function foundLine(label: string, userId: string | null, over: boolean): string {
-  if (userId) return `${label} : trouvé par <@${userId}>`;
-  return `${label} : ${over ? "personne n'a trouvé" : "à trouver"}`;
+function foundLine(t: Translator, label: string, userId: string | null, over: boolean): string {
+  if (userId) return t("music.blindtest.round.foundBy", { label, user: userId });
+  return t(over ? "music.blindtest.round.notFound" : "music.blindtest.round.pending", { label });
 }
 
 function renderIntro(session: Session): BlindtestPayload {
+  const { t } = session;
   return blindtestPayload(
     [
-      `### Blindtest : ${escapeMarkdown(session.category.name)}`,
+      `### ${t("music.blindtest.intro.title", { category: escapeMarkdown(session.category.name) })}`,
       ...(session.category.description ? [session.category.description] : []),
       "",
-      `${plural(session.totalRounds, "manche")} de ${session.roundSeconds} secondes. Rejoins <#${session.voiceChannelId}> et écris tes réponses dans ce salon.`,
-      rulesLine(session.category),
+      t("music.blindtest.intro.setup", {
+        rounds: roundCount(t, session.totalRounds),
+        duration: formatDurationMs(session.roundSeconds * 1000, t),
+        channel: session.voiceChannelId,
+      }),
+      t(`music.blindtest.rules.${session.category.guess}`),
       "",
-      `-# Lancé par <@${session.hostId}>. Première manche dans quelques secondes.`,
+      `-# ${t("music.blindtest.intro.footer", { host: session.hostId })}`,
     ],
-    [controlRow(session.guildId, ["stop"])],
+    [controlRow(session, ["stop"])],
   );
 }
 
 function renderRound(session: Session, round: Round): BlindtestPayload {
+  const { t } = session;
   const over = round.endReason !== null;
-  const lines = [`### Manche ${round.number} / ${session.totalRounds}`];
+  const lines = [
+    `### ${t("music.blindtest.round.heading", { number: round.number, total: session.totalRounds })}`,
+  ];
 
   if (over) {
     const { track } = round;
     lines.push(
-      `C'était **${escapeMarkdown(track.title)}** de **${escapeMarkdown(track.artist)}**.`,
+      t("music.blindtest.round.answer", {
+        title: escapeMarkdown(track.title),
+        artist: escapeMarkdown(track.artist),
+      }),
     );
     if (track.uri) {
-      lines.push(
-        `-# [Écouter sur Spotify](https://open.spotify.com/track/${track.uri.split(":").pop()})`,
-      );
+      const url = `https://open.spotify.com/track/${track.uri.split(":").pop()}`;
+      lines.push(`-# ${t("music.blindtest.round.spotify", { url })}`);
     }
   } else {
-    lines.push(`Écoute bien ! Fin de la manche <t:${Math.ceil(round.endsAt / 1000)}:R>.`);
+    lines.push(
+      t("music.blindtest.round.listening", {
+        timestamp: `<t:${Math.ceil(round.endsAt / 1000)}:R>`,
+      }),
+    );
   }
 
-  lines.push("", foundLine("Titre", round.titleFoundBy, over));
+  lines.push("", foundLine(t, t("music.blindtest.round.titleLabel"), round.titleFoundBy, over));
   if (session.category.guess === "both") {
-    lines.push(foundLine("Artiste", round.artistFoundBy, over));
+    lines.push(foundLine(t, t("music.blindtest.round.artistLabel"), round.artistFoundBy, over));
   }
 
-  if (round.endReason === "skipped") lines.push("-# Manche passée.");
-  if (round.endReason === "error") lines.push("-# Extrait illisible, manche annulée.");
+  if (round.endReason === "skipped") lines.push(`-# ${t("music.blindtest.round.skipped")}`);
+  if (round.endReason === "error") lines.push(`-# ${t("music.blindtest.round.failed")}`);
 
-  if (over) lines.push("", "**Classement**", ...leaderboard(session, 5));
+  if (over) {
+    lines.push(
+      "",
+      t("music.blindtest.leaderboard.heading"),
+      ...leaderboard(session, ROUND_LEADERBOARD_SIZE),
+    );
+  }
 
-  return blindtestPayload(lines, over ? [] : [controlRow(session.guildId, ["skip", "stop"])]);
+  return blindtestPayload(lines, over ? [] : [controlRow(session, ["skip", "stop"])]);
 }
 
 function renderFinal(session: Session, reason: FinishReason, stoppedBy?: string): BlindtestPayload {
-  const titles: Record<FinishReason, string> = {
-    completed: "Blindtest terminé",
-    stopped: "Blindtest arrêté",
-    interrupted: "Blindtest interrompu",
-    unplayable: "Blindtest interrompu",
-    error: "Blindtest interrompu",
-  };
-  const details: Record<FinishReason, string> = {
-    completed: `${plural(session.played, "manche")} jouée(s).`,
-    stopped: `Partie arrêtée par <@${stoppedBy ?? session.hostId}> après ${plural(session.played, "manche")}.`,
-    interrupted: "Gaulia a quitté le salon vocal.",
-    unplayable: "Impossible de charger d'autres extraits pour le moment.",
-    error: "Une erreur interne est survenue.",
-  };
+  const { t } = session;
+  const heading = t("music.blindtest.final.heading", {
+    title: t(`music.blindtest.final.title.${reason}`),
+    category: escapeMarkdown(session.category.name),
+  });
 
   return blindtestPayload([
-    `### ${titles[reason]} : ${escapeMarkdown(session.category.name)}`,
-    details[reason],
+    `### ${heading}`,
+    t(`music.blindtest.final.details.${reason}`, {
+      user: stoppedBy ?? session.hostId,
+      rounds: roundCount(t, session.played),
+    }),
     "",
-    "**Classement final**",
+    t("music.blindtest.leaderboard.finalHeading"),
     ...leaderboard(session, LEADERBOARD_SIZE),
   ]);
 }
 
 function runSafely(session: Session, task: () => Promise<void>): void {
   task().catch((error: unknown) => {
-    session.client.logger.error({ err: error, guildId: session.guildId }, "Erreur de blindtest");
+    session.client.logger.error({ err: error, guildId: session.guildId }, "Blindtest error");
     void finish(session, "error");
   });
 }
@@ -388,7 +431,7 @@ async function findClip(
   const fallback = await player
     .search({ query: `${artist} ${title}`, source: "scsearch" }, requester)
     .catch(() => null);
-  // Durée inconnue (titre ajouté à la main) : on fait confiance au premier résultat.
+  // Unknown length (track added by hand): trust the first result.
   const match = fallback?.tracks
     .slice(0, FALLBACK_SEARCH_RESULTS)
     .find(
@@ -503,22 +546,20 @@ export async function startBlindtest(
   const guildId = member.guild.id;
 
   if (sessions.has(guildId)) {
-    throw new GauliaError("Un blindtest est déjà en cours sur ce serveur.");
+    throw new GauliaError("music.blindtest.error.alreadyRunning");
   }
 
   const voiceChannelId = member.voice.channelId;
   if (!voiceChannelId) {
-    throw new GauliaError("Rejoins un salon vocal pour lancer un blindtest.");
+    throw new GauliaError("music.blindtest.error.joinVoice");
   }
 
   const existing = client.lavalink.getPlayer(guildId);
   if (existing?.queue.current || (existing?.queue.tracks.length ?? 0) > 0) {
-    throw new GauliaError(
-      "De la musique est en cours sur ce serveur. Arrête-la avec `/stop` avant de lancer un blindtest.",
-    );
+    throw new GauliaError("music.blindtest.error.musicPlaying");
   }
   if (existing?.voiceChannelId && existing.voiceChannelId !== voiceChannelId) {
-    throw new GauliaError("Gaulia est déjà connecté à un autre salon vocal.");
+    throw new GauliaError("music.blindtest.error.otherVoiceChannel");
   }
 
   const player = await getOrCreateConfiguredPlayer(client, {
@@ -527,7 +568,7 @@ export async function startBlindtest(
     textChannelId: channel.id,
   });
   if (sessions.has(guildId)) {
-    throw new GauliaError("Un blindtest est déjà en cours sur ce serveur.");
+    throw new GauliaError("music.blindtest.error.alreadyRunning");
   }
 
   player.set(BLINDTEST_PLAYER_FLAG, true);
@@ -548,6 +589,7 @@ export async function startBlindtest(
     round: null,
     pending: null,
     ended: false,
+    t: await guildTranslator(client, guildId),
   };
   sessions.set(guildId, session);
   session.pending = setTimeout(() => runSafely(session, () => nextRound(session)), INTRO_DELAY_MS);
@@ -555,14 +597,12 @@ export async function startBlindtest(
   return renderIntro(session);
 }
 
-/** Vérifie qu'une partie existe et que ce membre peut la contrôler (lanceur ou « Gérer le serveur »). */
+/** Checks that a game exists and that this member may control it (host or Manage Server). */
 export function requireBlindtestControl(guildId: string, member: GuildMember): Session {
   const session = sessions.get(guildId);
-  if (!session) throw new GauliaError("Aucun blindtest n'est en cours sur ce serveur.");
+  if (!session) throw new GauliaError("music.blindtest.error.notRunning");
   if (member.id !== session.hostId && !member.permissions.has(PermissionFlagsBits.ManageGuild)) {
-    throw new GauliaError(
-      "Seul le membre qui a lancé le blindtest ou un gestionnaire du serveur peut faire ça.",
-    );
+    throw new GauliaError("music.blindtest.error.notHost");
   }
   return session;
 }
@@ -570,7 +610,7 @@ export function requireBlindtestControl(guildId: string, member: GuildMember): S
 export async function skipBlindtestRound(session: Session): Promise<void> {
   const { round } = session;
   if (!round || round.endReason !== null) {
-    throw new GauliaError("Aucune manche n'est en cours.");
+    throw new GauliaError("music.blindtest.error.noRound");
   }
   await endRound(session, round, "skipped");
 }
@@ -579,13 +619,13 @@ export async function stopBlindtest(session: Session, userId: string): Promise<v
   await finish(session, "stopped", userId);
 }
 
-/** Appelé quand le player est détruit hors de la partie (salon vocal vide, déconnexion…). */
+/** Called when the player is destroyed outside the game (empty voice channel, disconnect). */
 export async function abortBlindtest(guildId: string): Promise<void> {
   const session = sessions.get(guildId);
   if (session) await finish(session, "interrupted");
 }
 
-/** Extrait illisible ou bloqué : la manche est annulée sans point. */
+/** Unplayable or stuck clip: the round is cancelled without any point. */
 export async function failBlindtestRound(guildId: string): Promise<void> {
   const session = sessions.get(guildId);
   const round = session?.round;

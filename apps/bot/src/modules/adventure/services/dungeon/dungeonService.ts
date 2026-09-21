@@ -6,6 +6,9 @@ import {
 } from "@gaulia/database";
 
 import { GauliaError } from "../../../../core/errors";
+import { formatDurationMs } from "../../../../core/utils/duration";
+import type { Translator } from "../../../../i18n";
+import { monsterName, requireMonster, type MonsterDefinition } from "../../data/monsters";
 import {
   baseExploreGold,
   baseExploreXp,
@@ -14,8 +17,7 @@ import {
   ENERGY_PER_DUNGEON,
   HP_EXPLORE_THRESHOLD,
 } from "../../data/pacing";
-import { requireMonster, type MonsterDefinition } from "../../data/monsters";
-import { requireAct } from "../../data/story";
+import { actTitle, requireAct } from "../../data/story";
 import { grantXp } from "../character/progressionService";
 import { computeStats } from "../character/statsService";
 import { resolveCombat, type CombatResult } from "../combat/combatEngine";
@@ -23,12 +25,11 @@ import { rollMonsterLoot } from "../combat/encounterService";
 import { dispatchGameEvents } from "../events/eventDispatcher";
 import type { GameEvent } from "../events/gameEvents";
 import { grantItems } from "../inventory/inventoryService";
-import { formatDuration } from "../../ui/format";
 
 export interface DungeonStatus {
   guardian: MonsterDefinition;
-  actTitle: string;
-  /** Millisecondes avant la prochaine tentative ; 0 si le donjon est disponible. */
+  actIndex: number;
+  /** Milliseconds before the next attempt; 0 when the dungeon is available. */
   cooldownMs: number;
 }
 
@@ -38,7 +39,7 @@ export function dungeonStatus(character: AdventureCharacter, now = Date.now()): 
 
   return {
     guardian: requireMonster(act.guardianId),
-    actTitle: act.title,
+    actIndex: character.actIndex,
     cooldownMs: Math.max(0, DUNGEON_COOLDOWN_MS - elapsed),
   };
 }
@@ -55,33 +56,35 @@ export interface DungeonOutcome {
 }
 
 /**
- * Donjon de l'acte : un seul par semaine, remporté ou non. C'est le rendez-vous qui cadence
- * l'histoire - il rapporte l'essentiel des fragments d'écho et la relique du chapitre final.
- * Une défaite ne consomme que l'énergie : on peut réessayer le jour même en s'équipant mieux.
+ * Act dungeon: one a week, won or not. It is the appointment that paces the story, bringing most
+ * of the echo shards and the relic of the final chapter. A defeat only costs energy, so the player
+ * can try again the same day with better gear.
  */
 export async function runDungeon(
   character: AdventureCharacter,
   items: AdventureItem[],
+  t: Translator,
 ): Promise<DungeonOutcome> {
   const status = dungeonStatus(character);
   const stats = computeStats(character, items);
 
   if (status.cooldownMs > 0) {
-    throw new GauliaError(
-      `Le gardien ne se montrera pas avant ${formatDuration(status.cooldownMs)}. Un donjon par semaine, pas davantage.`,
-    );
+    throw new GauliaError("adventure.error.dungeonCooldown", {
+      duration: formatDurationMs(status.cooldownMs, t),
+    });
   }
   if (character.energy < ENERGY_PER_DUNGEON) {
-    throw new GauliaError(
-      `Un donjon demande ${ENERGY_PER_DUNGEON} points d'énergie (tu en as ${character.energy}).`,
-    );
+    throw new GauliaError("adventure.error.dungeonEnergy", {
+      cost: ENERGY_PER_DUNGEON,
+      current: character.energy,
+    });
   }
   if (character.hp < Math.round(stats.maxHp * HP_EXPLORE_THRESHOLD)) {
-    throw new GauliaError("Tu es trop amoché pour affronter un gardien. Soigne-toi d'abord.");
+    throw new GauliaError("adventure.error.dungeonHurt");
   }
 
   const guardian = status.guardian;
-  const combat = resolveCombat(stats, character.characterClass, character.hp, guardian);
+  const combat = resolveCombat(stats, character.characterClass, character.hp, guardian, t);
   const notices: string[] = [];
 
   let xp = 0;
@@ -100,16 +103,19 @@ export async function runDungeon(
       events.push({ type: "COLLECT", itemId: entry.itemId, amount: entry.quantity });
     }
     await grantItems(character.userId, loot);
+
+    // Journal entries are stored, and the admin panel reads them too: they are written in English.
     await addAdventureLog({
       userId: character.userId,
       type: "DUNGEON",
-      message: `Gardien vaincu : ${guardian.name} (${status.actTitle})`,
+      message: t("adventure.logs.dungeon", {
+        guardian: monsterName(t, guardian),
+        act: actTitle(t, requireAct(status.actIndex)),
+      }),
     });
-    notices.push(`🔷 Le gardien cède : **+${echoes} fragments d'écho**.`);
+    notices.push(t("adventure.notices.dungeonWon", { count: echoes }));
   } else {
-    notices.push(
-      "💀 Le gardien te repousse. Reviens mieux équipé : il t'attend encore aujourd'hui.",
-    );
+    notices.push(t("adventure.notices.dungeonLost"));
   }
 
   let updated = await updateAdventureCharacter(character.userId, {
@@ -120,15 +126,17 @@ export async function runDungeon(
     victories: character.victories + (combat.victory ? 1 : 0),
     defeats: character.defeats + (combat.victory ? 0 : 1),
     dungeonClears: character.dungeonClears + (combat.victory ? 1 : 0),
-    // Le verrou hebdomadaire ne se déclenche qu'à la victoire : un échec reste réessayable.
+    // The weekly lock only trips on a win: a failure stays retryable.
     lastDungeonAt: combat.victory ? new Date() : character.lastDungeonAt,
   });
 
   const gain = await grantXp(updated, items, xp);
   updated = gain.character;
-  if (gain.levelsGained > 0) notices.push(`⬆️ Niveau **${gain.level}** atteint !`);
+  if (gain.levelsGained > 0) {
+    notices.push(t("adventure.notices.levelUp", { level: gain.level }));
+  }
 
-  const dispatched = await dispatchGameEvents(updated, items, events);
+  const dispatched = await dispatchGameEvents(updated, items, events, t);
 
   return {
     character: dispatched.character,

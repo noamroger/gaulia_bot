@@ -10,6 +10,7 @@ import {
   type AdventureQuestKind,
 } from "@gaulia/database";
 
+import type { Translator } from "../../../../i18n";
 import {
   baseExploreGold,
   baseExploreXp,
@@ -18,6 +19,7 @@ import {
 } from "../../data/pacing";
 import {
   DAILY_QUEST_COUNT,
+  questLabel,
   QUEST_TEMPLATES,
   WEEKLY_QUEST_COUNT,
   type QuestTemplate,
@@ -42,12 +44,12 @@ export interface QuestSets {
   weeklyPeriod: Date;
 }
 
-/** Début du jour UTC : c'est l'heure de renouvellement des quêtes quotidiennes. */
+/** Start of the UTC day, when the daily quests are renewed. */
 export function dailyPeriodStart(now: Date): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
 
-/** Début de la semaine UTC (lundi), pour les quêtes hebdomadaires et le donjon. */
+/** Start of the UTC week (Monday), for the weekly quests and the dungeon. */
 export function weeklyPeriodStart(now: Date): Date {
   const day = dailyPeriodStart(now);
   const weekday = (day.getUTCDay() + 6) % 7;
@@ -73,13 +75,13 @@ export function questReward(template: QuestTemplate, level: number): { xp: numbe
   };
 }
 
-function toView(row: AdventureQuest, level: number): QuestView | null {
+function toView(row: AdventureQuest, level: number, t: Translator): QuestView | null {
   const template = QUEST_TEMPLATES.find((entry) => entry.id === row.questId);
   if (!template) return null;
   return {
     row,
     template,
-    label: template.label(row.target),
+    label: questLabel(t, template.id, row.target),
     done: row.claimedAt !== null || row.progress >= row.target,
     reward: questReward(template, level),
   };
@@ -90,6 +92,7 @@ async function ensureSet(
   kind: AdventureQuestKind,
   periodStart: Date,
   count: number,
+  t: Translator,
 ): Promise<QuestView[]> {
   let rows = await listAdventureQuests(character.userId, kind, periodStart);
 
@@ -107,28 +110,29 @@ async function ensureSet(
   }
 
   return rows.flatMap((row) => {
-    const view = toView(row, character.level);
+    const view = toView(row, character.level, t);
     return view ? [view] : [];
   });
 }
 
-/** Lots du jour et de la semaine, tirés à la volée s'ils n'existent pas encore. */
+/** Sets of the day and of the week, drawn on the fly when they do not exist yet. */
 export async function ensureQuestSets(
   character: AdventureCharacter,
+  t: Translator,
   now = new Date(),
 ): Promise<QuestSets> {
   const dailyPeriod = dailyPeriodStart(now);
   const weeklyPeriod = weeklyPeriodStart(now);
 
   const [daily, weekly] = await Promise.all([
-    ensureSet(character, "DAILY", dailyPeriod, DAILY_QUEST_COUNT),
-    ensureSet(character, "WEEKLY", weeklyPeriod, WEEKLY_QUEST_COUNT),
+    ensureSet(character, "DAILY", dailyPeriod, DAILY_QUEST_COUNT, t),
+    ensureSet(character, "WEEKLY", weeklyPeriod, WEEKLY_QUEST_COUNT, t),
   ]);
 
   return { daily, weekly, dailyPeriod, weeklyPeriod };
 }
 
-/** Quêtes que l'évènement fait avancer, et de combien. */
+/** Quests the event moves forward, and by how much. */
 function matchingQuestIds(event: GameEvent): { questIds: string[]; amount: number } {
   const questIds = QUEST_TEMPLATES.filter((template) => {
     if (template.match.type !== event.type) return false;
@@ -147,22 +151,23 @@ function matchingQuestIds(event: GameEvent): { questIds: string[]; amount: numbe
 export interface QuestOutcome {
   character: AdventureCharacter;
   notices: string[];
-  /** Évènements produits par les quêtes elles-mêmes (lot quotidien terminé). */
+  /** Events produced by the quests themselves (daily set completed). */
   events: GameEvent[];
 }
 
 /**
- * Fait avancer les quêtes touchées par les évènements, puis termine et récompense automatiquement
- * celles qui atteignent leur objectif : aucune commande de récolte à ne pas oublier. Terminer un
- * lot entier accorde en plus des fragments d'écho, qui font avancer le scénario.
+ * Moves the quests the events touch, then closes and rewards the ones that reach their objective,
+ * so there is no claim command to forget. Completing a whole set also grants echo shards, which
+ * move the story forward.
  */
 export async function applyQuestProgress(
   character: AdventureCharacter,
   items: AdventureItem[],
   events: GameEvent[],
+  t: Translator,
   now = new Date(),
 ): Promise<QuestOutcome> {
-  const sets = await ensureQuestSets(character, now);
+  const sets = await ensureQuestSets(character, t, now);
   const periods: { kind: AdventureQuestKind; periodStart: Date }[] = [
     { kind: "DAILY", periodStart: sets.dailyPeriod },
     { kind: "WEEKLY", periodStart: sets.weeklyPeriod },
@@ -173,7 +178,7 @@ export async function applyQuestProgress(
     await advanceAdventureQuests(character.userId, periods, questIds, amount);
   }
 
-  const refreshed = await ensureQuestSets(character, now);
+  const refreshed = await ensureQuestSets(character, t, now);
   const notices: string[] = [];
   const produced: GameEvent[] = [];
   let current = character;
@@ -186,15 +191,19 @@ export async function applyQuestProgress(
     goldReward += view.reward.gold;
     current = (await grantXp(current, items, view.reward.xp)).character;
     notices.push(
-      `✅ Quête terminée - ${view.label} · +${view.reward.xp} XP · +${view.reward.gold} 🪙`,
+      t("adventure.notices.questDone", {
+        label: view.label,
+        xp: view.reward.xp,
+        gold: view.reward.gold,
+      }),
     );
   }
 
-  const completedSets = await ensureQuestSets(current, now);
+  const completedSets = await ensureQuestSets(current, t, now);
   const dailyDone = completedSets.daily.every((view) => view.row.claimedAt !== null);
   const weeklyDone = completedSets.weekly.every((view) => view.row.claimedAt !== null);
-  // Les fragments ne sont accordés qu'au moment exact où le lot bascule : l'état d'avant la
-  // boucle sert de témoin, ce qui évite un compteur dédié en base.
+  // Shards are only granted at the exact moment a set flips: the state from before the loop acts
+  // as the witness, which avoids a dedicated counter in the database.
   let echoes = 0;
   const dailyWasDone = isSetComplete(sets.daily);
   const weeklyWasDone = isSetComplete(sets.weekly);
@@ -202,11 +211,11 @@ export async function applyQuestProgress(
   if (dailyDone && !dailyWasDone) {
     echoes += ECHOES_PER_DAILY_SET;
     produced.push({ type: "DAILY_SET", amount: 1 });
-    notices.push(`🔷 Lot quotidien complété - +${ECHOES_PER_DAILY_SET} fragment d'écho.`);
+    notices.push(t("adventure.notices.dailySetDone", { count: ECHOES_PER_DAILY_SET }));
   }
   if (weeklyDone && !weeklyWasDone) {
     echoes += ECHOES_PER_WEEKLY_SET;
-    notices.push(`🔷 Lot hebdomadaire complété - +${ECHOES_PER_WEEKLY_SET} fragments d'écho.`);
+    notices.push(t("adventure.notices.weeklySetDone", { count: ECHOES_PER_WEEKLY_SET }));
   }
 
   if (goldReward > 0 || echoes > 0) {

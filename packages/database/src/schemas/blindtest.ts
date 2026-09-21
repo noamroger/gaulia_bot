@@ -6,8 +6,8 @@ export const BLINDTEST_MAX_PLAYLISTS = 25;
 export const BLINDTEST_PLAYLIST_NAME_MAX = 50;
 
 /**
- * Seuls les extraits hébergés par Spotify sont acceptés : le bot fait charger cette URL par
- * Lavalink, une adresse libre permettrait de lui faire joindre n'importe quel service interne.
+ * Spotify-hosted previews only: the bot has Lavalink load this URL, so a free-form address would
+ * let it reach any internal service.
  */
 export const BLINDTEST_PREVIEW_PATTERN = /^https:\/\/p\.scdn\.co\/mp3-preview\/[A-Za-z0-9]+/;
 
@@ -18,9 +18,9 @@ export const blindtestTrackSchema = z.object({
     .nullable(),
   title: z.string().trim().min(1).max(200),
   artist: z.string().trim().min(1).max(300),
-  /** 0 pour un titre ajouté à la main (durée inconnue). */
+  /** 0 for a hand-added track (unknown duration). */
   durationMs: z.number().int().min(0).max(3_600_000),
-  /** Extrait officiel de 30 secondes ; null = recherche SoundCloud pendant la partie. */
+  /** Official 30 second preview; null means a SoundCloud lookup during the game. */
   preview: z.string().regex(BLINDTEST_PREVIEW_PATTERN).max(300).nullable(),
 });
 
@@ -34,7 +34,7 @@ export interface BlindtestPresetCategory {
   id: string;
   name: string;
   description: string;
-  /** "title" : seul le titre rapporte des points (catégories de reprises). */
+  /** "title": only the title scores points (cover categories). */
   guess: "both" | "title";
   sources: string[];
   tracks: BlindtestTrack[];

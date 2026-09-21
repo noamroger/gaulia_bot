@@ -8,10 +8,14 @@ import {
 } from "@gaulia/database";
 
 import { GauliaError } from "../../../../core/errors";
+import type { Translator } from "../../../../i18n";
 import { itemLabel } from "../../data/items";
-import { MONSTER_FAMILY_LABELS } from "../../data/monsters";
+import { familyLabel } from "../../data/monsters";
 import {
   ACTS,
+  actIntro,
+  actTitle,
+  chapterTitle,
   findChapter,
   objectiveKey,
   requireAct,
@@ -19,7 +23,7 @@ import {
   type ChapterDefinition,
   type ChapterObjective,
 } from "../../data/story";
-import { findZone } from "../../data/zones";
+import { findZone, zoneName } from "../../data/zones";
 import { grantXp } from "../character/progressionService";
 import type { GameEvent } from "../events/gameEvents";
 import { grantItems } from "../inventory/inventoryService";
@@ -38,33 +42,57 @@ export interface ChapterStatus {
   objectives: ObjectiveStatus[];
   levelReached: boolean;
   echoesReached: boolean;
-  /** Vrai quand il ne reste plus qu'à sceller le chapitre. */
+  /** True when all that is left is sealing the chapter. */
   ready: boolean;
-  /** Numéro du chapitre dans l'ensemble du scénario (1 → TOTAL_CHAPTERS). */
+  /** Number of the chapter across the whole story (1 to TOTAL_CHAPTERS). */
   overallIndex: number;
 }
 
-/** Libellé par défaut d'un objectif, quand le chapitre n'en impose pas un plus scénarisé. */
-export function objectiveLabel(objective: ChapterObjective): string {
+/**
+ * Label of an objective. A chapter may carry its own wording, which the catalog holds under the
+ * chapter id; otherwise a generic label is built from the objective type.
+ */
+export function objectiveLabel(
+  objective: ChapterObjective,
+  chapterId: string,
+  t: Translator,
+): string {
+  const custom = `adventure.story.chapters.${chapterId}.objectives.${objectiveKey(objective)}`;
+  if (t.has(custom)) return t(custom);
   if (objective.label) return objective.label;
+
+  const target = objective.target;
 
   switch (objective.type) {
     case "EXPLORE": {
       const zone = objective.zoneId ? findZone(objective.zoneId) : undefined;
-      return `Explorer ${objective.target} fois${zone ? ` - ${zone.emoji} ${zone.name}` : ""}`;
+      return zone
+        ? t("adventure.story.objectives.exploreZone", {
+            target,
+            zone: `${zone.emoji} ${zoneName(t, zone)}`,
+          })
+        : t("adventure.story.objectives.explore", { target });
     }
     case "DEFEAT_FAMILY":
-      return `Vaincre ${objective.target} ${objective.family ? MONSTER_FAMILY_LABELS[objective.family] : "créatures"}`;
+      return objective.family
+        ? t("adventure.story.objectives.defeatFamily", {
+            target,
+            family: familyLabel(t, objective.family),
+          })
+        : t("adventure.story.objectives.defeatCreatures", { target });
     case "COLLECT":
-      return `Rapporter ${objective.target} × ${itemLabel(objective.itemId ?? "")}`;
+      return t("adventure.story.objectives.collect", {
+        target,
+        item: itemLabel(t, objective.itemId ?? ""),
+      });
     case "CRAFT":
-      return `Forger ${objective.target} objet(s)`;
+      return t("adventure.story.objectives.craft", { target });
     case "DUNGEON":
-      return `Terminer ${objective.target} donjon(s)`;
+      return t("adventure.story.objectives.dungeon", { target });
     case "DAILY_SET":
-      return `Compléter ${objective.target} lot(s) de quêtes quotidiennes`;
+      return t("adventure.story.objectives.dailySet", { target });
     case "SPEND_GOLD":
-      return `Dépenser ${objective.target} pièces`;
+      return t("adventure.story.objectives.spendGold", { target });
   }
 }
 
@@ -76,8 +104,8 @@ function overallIndex(actIndex: number, chapterIndex: number): number {
   );
 }
 
-/** État du chapitre courant, ou null quand le scénario est terminé. */
-export function chapterStatus(character: AdventureCharacter): ChapterStatus | null {
+/** State of the current chapter, or null when the story is over. */
+export function chapterStatus(character: AdventureCharacter, t: Translator): ChapterStatus | null {
   const chapter = findChapter(character.actIndex, character.chapterIndex);
   if (!chapter) return null;
 
@@ -88,7 +116,7 @@ export function chapterStatus(character: AdventureCharacter): ChapterStatus | nu
     const value = progress[objectiveKey(objective)] ?? 0;
     return {
       objective,
-      label: objectiveLabel(objective),
+      label: objectiveLabel(objective, chapter.id, t),
       progress: Math.min(value, objective.target),
       done: value >= objective.target,
     };
@@ -99,7 +127,7 @@ export function chapterStatus(character: AdventureCharacter): ChapterStatus | nu
 
   return {
     chapter,
-    actTitle: act.title,
+    actTitle: actTitle(t, act),
     actEmoji: act.emoji,
     objectives,
     levelReached,
@@ -109,7 +137,7 @@ export function chapterStatus(character: AdventureCharacter): ChapterStatus | nu
   };
 }
 
-/** Vrai si l'évènement fait avancer l'objectif (mêmes filtres que les libellés). */
+/** True when the event moves the objective forward (same filters as the labels). */
 function matchesObjective(objective: ChapterObjective, event: GameEvent): boolean {
   switch (objective.type) {
     case "EXPLORE":
@@ -129,7 +157,7 @@ function matchesObjective(objective: ChapterObjective, event: GameEvent): boolea
   }
 }
 
-/** Reporte les évènements sur les compteurs du chapitre courant (et sur lui seul). */
+/** Reports the events onto the counters of the current chapter, and of that one only. */
 export async function applyStoryProgress(
   character: AdventureCharacter,
   events: GameEvent[],
@@ -160,39 +188,42 @@ export async function applyStoryProgress(
 export interface SealResult {
   character: AdventureCharacter;
   chapter: ChapterDefinition;
-  /** Chapitre suivant, null si le scénario vient de se terminer. */
+  /** Next chapter, null when the story has just ended. */
   next: ChapterStatus | null;
-  /** Zone ouverte par le passage à l'acte suivant, le cas échéant. */
+  /** Zone opened by moving to the next act, when there is one. */
   unlockedZone: string | null;
   notices: string[];
 }
 
 /**
- * Scelle le chapitre courant : vérifie objectifs, niveau et fragments d'écho, paie le coût, verse
- * les récompenses et fait avancer l'histoire (d'un chapitre, ou d'un acte avec sa nouvelle zone).
+ * Seals the current chapter: checks objectives, level and echo shards, pays the cost, hands out
+ * the rewards and moves the story on (by one chapter, or one act with its new zone).
  */
 export async function sealChapter(
   character: AdventureCharacter,
   items: AdventureItem[],
+  t: Translator,
 ): Promise<SealResult> {
-  const status = chapterStatus(character);
-  if (!status) throw new GauliaError("Ton histoire est déjà terminée. Les Terres se reposent.");
+  const status = chapterStatus(character, t);
+  if (!status) throw new GauliaError("adventure.error.storyOver");
 
   const pending = status.objectives.filter((entry) => !entry.done);
   if (pending.length > 0) {
-    throw new GauliaError(
-      `Il te reste à accomplir : ${pending.map((entry) => entry.label).join(", ")}.`,
-    );
+    throw new GauliaError("adventure.error.objectivesLeft", {
+      objectives: pending.map((entry) => entry.label).join(", "),
+    });
   }
   if (!status.levelReached) {
-    throw new GauliaError(
-      `Ce chapitre demande le niveau ${status.chapter.levelRequirement} (tu es niveau ${character.level}).`,
-    );
+    throw new GauliaError("adventure.error.chapterLevel", {
+      required: status.chapter.levelRequirement,
+      current: character.level,
+    });
   }
   if (!status.echoesReached) {
-    throw new GauliaError(
-      `Il te faut ${status.chapter.echoCost} fragments d'écho pour sceller ce chapitre (tu en as ${character.echoes}).`,
-    );
+    throw new GauliaError("adventure.error.chapterEchoes", {
+      required: status.chapter.echoCost,
+      current: character.echoes,
+    });
   }
 
   const { chapter } = status;
@@ -214,30 +245,47 @@ export async function sealChapter(
 
   updated = (await grantXp(updated, items, chapter.reward.xp)).character;
 
+  // The journal is read by the player first, so it is written in their language.
   await addAdventureLog({
     userId: character.userId,
     type: "STORY",
-    message: `Chapitre scellé : ${chapter.title} (${status.overallIndex}/${TOTAL_CHAPTERS})`,
+    message: t("adventure.logs.chapter", {
+      title: chapterTitle(t, chapter),
+      index: status.overallIndex,
+      total: TOTAL_CHAPTERS,
+    }),
   });
 
   let unlockedZone: string | null = null;
   if (lastChapter && !lastAct) {
     const nextAct = requireAct(updated.actIndex);
     unlockedZone = nextAct.zoneId;
-    notices.push(`${nextAct.emoji} **${nextAct.title}** commence. ${nextAct.intro}`);
+    notices.push(
+      t("adventure.notices.newAct", {
+        emoji: nextAct.emoji,
+        act: actTitle(t, nextAct),
+        intro: actIntro(t, nextAct),
+      }),
+    );
     const zone = findZone(nextAct.zoneId);
-    if (zone) notices.push(`🗺️ Nouvelle région ouverte : ${zone.emoji} **${zone.name}**.`);
+    if (zone) {
+      notices.push(t("adventure.notices.newZone", { emoji: zone.emoji, zone: zoneName(t, zone) }));
+    }
   }
   if (lastChapter && lastAct) {
-    notices.push(
-      "🏆 **Les Terres se taisent.** Tu as entendu la dernière voix : ton histoire est complète.",
-    );
+    notices.push(t("adventure.notices.storyEnd"));
   }
 
-  return { character: updated, chapter, next: chapterStatus(updated), unlockedZone, notices };
+  return {
+    character: updated,
+    chapter,
+    next: chapterStatus(updated, t),
+    unlockedZone,
+    notices,
+  };
 }
 
-/** Avancement global, pour la fiche de personnage et le panel admin. */
+/** Overall progress, for the character sheet and the admin panel. */
 export function storyProgressRatio(character: AdventureCharacter): number {
   if (character.storyEndedAt) return 1;
   return (overallIndex(character.actIndex, character.chapterIndex) - 1) / TOTAL_CHAPTERS;

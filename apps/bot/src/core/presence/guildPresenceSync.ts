@@ -14,10 +14,10 @@ export function guildInfo(guild: Guild): {
 }
 
 /**
- * Marque comme présents en base (nom, icône et nombre de membres à jour) tous les serveurs vus par
- * CE shard. Note : `client.guilds.cache` n'est scopé qu'au shard courant, donc on ne peut pas
- * déduire ici les serveurs quittés pendant l'arrêt (ça casserait les guildes des AUTRES shards) -
- * `events/guildDelete.ts` gère ce cas en direct pendant que le bot tourne.
+ * Marks every server THIS shard can see as present, with an up to date name, icon and member
+ * count. `client.guilds.cache` is scoped to the current shard, so servers left while the bot was
+ * down cannot be deduced here (it would wipe the other shards' guilds); `events/guildDelete.ts`
+ * covers that case live.
  */
 export async function syncGuildPresence(client: GauliaClient): Promise<void> {
   await Promise.all(
@@ -27,11 +27,11 @@ export async function syncGuildPresence(client: GauliaClient): Promise<void> {
   );
 }
 
-/** Le nombre de membres change en continu : resynchronisation périodique plutôt qu'à chaque arrivée/départ. */
+/** Member counts move constantly, so they are resynced periodically rather than on every join. */
 export function startGuildPresenceResync(client: GauliaClient): void {
   const timer = setInterval(() => {
     syncGuildPresence(client).catch((error: unknown) => {
-      client.logger.error({ err: error }, "Échec de la resynchronisation des serveurs");
+      client.logger.error({ err: error }, "Could not resync the servers");
     });
   }, RESYNC_INTERVAL_MS);
   timer.unref();

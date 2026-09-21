@@ -1,26 +1,23 @@
+import { getMusicSettings, updateMusicSettings } from "@gaulia/database";
 import { SlashCommandBuilder } from "discord.js";
 
 import { Emojis } from "../../../client/Constants";
+import { localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
-import { getMusicSettings, updateMusicSettings } from "@gaulia/database";
 import { clearIdleTimer } from "../services/idleTimers";
-import { interventionOf, musicActionPayload } from "../services/musicUi";
+import { musicActionPayload } from "../services/musicUi";
+
+const KEY = "music.commands.stay247";
 
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   guildOnly: true,
   premiumOnly: true,
-  data: new SlashCommandBuilder()
-    .setName("247")
-    .setDescription("[Premium] Active ou désactive le mode 24/7 (le bot reste connecté en vocal)"),
 
-  help: {
-    details:
-      "Active ou désactive le mode 24/7 à chaque utilisation. Quand il est actif, Gaulia reste dans le salon vocal même lorsque la file est vide, au lieu de se déconnecter après une période d'inactivité. Le réglage est conservé pour le serveur.",
-    examples: ["247"],
-  },
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY),
 
-  async execute(interaction) {
+  async execute(interaction, _client, t) {
     const guildId = interaction.guildId!;
     const settings = await getMusicSettings(guildId);
     const enabled = !settings.stay247;
@@ -35,10 +32,10 @@ const command: ChatInputCommand = {
       musicActionPayload(
         interaction.user,
         Emojis.Music,
-        "Mode 24/7",
-        enabled
-          ? `Le mode 24/7 a été activé ${interventionOf(interaction.user)} : Gaulia reste connecté en vocal même si la file est vide.`
-          : `Le mode 24/7 a été désactivé ${interventionOf(interaction.user)} : Gaulia se déconnectera après une période d'inactivité.`,
+        t("music.actions.stay247.title"),
+        t(enabled ? "music.actions.stay247.enabled" : "music.actions.stay247.disabled", {
+          user: interaction.user.id,
+        }),
       ),
     );
   },

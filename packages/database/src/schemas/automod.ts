@@ -3,7 +3,7 @@ import { z } from "zod";
 export const SANCTION_TYPES = ["delete", "warn", "timeout", "kick", "ban"] as const;
 export type SanctionType = (typeof SANCTION_TYPES)[number];
 
-/** Durée maximale d'un timeout imposée par Discord. */
+/** Discord's hard cap on a timeout duration. */
 export const MAX_TIMEOUT_MINUTES = 28 * 24 * 60;
 
 export const sanctionSchema = z.object({
@@ -12,7 +12,7 @@ export const sanctionSchema = z.object({
 });
 export type Sanction = z.infer<typeof sanctionSchema>;
 
-/** "https://www.Exemple.com/page" → "exemple.com". */
+/** "https://www.Example.com/page" -> "example.com". */
 export function normalizeDomain(value: string): string {
   return (
     value
@@ -28,7 +28,7 @@ const domainSchema = z
   .string()
   .max(253)
   .transform(normalizeDomain)
-  .refine((domain) => /^(?:[a-z0-9-]+\.)+[a-z]{2,}$/.test(domain), { message: "Domaine invalide." });
+  .refine((domain) => /^(?:[a-z0-9-]+\.)+[a-z]{2,}$/.test(domain), { message: "Invalid domain." });
 
 function uniqueList<T extends z.ZodType<string, z.ZodTypeDef, string>>(item: T, max: number) {
   return z
@@ -96,7 +96,7 @@ export const automodRulesSchema = z.object({
 });
 export type AutomodRules = z.infer<typeof automodRulesSchema>;
 
-/** Complète les options manquantes avec leurs valeurs par défaut (JSON stocké en base). */
+/** Fills the missing options with their defaults (JSON stored in database). */
 export function parseAutomodRules(value: unknown): AutomodRules {
   const parsed = automodRulesSchema.safeParse(value ?? {});
   return parsed.success ? parsed.data : automodRulesSchema.parse({});

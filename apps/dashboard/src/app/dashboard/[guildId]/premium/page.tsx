@@ -3,28 +3,39 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { useLocale, useTranslation, type AppLocale, type Translator } from "@/i18n";
 import { api, ApiError } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
+import { offerDuration, offerLabel } from "@/lib/premiumOffers";
 import type { PremiumOffer, PremiumRedeemResult, PremiumStatus } from "@/lib/types";
 import { setCreditBalance } from "@/lib/useCredits";
 
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("fr-FR", {
+function formatLongDate(iso: string, locale: AppLocale): string {
+  return new Date(iso).toLocaleDateString(locale, {
     day: "numeric",
     month: "long",
     year: "numeric",
   });
 }
 
-/** Statut premium détaillé : d'où il vient, et jusqu'à quand il court. */
+function errorMessage(error: unknown, t: Translator): string {
+  return error instanceof ApiError && error.status < 500 && !error.generic
+    ? error.message
+    : t("common.state.error");
+}
+
+/** Detailed premium status: where it comes from, and how long it runs. */
 function StatusCard({ status }: { status: PremiumStatus }) {
+  const t = useTranslation();
+  const locale = useLocale();
+
   if (!status.premium) {
     return (
       <div className="card">
-        <span className="badge badge-muted">Inactif</span>
+        <span className="badge badge-muted">{t("premium.status.inactive")}</span>
         <p className="text-muted" style={{ marginTop: 10 }}>
-          Utilise <code>/premium upgrade</code> sur Discord pour souscrire l&apos;abonnement, ou
-          échange tes crédits ci-dessous.
+          {t("premium.status.offerBefore")} <code>{t("premium.status.offerCommand")}</code>{" "}
+          {t("premium.status.offerAfter")}
         </p>
       </div>
     );
@@ -35,39 +46,44 @@ function StatusCard({ status }: { status: PremiumStatus }) {
   return (
     <div className="card">
       <div className="premium-status">
-        <span className="badge badge-success">Actif</span>
+        <span className="badge badge-success">{t("premium.status.active")}</span>
         <span className="badge badge-accent">
-          {subscription ? "Abonnement Discord" : "Crédits"}
+          {subscription ? t("premium.status.fromSubscription") : t("premium.status.fromCredits")}
         </span>
       </div>
 
       <div className="premium-detail text-muted">
         {subscription ? (
           <>
-            <span>Payé directement sur Discord, sur ton moyen de paiement habituel.</span>
+            <span>{t("premium.status.subscriptionSource")}</span>
             <span>
               {status.subscription.renewsAt
-                ? `Prochain renouvellement le ${formatDate(status.subscription.renewsAt)}.`
-                : "Renouvellement automatique : Discord n'annonce pas encore de date."}
+                ? t("premium.status.renewsAt", {
+                    date: formatLongDate(status.subscription.renewsAt, locale),
+                  })
+                : t("premium.status.renewsUnknown")}
             </span>
           </>
         ) : (
           <>
-            <span>Offert en échange de crédits gagnés en votant pour Gaulia sur top.gg.</span>
+            <span>{t("premium.status.creditsSource")}</span>
             <span>
               {status.credits.expiresAt
-                ? `Expire le ${formatDate(status.credits.expiresAt)}, sans renouvellement automatique.`
-                : "Aucune échéance enregistrée."}
+                ? t("premium.status.expiresAt", {
+                    date: formatLongDate(status.credits.expiresAt, locale),
+                  })
+                : t("premium.status.noExpiry")}
             </span>
           </>
         )}
       </div>
 
-      {/* Les deux sources peuvent coexister le temps qu'un octroi manuel arrive à échéance. */}
+      {/* Both sources can overlap while a manual grant runs out. */}
       {subscription && status.credits.active && status.credits.expiresAt && (
         <p className="notice notice-info">
-          Du premium offert court aussi jusqu&apos;au {formatDate(status.credits.expiresAt)}.
-          C&apos;est l&apos;abonnement qui prime : tu ne paies pas deux fois.
+          {t("premium.status.bothSources", {
+            date: formatLongDate(status.credits.expiresAt, locale),
+          })}
         </p>
       )}
     </div>
@@ -75,10 +91,12 @@ function StatusCard({ status }: { status: PremiumStatus }) {
 }
 
 export default function PremiumPage() {
+  const t = useTranslation();
+  const locale = useLocale();
   const params = useParams<{ guildId: string }>();
   const [status, setStatus] = useState<PremiumStatus | null>(null);
   const [failed, setFailed] = useState(false);
-  /** Offre en attente de confirmation, puis d'échange. */
+  /** Offer waiting for a confirmation, then for the exchange. */
   const [confirming, setConfirming] = useState<PremiumOffer | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -118,63 +136,68 @@ export default function PremiumPage() {
             }
           : current,
       );
-      // Le badge de la barre de navigation lit le solde partagé : on le synchronise ici.
+      // The navigation badge reads the shared balance, so it is synced here.
       setCreditBalance(result.balance);
       setConfirming(null);
       setSuccess(
-        `Premium activé jusqu'au ${formatDate(result.premiumGrantedUntil)}. Il reste ${formatNumber(result.balance)} crédit(s) sur ton compte.`,
+        t("premium.success", {
+          count: result.balance,
+          value: formatNumber(result.balance, locale),
+          date: formatLongDate(result.premiumGrantedUntil, locale),
+        }),
       );
     } catch (redeemError) {
-      setError(
-        redeemError instanceof ApiError && redeemError.status < 500
-          ? redeemError.message
-          : "Une erreur interne est survenue.",
-      );
+      setError(errorMessage(redeemError, t));
     } finally {
       setPending(false);
     }
   }
 
   if (failed) {
-    return <div className="empty-state">Impossible de charger le statut premium.</div>;
+    return <div className="empty-state">{t("premium.loadError")}</div>;
   }
 
   if (!status) {
-    return <p className="text-muted">Chargement…</p>;
+    return <p className="text-muted">{t("common.state.loading")}</p>;
   }
 
-  // Échanger pendant un abonnement payant brûlerait les crédits en parallèle : l'API le refuse.
+  // Redeeming during a paid subscription would burn credits in parallel: the API turns it down.
   const subscribed = status.subscription.active;
 
   return (
     <section className="settings-page">
-      <h2>Statut premium</h2>
+      <h2>{t("premium.status.title")}</h2>
       <StatusCard status={status} />
 
-      <h2 style={{ marginTop: 32 }}>Premium offert contre des crédits</h2>
+      <h2 style={{ marginTop: 32 }}>{t("premium.redeem.title")}</h2>
       <div className="card">
         <p className="card-subtitle" style={{ marginTop: 0 }}>
-          Tu disposes de <strong>{formatNumber(status.balance)} crédit(s)</strong>. Chaque vote pour
-          Gaulia sur top.gg en rapporte 10, et un vote est possible toutes les 12 heures. Les durées
-          échangées s&apos;ajoutent à un premium offert déjà en cours.
+          {t("premium.redeem.balanceBefore")}{" "}
+          <strong>
+            {t("premium.redeem.balanceValue", {
+              count: status.balance,
+              value: formatNumber(status.balance, locale),
+            })}
+          </strong>
+          . {t("premium.redeem.balanceAfter")}
         </p>
 
-        {subscribed && (
-          <p className="notice notice-info">
-            Ce serveur a déjà un abonnement payant : inutile d&apos;échanger des crédits, ils
-            seraient consommés en parallèle sans rien ajouter.
-          </p>
-        )}
+        {subscribed && <p className="notice notice-info">{t("premium.redeem.subscribed")}</p>}
 
         <div className="offer-grid">
           {status.offers.map((offer) => {
             const affordable = status.balance >= offer.cost;
+            const shortfall = offer.cost - status.balance;
             return (
               <div key={offer.id} className="offer-card">
                 <div>
-                  <h3 className="offer-title">{offer.label}</h3>
+                  <h3 className="offer-title">{offerLabel(offer, t)}</h3>
                   <p className="offer-meta">
-                    {offer.durationLabel} · {formatNumber(offer.cost)} crédits
+                    {offerDuration(offer, t)} ·{" "}
+                    {t("premium.redeem.cost", {
+                      count: offer.cost,
+                      value: formatNumber(offer.cost, locale),
+                    })}
                   </p>
                 </div>
                 <button
@@ -188,8 +211,10 @@ export default function PremiumPage() {
                   }}
                 >
                   {affordable
-                    ? "Échanger"
-                    : `Il manque ${formatNumber(offer.cost - status.balance)} crédits`}
+                    ? t("premium.redeem.action")
+                    : t("premium.redeem.missing", {
+                        value: formatNumber(shortfall, locale),
+                      })}
                 </button>
               </div>
             );
@@ -197,12 +222,17 @@ export default function PremiumPage() {
         </div>
 
         {confirming && (
-          <div className="confirm-box" role="alertdialog" aria-label="Confirmer l'échange">
+          <div className="confirm-box" role="alertdialog" aria-label={t("premium.confirm.aria")}>
             <p style={{ margin: 0 }}>
-              Échanger <strong>{formatNumber(confirming.cost)} crédits</strong> contre{" "}
-              <strong>{confirming.durationLabel}</strong> de premium sur ce serveur ? Si le serveur
-              souscrit l&apos;abonnement payant avant la fin de cette période, la part non consommée
-              te sera recréditée.
+              {t("premium.confirm.before")}{" "}
+              <strong>
+                {t("premium.confirm.credits", {
+                  count: confirming.cost,
+                  value: formatNumber(confirming.cost, locale),
+                })}
+              </strong>{" "}
+              {t("premium.confirm.middle")} <strong>{offerDuration(confirming, t)}</strong>{" "}
+              {t("premium.confirm.after")}
             </p>
             <div className="toolbar" style={{ margin: "12px 0 0" }}>
               <button
@@ -211,7 +241,7 @@ export default function PremiumPage() {
                 disabled={pending}
                 onClick={() => void redeem(confirming)}
               >
-                {pending ? "Échange…" : "Confirmer l'échange"}
+                {pending ? t("premium.confirm.pending") : t("premium.confirm.submit")}
               </button>
               <button
                 type="button"
@@ -219,7 +249,7 @@ export default function PremiumPage() {
                 disabled={pending}
                 onClick={() => setConfirming(null)}
               >
-                Annuler
+                {t("common.action.cancel")}
               </button>
             </div>
           </div>

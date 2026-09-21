@@ -1,26 +1,23 @@
 import { SlashCommandBuilder } from "discord.js";
 
 import { Emojis } from "../../../client/Constants";
+import { localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
-import { interventionOf, musicActionPayload } from "../services/musicUi";
+import { musicActionPayload } from "../services/musicUi";
 import { refreshNowPlayingCard } from "../services/nowPlayingCardService";
 import { isShuffleEnabled, setShuffleEnabled } from "../services/playbackControls";
 import { getPlayerOrThrow, requireSameVoiceChannel, resolveMember } from "../services/playerUtils";
 
+const KEY = "music.commands.shuffle";
+
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   guildOnly: true,
-  data: new SlashCommandBuilder()
-    .setName("shuffle")
-    .setDescription("Active ou désactive la lecture aléatoire"),
 
-  help: {
-    details:
-      "Active ou désactive la lecture aléatoire, comme le bouton du lecteur. À l'activation, la file d'attente est mélangée sans interrompre le morceau en cours, puis de nouveau à chaque ajout tant que le mode reste actif. Tu dois être dans le même salon vocal que Gaulia.",
-    examples: ["shuffle"],
-  },
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY),
 
-  async execute(interaction, client) {
+  async execute(interaction, client, t) {
     const member = await resolveMember(interaction);
     const player = getPlayerOrThrow(client, interaction.guildId!);
     requireSameVoiceChannel(member, player);
@@ -32,8 +29,10 @@ const command: ChatInputCommand = {
       musicActionPayload(
         interaction.user,
         Emojis.Shuffle,
-        "Lecture aléatoire",
-        `La lecture aléatoire a été ${enabled ? "activée" : "désactivée"} ${interventionOf(interaction.user)}.`,
+        t("music.actions.shuffle.title"),
+        t(enabled ? "music.actions.shuffle.enabled" : "music.actions.shuffle.disabled", {
+          user: interaction.user.id,
+        }),
       ),
     );
     await refreshNowPlayingCard(client, player);

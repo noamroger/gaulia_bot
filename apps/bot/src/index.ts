@@ -8,7 +8,7 @@ import { startTopggStatsJob } from "./core/topgg/topggService";
 import { syncApplicationCommands } from "./handlers/commandRegistry";
 
 /**
- * Process parent de production : fork un process Node par shard (chacun exécute dist/bot.js,
+ * Production parent process: forks one Node process per shard (each running dist/bot.js,
  * voir src/bot.ts) et les relance automatiquement en cas de crash.
  */
 const manager = new ShardingManager(join(__dirname, "bot.js"), {
@@ -18,27 +18,27 @@ const manager = new ShardingManager(join(__dirname, "bot.js"), {
 });
 
 manager.on("shardCreate", (shard) => {
-  logger.info(`Shard ${shard.id} lancé`);
-  shard.on("death", () => logger.warn(`Shard ${shard.id} arrêté de façon inattendue`));
+  logger.info(`Shard ${shard.id} started`);
+  shard.on("death", () => logger.warn(`Shard ${shard.id} stopped unexpectedly`));
   shard.on("error", (error) => logger.error({ err: error, shardId: shard.id }, "Erreur de shard"));
 });
 
 async function main(): Promise<void> {
-  // Une seule fois par démarrage du conteneur, ici plutôt que dans chaque shard.
+  // Once per container start, here rather than inside every shard.
   try {
     await syncApplicationCommands();
   } catch (error) {
-    // Discord indisponible : les commandes déjà enregistrées restent utilisables, on démarre quand même.
-    logger.error({ err: error }, "Échec de la synchronisation des commandes slash");
+    // Discord unavailable: the already registered commands still work, so start anyway.
+    logger.error({ err: error }, "Could not sync the slash commands");
   }
 
   await manager.spawn();
 
-  // Après le spawn seulement : le total de serveurs se calcule en interrogeant les shards.
+  // Only after the spawn: the server total is computed by asking the shards.
   startTopggStatsJob(manager);
 }
 
 main().catch((error: unknown) => {
-  logger.error({ err: error }, "Échec du spawn des shards");
+  logger.error({ err: error }, "Could not spawn the shards");
   process.exit(1);
 });

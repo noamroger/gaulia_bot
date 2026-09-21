@@ -4,62 +4,48 @@ import { GauliaError } from "../../../core/errors";
 import { canBotModerate, canModerate } from "../../../core/permissions/hierarchy";
 import { PermissionLevel } from "../../../core/permissions/permissionLevel";
 import { successPayload } from "../../../core/ui/containers";
+import { localizeOption, localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
-import { notifyTarget, recordCase } from "../services/moderationService";
+import { auditReason, notifyTarget, recordCase } from "../services/moderationService";
+
+const KEY = "moderation.commands.ban";
 
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   guildOnly: true,
   permissionLevel: PermissionLevel.Moderator,
-  data: new SlashCommandBuilder()
-    .setName("ban")
-    .setDescription("Bannit un membre du serveur")
+
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY)
     .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
-    .addUserOption((option) =>
-      option.setName("utilisateur").setDescription("Membre à bannir").setRequired(true),
-    )
-    .addStringOption((option) => option.setName("raison").setDescription("Raison du bannissement"))
+    .addUserOption((option) => localizeOption(option, `${KEY}.options.user`).setRequired(true))
+    .addStringOption((option) => localizeOption(option, `${KEY}.options.reason`))
     .addIntegerOption((option) =>
-      option
-        .setName("supprimer_messages_jours")
-        .setDescription("Supprimer les messages des N derniers jours (0-7)")
-        .setMinValue(0)
-        .setMaxValue(7),
+      localizeOption(option, `${KEY}.options.deleteMessageDays`).setMinValue(0).setMaxValue(7),
     ),
 
-  help: {
-    details:
-      "Bannit un membre, ou un utilisateur qui a déjà quitté le serveur. Un cas de modération est créé et publié dans le salon des logs, et le membre est prévenu en message privé si l'option est activée dans les réglages de modération. Le rôle le plus haut du membre doit être inférieur au tien et à celui de Gaulia.",
-    examples: [
-      "ban utilisateur:@Pseudo raison:Spam",
-      "ban utilisateur:@Pseudo supprimer_messages_jours:7",
-    ],
-  },
-
-  async execute(interaction) {
+  async execute(interaction, _client, t) {
     const guild = interaction.guild!;
-    const targetUser = interaction.options.getUser("utilisateur", true);
-    const reason = interaction.options.getString("raison") ?? undefined;
-    const deleteDays = interaction.options.getInteger("supprimer_messages_jours") ?? 0;
+    const targetUser = interaction.options.getUser("user", true);
+    const reason = interaction.options.getString("reason") ?? undefined;
+    const deleteDays = interaction.options.getInteger("delete_message_days") ?? 0;
 
     const moderatorMember = await guild.members.fetch(interaction.user.id);
     const targetMember = await guild.members.fetch(targetUser.id).catch(() => null);
 
     if (targetMember) {
       const modCheck = canModerate(moderatorMember, targetMember);
-      if (!modCheck.allowed) throw new GauliaError(modCheck.reason!);
+      if (!modCheck.allowed) throw new GauliaError(modCheck.reasonKey!);
 
       const botMember = await guild.members.fetchMe();
       const botCheck = canBotModerate(botMember, targetMember);
-      if (!botCheck.allowed) throw new GauliaError(botCheck.reason!);
-    }
+      if (!botCheck.allowed) throw new GauliaError(botCheck.reasonKey!);
 
-    if (targetMember) {
       await notifyTarget(guild, targetUser, "BAN", reason);
     }
 
     await guild.bans.create(targetUser.id, {
-      reason: reason ?? `Modérateur : ${interaction.user.tag}`,
+      reason: await auditReason(guild, reason, interaction.user.tag),
       deleteMessageSeconds: deleteDays * 86_400,
     });
 
@@ -74,8 +60,9 @@ const command: ChatInputCommand = {
     await interaction.reply(
       successPayload(
         false,
-        `Membre banni (cas #${moderationCase.caseNumber})`,
-        `**${targetUser.tag}** a été banni.${reason ? `\n**Raison :** ${reason}` : ""}`,
+        t("moderation.ban.title", { case: moderationCase.caseNumber }),
+        t("moderation.ban.description", { target: targetUser.tag }) +
+          (reason ? `\n${t("moderation.case.reason", { reason })}` : ""),
       ),
     );
   },

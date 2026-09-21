@@ -4,6 +4,7 @@ import type { Player } from "lavalink-client";
 
 import type { GauliaClient } from "../../../client/GauliaClient";
 import { GauliaError } from "../../../core/errors";
+import { guildTranslatorFor, type Translator } from "../../../i18n";
 
 const REPEAT_MODE_BY_LOOP: Record<LoopMode, "off" | "track" | "queue"> = {
   NONE: "off",
@@ -11,10 +12,15 @@ const REPEAT_MODE_BY_LOOP: Record<LoopMode, "off" | "track" | "queue"> = {
   QUEUE: "queue",
 };
 
+/** Messages posted to a channel are read by the whole server, so they follow its language. */
+export function guildTranslator(client: GauliaClient, guildId: string): Promise<Translator> {
+  return guildTranslatorFor(guildId, client.guilds.cache.get(guildId)?.preferredLocale);
+}
+
 export function requireVoiceChannelId(member: GuildMember): string {
   const channelId = member.voice.channelId;
   if (!channelId) {
-    throw new GauliaError("Tu dois être dans un salon vocal pour utiliser cette commande.");
+    throw new GauliaError("music.error.notInVoice");
   }
   return channelId;
 }
@@ -22,12 +28,12 @@ export function requireVoiceChannelId(member: GuildMember): string {
 export function getPlayerOrThrow(client: GauliaClient, guildId: string): Player {
   const player = client.lavalink.getPlayer(guildId);
   if (!player) {
-    throw new GauliaError("Il n'y a pas de lecture en cours sur ce serveur.");
+    throw new GauliaError("music.error.noPlayer");
   }
   return player;
 }
 
-/** Réutilise le player du serveur, ou en crée un avec le volume et la répétition par défaut du serveur. */
+/** Reuses the player of the server, or creates one with its default volume and repeat mode. */
 export async function getOrCreateConfiguredPlayer(
   client: GauliaClient,
   options: { guildId: string; voiceChannelId: string; textChannelId: string },
@@ -47,7 +53,7 @@ export async function getOrCreateConfiguredPlayer(
 
 export function requireSameVoiceChannel(member: GuildMember, player: Player): void {
   if (member.voice.channelId !== player.voiceChannelId) {
-    throw new GauliaError("Tu dois être dans le même salon vocal que moi pour faire ça.");
+    throw new GauliaError("music.error.differentVoice");
   }
 }
 
@@ -56,7 +62,7 @@ export async function resolveMember(interaction: {
   user: User;
 }): Promise<GuildMember> {
   if (!interaction.guild) {
-    throw new GauliaError("Cette commande n'est utilisable qu'en serveur.");
+    throw new GauliaError("common.guard.guildOnly.description");
   }
   return (
     interaction.guild.members.cache.get(interaction.user.id) ??

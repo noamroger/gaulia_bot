@@ -1,6 +1,7 @@
 import { ButtonStyle, StringSelectMenuBuilder, type ModalBuilder } from "discord.js";
 
 import { GauliaError } from "../../../core/errors";
+import type { Translator } from "../../../i18n";
 import {
   funButton,
   funPayload,
@@ -14,6 +15,7 @@ import { normalizeWord, randomHangmanWord } from "./words";
 
 const MAX_ERRORS = 6;
 const LETTER_GROUPS = ["ABCDEFGHIJKLM", "NOPQRSTUVWXYZ"] as const;
+const WORD_INPUT_LENGTH = { min: 2, max: 30 };
 
 const STAGES = [
   "  +---+\n  |   |\n      |\n      |\n      |\n=========",
@@ -28,15 +30,15 @@ const STAGES = [
 type Outcome = { kind: "won"; by: string } | { kind: "lost" } | { kind: "forfeit" } | null;
 
 export interface HangmanGame {
-  /** Mot affiché, accents compris. */
+  /** Word as displayed, accents included. */
   word: string;
-  /** Même mot sans accents, lettre à lettre alignée sur `word`. */
+  /** Same word without accents, letter for letter with `word`. */
   target: string;
   guessed: string[];
   missed: string[];
   errors: number;
   ownerId: string;
-  /** Tous les membres du salon peuvent jouer. */
+  /** Every member of the channel may play. */
   open: boolean;
   lastAction: string | null;
   outcome: Outcome;
@@ -49,56 +51,67 @@ function maskedWord(game: HangmanGame): string {
     .join(" ");
 }
 
-function statusLine(game: HangmanGame, expired: boolean): string {
+function statusLine(game: HangmanGame, expired: boolean, t: Translator): string {
   const { outcome } = game;
   if (outcome?.kind === "won") {
     return game.open
-      ? `<@${outcome.by}> trouve le mot, bravo !`
-      : `Bravo, tu as trouvé le mot avec ${game.errors} erreur(s) !`;
+      ? t("fun.hangman.wonOpen", { player: `<@${outcome.by}>` })
+      : t("fun.hangman.wonSolo", { count: game.errors });
   }
-  if (outcome?.kind === "lost") return `Perdu ! Le mot était **${game.word}**.`;
-  if (outcome?.kind === "forfeit") return `Partie abandonnée. Le mot était **${game.word}**.`;
-  if (expired) return "Partie expirée après 10 minutes d'inactivité.";
-  return game.open ? "Tout le monde peut proposer une lettre." : `Partie de <@${game.ownerId}>.`;
+  if (outcome?.kind === "lost") return t("fun.hangman.lost", { word: game.word });
+  if (outcome?.kind === "forfeit") return t("fun.hangman.forfeited", { word: game.word });
+  if (expired) return t("fun.game.expired");
+  return game.open
+    ? t("fun.hangman.openStatus")
+    : t("fun.hangman.ownerStatus", { player: `<@${game.ownerId}>` });
 }
 
 function letterSelect(
   gameId: string,
   game: HangmanGame,
   group: 0 | 1,
+  t: Translator,
 ): StringSelectMenuBuilder | null {
-  const letters = [...LETTER_GROUPS[group]].filter((letter) => !game.guessed.includes(letter));
+  const range = LETTER_GROUPS[group];
+  const letters = [...range].filter((letter) => !game.guessed.includes(letter));
   if (letters.length === 0) return null;
 
   return new StringSelectMenuBuilder()
     .setCustomId(`fun:hangman-letter:${gameId}:${group}`)
-    .setPlaceholder(group === 0 ? "Lettre de A à M" : "Lettre de N à Z")
+    .setPlaceholder(
+      t("fun.hangman.letterRange", {
+        first: range.charAt(0),
+        last: range.charAt(range.length - 1),
+      }),
+    )
     .addOptions(letters.map((letter) => ({ label: letter, value: letter })));
 }
 
-/** `gameId` null : partie expirée, affichée sans contrôles. */
-export function renderHangman(game: HangmanGame, gameId: string | null): FunPayload {
+/** A null `gameId` means the game expired and is shown without controls. */
+export function renderHangman(game: HangmanGame, gameId: string | null, t: Translator): FunPayload {
   const lines = [
-    "### Pendu",
+    `### ${t("fun.hangman.title")}`,
     `\`\`\`\n${STAGES[Math.min(game.errors, MAX_ERRORS)]}\n\`\`\``,
-    `Mot : \`${maskedWord(game)}\``,
-    `Lettres ratées : ${game.missed.length > 0 ? game.missed.join(", ") : "aucune"}`,
-    `Erreurs : ${game.errors} / ${MAX_ERRORS}`,
+    t("fun.hangman.word", { word: maskedWord(game) }),
+    t("fun.hangman.missed", {
+      letters: game.missed.length > 0 ? game.missed.join(", ") : t("fun.hangman.missedNone"),
+    }),
+    t("fun.hangman.mistakes", { count: game.errors, max: MAX_ERRORS }),
     ...(game.lastAction && !game.outcome ? [`-# ${game.lastAction}`] : []),
     "",
-    statusLine(game, gameId === null),
+    statusLine(game, gameId === null, t),
   ];
 
   if (!gameId || game.outcome) return funPayload(lines);
 
   const rows: FunRow[] = [0, 1].flatMap((group) => {
-    const select = letterSelect(gameId, game, group as 0 | 1);
+    const select = letterSelect(gameId, game, group as 0 | 1, t);
     return select ? [funRow(select)] : [];
   });
   rows.push(
     funRow(
-      funButton(`fun:hangman-word:${gameId}`, "Proposer le mot", ButtonStyle.Primary),
-      funButton(`fun:hangman-quit:${gameId}`, "Abandonner", ButtonStyle.Danger),
+      funButton(`fun:hangman-word:${gameId}`, t("fun.hangman.solveButton"), ButtonStyle.Primary),
+      funButton(`fun:hangman-quit:${gameId}`, t("fun.game.forfeitButton"), ButtonStyle.Danger),
     ),
   );
 
@@ -107,14 +120,15 @@ export function renderHangman(game: HangmanGame, gameId: string | null): FunPayl
 
 export const hangmanGames = new GameStore<HangmanGame>({
   idleMs: GAME_IDLE_MS,
-  renderExpired: (game) => renderHangman(game, null),
+  renderExpired: (game, t) => renderHangman(game, null, t),
 });
 
 export function startHangman(
   ownerId: string,
   open: boolean,
+  t: Translator,
 ): { gameId: string; payload: FunPayload } {
-  const word = randomHangmanWord();
+  const word = randomHangmanWord(t.locale);
   const game: HangmanGame = {
     word,
     target: normalizeWord(word),
@@ -126,16 +140,14 @@ export function startHangman(
     lastAction: null,
     outcome: null,
   };
-  const gameId = hangmanGames.create(game);
-  return { gameId, payload: renderHangman(game, gameId) };
+  const gameId = hangmanGames.create(game, t);
+  return { gameId, payload: renderHangman(game, gameId, t) };
 }
 
-/** Retourne la partie si ce membre peut y jouer. */
+/** Returns the game when this member is allowed to play it. */
 export function requireHangmanPlayer(gameId: string, userId: string): HangmanGame {
   const game = hangmanGames.require(gameId);
-  if (!game.open && game.ownerId !== userId) {
-    throw new GauliaError("Cette partie ne t'appartient pas. Lance la tienne avec `/pendu`.");
-  }
+  if (!game.open && game.ownerId !== userId) throw new GauliaError("fun.hangman.notYours");
   return game;
 }
 
@@ -148,10 +160,15 @@ function settle(gameId: string, game: HangmanGame, userId: string): void {
   if (game.outcome) hangmanGames.finish(gameId);
 }
 
-export function guessHangmanLetter(gameId: string, userId: string, letter: string): FunPayload {
+export function guessHangmanLetter(
+  gameId: string,
+  userId: string,
+  letter: string,
+  t: Translator,
+): FunPayload {
   const game = requireHangmanPlayer(gameId, userId);
-  if (!/^[A-Z]$/.test(letter)) throw new GauliaError("Lettre invalide.");
-  if (game.guessed.includes(letter)) throw new GauliaError("Cette lettre a déjà été proposée.");
+  if (!/^[A-Z]$/.test(letter)) throw new GauliaError("fun.hangman.invalidLetter");
+  if (game.guessed.includes(letter)) throw new GauliaError("fun.hangman.alreadyGuessed");
 
   game.guessed.push(letter);
   const hit = game.target.includes(letter);
@@ -159,40 +176,50 @@ export function guessHangmanLetter(gameId: string, userId: string, letter: strin
     game.missed.push(letter);
     game.errors++;
   }
-  game.lastAction = `<@${userId}> propose ${letter} : ${hit ? "bien vu" : "raté"}.`;
+  game.lastAction = t("fun.hangman.guessLetter", {
+    player: `<@${userId}>`,
+    letter,
+    result: hit ? t("fun.hangman.hit") : t("fun.hangman.miss"),
+  });
   settle(gameId, game, userId);
 
-  return renderHangman(game, gameId);
+  return renderHangman(game, gameId, t);
 }
 
-export function guessHangmanWord(gameId: string, userId: string, input: string): FunPayload {
+export function guessHangmanWord(
+  gameId: string,
+  userId: string,
+  input: string,
+  t: Translator,
+): FunPayload {
   const game = requireHangmanPlayer(gameId, userId);
   const guess = normalizeWord(input);
-  if (!/^[A-Z]+$/.test(guess)) {
-    throw new GauliaError("Le mot ne doit contenir que des lettres.");
-  }
+  if (!/^[A-Z]+$/.test(guess)) throw new GauliaError("fun.hangman.lettersOnly");
 
   if (guess === game.target) {
     game.guessed = [...new Set([...game.guessed, ...game.target])];
   } else {
     game.errors++;
-    game.lastAction = `<@${userId}> propose le mot ${guess} : raté.`;
+    game.lastAction = t("fun.hangman.guessWord", { player: `<@${userId}>`, word: guess });
   }
   settle(gameId, game, userId);
 
-  return renderHangman(game, gameId);
+  return renderHangman(game, gameId, t);
 }
 
-export function forfeitHangman(gameId: string, userId: string): FunPayload {
+export function forfeitHangman(gameId: string, userId: string, t: Translator): FunPayload {
   const game = hangmanGames.require(gameId);
-  if (game.ownerId !== userId) {
-    throw new GauliaError("Seul le membre qui a lancé la partie peut l'abandonner.");
-  }
+  if (game.ownerId !== userId) throw new GauliaError("fun.hangman.ownerOnlyForfeit");
   game.outcome = { kind: "forfeit" };
   hangmanGames.finish(gameId);
-  return renderHangman(game, gameId);
+  return renderHangman(game, gameId, t);
 }
 
-export function hangmanWordModal(gameId: string): ModalBuilder {
-  return textInputModal(`fun:hangman-solve:${gameId}`, "Pendu", "Ton mot", { min: 2, max: 30 });
+export function hangmanWordModal(gameId: string, t: Translator): ModalBuilder {
+  return textInputModal(
+    `fun:hangman-solve:${gameId}`,
+    t("fun.hangman.title"),
+    t("fun.hangman.modalLabel"),
+    WORD_INPUT_LENGTH,
+  );
 }

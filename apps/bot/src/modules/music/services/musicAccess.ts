@@ -3,10 +3,10 @@ import { PermissionFlagsBits, type GuildMember } from "discord.js";
 
 import { GauliaError } from "../../../core/errors";
 
-/** "listen" : écouter et ajouter des titres ; "control" : agir sur la lecture (rôle DJ si configuré). */
+/** "listen": listen and queue tracks; "control": act on playback (DJ role when one is set). */
 export type MusicAccess = "listen" | "control";
 
-/** Niveau d'accès requis par commande musique, indexé par nom de commande Discord. */
+/** Access level each music command needs, keyed by Discord command name. */
 export const MUSIC_COMMAND_ACCESS: Readonly<Partial<Record<string, MusicAccess>>> = {
   play: "listen",
   queue: "listen",
@@ -27,9 +27,9 @@ export const MUSIC_COMMAND_ACCESS: Readonly<Partial<Record<string, MusicAccess>>
 };
 
 /**
- * Applique le salon musique et le rôle DJ configurés sur le dashboard. Seuls les administrateurs
- * échappent au salon ; « Gérer le serveur » suffit pour le rôle DJ. `channelId` null : pas de
- * contrôle de salon (ex : boutons de la carte).
+ * Applies the music channel and the DJ role set on the dashboard. Only administrators escape the
+ * channel; Manage Server is enough for the DJ role. A null `channelId` skips the channel check
+ * (the player card buttons, for instance).
  */
 export async function assertMusicAccess(
   member: GuildMember,
@@ -45,12 +45,10 @@ export async function assertMusicAccess(
   const guildConfig = await getOrCreateGuild(member.guild.id);
 
   if (checkChannel && guildConfig.musicChannelId && channelId !== guildConfig.musicChannelId) {
-    throw new GauliaError(
-      `Les commandes musique sont réservées au salon <#${guildConfig.musicChannelId}>.`,
-    );
+    throw new GauliaError("music.access.channelOnly", { channel: guildConfig.musicChannelId });
   }
 
   if (checkDjRole && guildConfig.djRoleId && !member.roles.cache.has(guildConfig.djRoleId)) {
-    throw new GauliaError(`Cette action est réservée au rôle <@&${guildConfig.djRoleId}>.`);
+    throw new GauliaError("music.access.djRoleOnly", { role: guildConfig.djRoleId });
   }
 }

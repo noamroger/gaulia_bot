@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { api } from "./api";
 import type { GuildResources } from "./types";
 
-/** Salons texte et rôles du serveur, pour les sélecteurs des pages de paramètres. */
+/** Guild text channels and roles, for the pickers on the settings pages. */
 export function useGuildResources(guildId: string): {
   resources: GuildResources | null;
   failed: boolean;

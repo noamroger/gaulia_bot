@@ -17,8 +17,8 @@ export interface V2MessagePayload {
 }
 
 /**
- * Construit un container Components V2 à partir de lignes de texte (markdown), séparées
- * par un séparateur fin. C'est le bloc de base de toute l'UI de Gaulia - jamais d'EmbedBuilder.
+ * Builds a Components V2 container from markdown lines, split by a thin separator. This is the
+ * building block of every Gaulia reply; EmbedBuilder is never used.
  */
 export function buildContainer(color: number, lines: string[]): ContainerBuilder {
   const container = new ContainerBuilder().setAccentColor(color);
@@ -44,7 +44,7 @@ export function addActionRow(
   );
 }
 
-/** Emballe un ou plusieurs containers/rows dans le payload de message Components V2 final. */
+/** Wraps one or more containers and rows into the final Components V2 message payload. */
 export function toV2Payload(
   ephemeral: boolean,
   ...components: (ContainerBuilder | ActionRowBuilder<MessageActionRowComponentBuilder>)[]

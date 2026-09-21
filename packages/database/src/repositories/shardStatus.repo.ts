@@ -12,7 +12,7 @@ export interface HeartbeatInput {
   startedAt: Date;
 }
 
-/** Upsert appelé périodiquement par chaque process de shard (voir apps/bot/src/core/heartbeat). */
+/** Upsert called periodically by each shard process (see apps/bot/src/core/heartbeat). */
 export async function upsertShardHeartbeat(input: HeartbeatInput): Promise<ShardStatus> {
   const { shardId, ...metrics } = input;
   return prisma.shardStatus.upsert({

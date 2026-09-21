@@ -1,75 +1,76 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 
+import { useLocale, useTranslation, type AppLocale, type Translator } from "@/i18n";
 import { api, ApiError } from "@/lib/api";
 import { API_URL } from "@/lib/config";
 import { userAvatarUrl } from "@/lib/discordCdn";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import type { GuildDataSummary, MyDataResponse, StoredGuildRef, UserDataExport } from "@/lib/types";
 
-/** La connexion repasse par l'API, qui ramène ici plutôt que sur le tableau de bord. */
+/** Signing in goes through the API, which brings the visitor back here rather than to the dashboard. */
 const LOGIN_URL = `${API_URL}/auth/login?redirect=/my-data`;
 
-/** Mot à recopier pour confirmer une suppression, exigé aussi par l'API. */
-const CONFIRMATION_WORD = "SUPPRIMER";
-
-const CASE_LABELS: Record<string, string> = {
-  BAN: "Bannissement",
-  UNBAN: "Débannissement",
-  KICK: "Expulsion",
-  TIMEOUT: "Sourdine",
-  UNTIMEOUT: "Fin de sourdine",
-  WARN: "Avertissement",
-  UNWARN: "Avertissement retiré",
-  PURGE: "Purge de messages",
-};
-
-const CREDIT_LABELS: Record<string, string> = {
-  VOTE: "Vote top.gg",
-  PREMIUM_REDEEM: "Échange contre du premium",
-  ADMIN_ADJUST: "Ajustement par un administrateur",
-  PREMIUM_REFUND: "Remboursement de premium offert",
-};
-
-const CLASS_LABELS: Record<string, string> = {
-  GUERRIER: "Guerrier",
-  MAGE: "Mage",
-  RODEUR: "Rôdeur",
-};
+/**
+ * Confirmation the API expects in a deletion payload. The word the reader has to type comes from
+ * the catalogue instead, so it stays readable in their language.
+ */
+const API_CONFIRMATION = "SUPPRIMER";
 
 type Step = "idle" | "confirming" | "deleting" | "done";
 
-function label(labels: Record<string, string>, value: string): string {
-  return labels[value] ?? value;
+/** Fills the {placeholders} of a translated sentence with nodes, so a link can sit inside it. */
+function rich(text: string, nodes: Record<string, ReactNode>): ReactNode[] {
+  return text.split(/(\{\w+\})/).map((part, index) => {
+    const name = /^\{(\w+)\}$/.exec(part)?.[1];
+    return <Fragment key={index}>{name ? (nodes[name] ?? part) : part}</Fragment>;
+  });
 }
 
-function guildLabel(name: string | null, id: string | null): string {
+/** Label of a value coming from the API, falling back to the raw value for an unknown one. */
+function enumLabel(t: Translator, group: string, value: string): string {
+  const key = `account.myData.${group}.${value}`;
+  const label = t(key);
+  return label === key ? value : label;
+}
+
+function guildLabel(t: Translator, name: string | null, id: string | null): string {
   if (name) return name;
-  return id ? `Serveur ${id}` : "-";
+  return id ? t("account.myData.deleteGuild.fallback", { id }) : "-";
 }
 
-function duration(seconds: number | null): string {
+function duration(t: Translator, seconds: number | null, locale: AppLocale): string {
   if (seconds === null) return "-";
-  if (seconds < 3600) return `${Math.round(seconds / 60)} min`;
-  if (seconds < 86_400) return `${Math.round(seconds / 3600)} h`;
-  return `${Math.round(seconds / 86_400)} j`;
+  if (seconds < 3600) {
+    return t("account.myData.duration.minutes", {
+      value: formatNumber(Math.round(seconds / 60), locale),
+    });
+  }
+  if (seconds < 86_400) {
+    return t("account.myData.duration.hours", {
+      value: formatNumber(Math.round(seconds / 3600), locale),
+    });
+  }
+  return t("account.myData.duration.days", {
+    value: formatNumber(Math.round(seconds / 86_400), locale),
+  });
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof ApiError && error.status < 500
+function errorMessage(error: unknown, t: Translator): string {
+  return error instanceof ApiError && error.status < 500 && !error.generic
     ? error.message
-    : "Une erreur est survenue. Réessaie dans quelques instants.";
+    : t("common.state.error");
 }
 
-/** Déclenche le téléchargement du JSON sans passer par le serveur : tout est déjà chargé. */
-function download(data: UserDataExport): void {
+/** Triggers the JSON download without going through the server: everything is already loaded. */
+function download(data: UserDataExport, fileName: string): void {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `gaulia-mes-donnees-${data.userId}.json`;
+  link.download = fileName;
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -77,27 +78,24 @@ function download(data: UserDataExport): void {
 }
 
 function LoginPrompt() {
+  const t = useTranslation();
+
   return (
     <div className="card my-data-card">
-      <h2 style={{ marginTop: 0 }}>Connecte-toi pour voir tes données</h2>
-      <p className="text-muted">
-        Cette page affiche ce que Gaulia conserve sur ton compte Discord. Elle passe donc par une
-        connexion Discord : c&apos;est elle qui prouve que le compte est bien le tien, et personne
-        d&apos;autre ne peut consulter ni supprimer tes données.
-      </p>
+      <h2 style={{ marginTop: 0 }}>{t("account.myData.signIn.title")}</h2>
+      <p className="text-muted">{t("account.myData.signIn.body")}</p>
       <a className="button-primary" href={LOGIN_URL}>
-        Se connecter avec Discord
+        {t("account.myData.signIn.action")}
       </a>
     </div>
   );
 }
 
-/** Champ de confirmation commun aux deux suppressions : recopier le mot, confirmer ou annuler. */
+/** Confirmation field shared by both deletions: type the word, then confirm or cancel. */
 function ConfirmBox({
   inputId,
   value,
   pending,
-  confirmLabel,
   onChange,
   onConfirm,
   onCancel,
@@ -105,15 +103,17 @@ function ConfirmBox({
   inputId: string;
   value: string;
   pending: boolean;
-  confirmLabel: string;
   onChange: (next: string) => void;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const t = useTranslation();
+  const word = t("account.myData.confirm.word");
+
   return (
     <>
       <div className="field" style={{ maxWidth: 320 }}>
-        <label htmlFor={inputId}>Recopie {CONFIRMATION_WORD} pour confirmer</label>
+        <label htmlFor={inputId}>{t("account.myData.confirm.label", { word })}</label>
         <input
           id={inputId}
           className="input"
@@ -128,20 +128,20 @@ function ConfirmBox({
         <button
           type="button"
           className="button-danger"
-          disabled={value.trim() !== CONFIRMATION_WORD || pending}
+          disabled={value.trim() !== word || pending}
           onClick={onConfirm}
         >
-          {pending ? "Suppression…" : confirmLabel}
+          {pending ? t("account.myData.confirm.pending") : t("account.myData.confirm.action")}
         </button>
         <button type="button" className="button-secondary" disabled={pending} onClick={onCancel}>
-          Annuler
+          {t("common.action.cancel")}
         </button>
       </div>
     </>
   );
 }
 
-/** Section repliée par défaut : le détail ne s'ouvre que si l'utilisateur le demande. */
+/** Section collapsed by default: the detail only opens when the visitor asks for it. */
 function Section({
   title,
   count,
@@ -151,13 +151,18 @@ function Section({
   title: string;
   count: number;
   empty: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
+  const t = useTranslation();
+  const locale = useLocale();
+
   return (
     <details className="my-data-section">
       <summary>
         <span>{title}</span>
-        <strong>{count === 0 ? "Aucune" : formatNumber(count)}</strong>
+        <strong>
+          {count === 0 ? t("account.myData.stored.none") : formatNumber(count, locale)}
+        </strong>
       </summary>
       <div className="my-data-section-body">
         {count === 0 ? <p className="text-muted">{empty}</p> : children}
@@ -167,9 +172,9 @@ function Section({
 }
 
 /**
- * Un serveur administré par le compte connecté. Le détail de ce qui est enregistré n'est demandé
- * qu'à l'ouverture : un compte peut gérer des dizaines de serveurs, et tout charger d'avance
- * ferait autant de requêtes inutiles.
+ * A server administered by the signed-in account. What is stored is only fetched when the section
+ * opens: an account can manage dozens of servers, and loading everything upfront would make as
+ * many useless requests.
  */
 function GuildSection({ guild }: { guild: StoredGuildRef }) {
   const [summary, setSummary] = useState<GuildDataSummary | null>(null);
@@ -177,6 +182,8 @@ function GuildSection({ guild }: { guild: StoredGuildRef }) {
   const [step, setStep] = useState<Step>("idle");
   const [confirmation, setConfirmation] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const t = useTranslation();
+  const locale = useLocale();
 
   async function load(): Promise<void> {
     if (summary || loading) return;
@@ -185,7 +192,7 @@ function GuildSection({ guild }: { guild: StoredGuildRef }) {
     try {
       setSummary(await api.get<GuildDataSummary>(`/me/guilds/${guild.guildId}/data`));
     } catch (loadError) {
-      setError(errorMessage(loadError));
+      setError(errorMessage(loadError, t));
     } finally {
       setLoading(false);
     }
@@ -195,13 +202,22 @@ function GuildSection({ guild }: { guild: StoredGuildRef }) {
     setStep("deleting");
     setError(null);
     try {
-      await api.delete(`/me/guilds/${guild.guildId}/data`, { confirm: CONFIRMATION_WORD });
+      await api.delete(`/me/guilds/${guild.guildId}/data`, { confirm: API_CONFIRMATION });
       setStep("done");
       setSummary(null);
     } catch (eraseError) {
-      setError(errorMessage(eraseError));
+      setError(errorMessage(eraseError, t));
       setStep("confirming");
     }
+  }
+
+  function flag(field: "config" | "automod" | "music" | "adventure", stored: boolean): ReactNode {
+    return (
+      <li>
+        <span>{t(`account.myData.deleteGuild.${field}.label`)}</span>
+        <strong>{t(`account.myData.deleteGuild.${field}.${stored ? "stored" : "none"}`)}</strong>
+      </li>
+    );
   }
 
   return (
@@ -212,64 +228,50 @@ function GuildSection({ guild }: { guild: StoredGuildRef }) {
       }}
     >
       <summary>
-        <span>{guildLabel(guild.name, guild.guildId)}</span>
-        <strong>{guild.botPresent ? "Gaulia y est" : "Gaulia en est parti"}</strong>
+        <span>{guildLabel(t, guild.name, guild.guildId)}</span>
+        <strong>
+          {guild.botPresent
+            ? t("account.myData.deleteGuild.present")
+            : t("account.myData.deleteGuild.left")}
+        </strong>
       </summary>
       <div className="my-data-section-body">
-        {loading && <p className="text-muted">Chargement…</p>}
+        {loading && <p className="text-muted">{t("common.state.loading")}</p>}
 
         {step === "done" ? (
           <p className="notice notice-success" role="status" style={{ marginTop: 0 }}>
-            Les données de ce serveur ont été supprimées.
-            {guild.botPresent
-              ? " Gaulia y étant encore, une configuration vierge sera recréée automatiquement."
-              : ""}
+            {t("account.myData.deleteGuild.deleted")}
+            {guild.botPresent ? ` ${t("account.myData.deleteGuild.deletedBotPresent")}` : ""}
           </p>
         ) : (
           summary && (
             <>
               <ul className="data-summary">
+                {flag("config", summary.configured)}
                 <li>
-                  <span>Configuration du serveur</span>
-                  <strong>{summary.configured ? "Enregistrée" : "Aucune"}</strong>
+                  <span>{t("account.myData.deleteGuild.cases")}</span>
+                  <strong>{formatNumber(summary.moderationCases, locale)}</strong>
                 </li>
                 <li>
-                  <span>Sanctions dans l&apos;historique</span>
-                  <strong>{formatNumber(summary.moderationCases)}</strong>
+                  <span>{t("account.myData.deleteGuild.warns")}</span>
+                  <strong>{formatNumber(summary.warns, locale)}</strong>
                 </li>
+                {flag("automod", summary.automodConfig)}
+                {flag("music", summary.musicSettings)}
                 <li>
-                  <span>Avertissements</span>
-                  <strong>{formatNumber(summary.warns)}</strong>
+                  <span>{t("account.myData.deleteGuild.playlists")}</span>
+                  <strong>{formatNumber(summary.blindtestPlaylists, locale)}</strong>
                 </li>
+                {flag("adventure", summary.adventureSettings)}
                 <li>
-                  <span>Règles d&apos;automod</span>
-                  <strong>{summary.automodConfig ? "Enregistrées" : "Aucune"}</strong>
-                </li>
-                <li>
-                  <span>Réglages musique</span>
-                  <strong>{summary.musicSettings ? "Enregistrés" : "Aucun"}</strong>
-                </li>
-                <li>
-                  <span>Listes de blindtest</span>
-                  <strong>{formatNumber(summary.blindtestPlaylists)}</strong>
-                </li>
-                <li>
-                  <span>Réglages de l&apos;aventure</span>
-                  <strong>{summary.adventureSettings ? "Enregistrés" : "Aucun"}</strong>
-                </li>
-                <li>
-                  <span>Droits premium en cache</span>
-                  <strong>{formatNumber(summary.premiumEntitlements)}</strong>
+                  <span>{t("account.myData.deleteGuild.premium")}</span>
+                  <strong>{formatNumber(summary.premiumEntitlements, locale)}</strong>
                 </li>
               </ul>
 
               <p className="text-muted" style={{ fontSize: 13 }}>
-                Tout part d&apos;un coup, pour tous les membres du serveur : configuration,
-                historique de modération, avertissements, automod, musique, listes de blindtest et
-                réglages de l&apos;aventure.
-                {guild.botPresent
-                  ? " Gaulia étant encore sur le serveur, une configuration vierge sera recréée à la prochaine synchronisation, mais l'historique, lui, ne revient pas."
-                  : ""}
+                {t("account.myData.deleteGuild.note")}
+                {guild.botPresent ? ` ${t("account.myData.deleteGuild.noteBotPresent")}` : ""}
               </p>
 
               {step === "idle" ? (
@@ -278,14 +280,13 @@ function GuildSection({ guild }: { guild: StoredGuildRef }) {
                   className="button-danger"
                   onClick={() => setStep("confirming")}
                 >
-                  Supprimer les données de ce serveur
+                  {t("account.myData.deleteGuild.action")}
                 </button>
               ) : (
                 <ConfirmBox
                   inputId={`confirm-guild-${guild.guildId}`}
                   value={confirmation}
                   pending={step === "deleting"}
-                  confirmLabel="Confirmer la suppression définitive"
                   onChange={setConfirmation}
                   onConfirm={() => void erase()}
                   onCancel={() => {
@@ -316,6 +317,8 @@ export default function MyDataPage() {
   const [step, setStep] = useState<Step>("idle");
   const [confirmation, setConfirmation] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const t = useTranslation();
+  const locale = useLocale();
 
   useEffect(() => {
     let cancelled = false;
@@ -327,9 +330,9 @@ export default function MyDataPage() {
       })
       .catch((loadError: unknown) => {
         if (cancelled) return;
-        // Pas de session : la page propose de se connecter, ce n'est pas une erreur.
+        // No session: the page offers to sign in, which is not an error.
         if (loadError instanceof ApiError && loadError.status === 401) setAuthenticated(false);
-        else setError(errorMessage(loadError));
+        else setError(errorMessage(loadError, t));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -338,17 +341,17 @@ export default function MyDataPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   async function erase(): Promise<void> {
     setStep("deleting");
     setError(null);
     try {
-      await api.delete("/me/data", { confirm: CONFIRMATION_WORD });
+      await api.delete("/me/data", { confirm: API_CONFIRMATION });
       setStep("done");
       setPayload(null);
     } catch (eraseError) {
-      setError(errorMessage(eraseError));
+      setError(errorMessage(eraseError, t));
       setStep("confirming");
     }
   }
@@ -356,20 +359,14 @@ export default function MyDataPage() {
   if (step === "done") {
     return (
       <div className="container">
-        <h1>Mes données</h1>
+        <h1>{t("account.myData.title")}</h1>
         <div className="card my-data-card">
           <p className="notice notice-success" role="status" style={{ marginTop: 0 }}>
-            Tes données ont été supprimées.
+            {t("account.myData.done.notice")}
           </p>
-          <p className="text-muted">
-            Ta session a été fermée, puisqu&apos;elle contenait elle aussi ton pseudo et ton
-            adresse. L&apos;historique de modération des serveurs et la configuration de ceux que tu
-            administres n&apos;ont pas été touchés : ils appartiennent aux serveurs. Si tu utilises
-            encore Gaulia, de nouvelles données pourront être créées, et cette page te permettra de
-            les supprimer à nouveau.
-          </p>
+          <p className="text-muted">{t("account.myData.done.body")}</p>
           <Link className="button-primary" href="/">
-            Retour à l&apos;accueil
+            {t("account.myData.done.home")}
           </Link>
         </div>
       </div>
@@ -379,24 +376,24 @@ export default function MyDataPage() {
   const data = payload?.data;
   const account = payload?.account;
   const guilds = payload?.guilds ?? [];
+  const contactLink = <Link href="/contact">{t("account.contact.title")}</Link>;
 
   return (
     <div className="container">
       <p>
         <Link href="/" className="text-muted">
-          ← Retour à l&apos;accueil
+          ← {t("account.myData.back")}
         </Link>
       </p>
 
-      <h1>Mes données</h1>
+      <h1>{t("account.myData.title")}</h1>
       <p className="text-muted my-data-intro">
-        Tout ce que Gaulia conserve sur ton compte Discord, à consulter, à télécharger ou à
-        supprimer toi-même, sans avoir à écrire à qui que ce soit. Pour le détail de ce qui est
-        collecté et pourquoi, la <Link href="/privacy">politique de confidentialité</Link> explique
-        chaque point.
+        {rich(t("account.myData.intro"), {
+          privacy: <Link href="/privacy">{t("account.myData.privacyLink")}</Link>,
+        })}
       </p>
 
-      {loading && <p className="text-muted">Chargement…</p>}
+      {loading && <p className="text-muted">{t("common.state.loading")}</p>}
       {!loading && !authenticated && <LoginPrompt />}
       {!loading && authenticated && error && !data && (
         <p className="notice notice-error" role="alert">
@@ -424,141 +421,146 @@ export default function MyDataPage() {
               </div>
             </div>
             <p className="field-hint" style={{ marginTop: 10 }}>
-              Ton pseudo, ton avatar et ton adresse viennent de Discord et ne vivent que dans le
-              cookie de ta session, pendant 12 heures. Ils ne sont pas enregistrés en base de
-              données.
+              {t("account.myData.account.hint")}
             </p>
 
             <div className="toolbar" style={{ marginBottom: 0 }}>
-              <button type="button" className="button-primary" onClick={() => download(data)}>
-                Télécharger mes données (JSON)
+              <button
+                type="button"
+                className="button-primary"
+                onClick={() =>
+                  download(data, t("account.myData.account.fileName", { userId: data.userId }))
+                }
+              >
+                {t("account.myData.account.download")}
               </button>
               <span className="text-muted" style={{ fontSize: 13 }}>
-                Relevé du {formatDateTime(data.generatedAt)}
+                {t("account.myData.account.generatedAt", {
+                  date: formatDateTime(data.generatedAt, locale),
+                })}
               </span>
             </div>
           </section>
 
           <section className="card my-data-card">
-            <h2 className="card-title">Ce que nous avons enregistré</h2>
-            <p className="card-subtitle">
-              Les identifiants des autres membres (le modérateur d&apos;une sanction, le partenaire
-              d&apos;un échange) ne figurent pas ici : ce sont leurs données, pas les tiennes.
-            </p>
+            <h2 className="card-title">{t("account.myData.stored.title")}</h2>
+            <p className="card-subtitle">{t("account.myData.stored.subtitle")}</p>
 
             <Section
-              title="Sanctions reçues"
+              title={t("account.myData.sanctions.title")}
               count={data.sanctionsReceived.length}
-              empty="Aucune sanction enregistrée à ton nom."
+              empty={t("account.myData.sanctions.empty")}
             >
               <div className="table-scroll">
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>Serveur</th>
-                      <th>Type</th>
-                      <th>Raison</th>
-                      <th>Durée</th>
-                      <th>Date</th>
+                      <th>{t("account.myData.columns.guild")}</th>
+                      <th>{t("account.myData.columns.type")}</th>
+                      <th>{t("account.myData.columns.reason")}</th>
+                      <th>{t("account.myData.columns.duration")}</th>
+                      <th>{t("account.myData.columns.date")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.sanctionsReceived.map((entry) => (
                       <tr key={`${entry.guildId}-${entry.caseNumber}`}>
-                        <td>{guildLabel(entry.guildName, entry.guildId)}</td>
-                        <td>{label(CASE_LABELS, entry.type)}</td>
+                        <td>{guildLabel(t, entry.guildName, entry.guildId)}</td>
+                        <td>{enumLabel(t, "caseTypes", entry.type)}</td>
                         <td>{entry.reason ?? "-"}</td>
-                        <td>{duration(entry.durationSecs)}</td>
-                        <td>{formatDateTime(entry.createdAt)}</td>
+                        <td>{duration(t, entry.durationSecs, locale)}</td>
+                        <td>{formatDateTime(entry.createdAt, locale)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
               <p className="text-muted" style={{ fontSize: 13 }}>
-                Ces lignes appartiennent à l&apos;historique des serveurs qui les ont prononcées :
-                elles ne partent pas avec la suppression de ton compte. Pour les faire retirer,
-                demande-le aux responsables du serveur, ou écris-nous depuis la page{" "}
-                <Link href="/contact">Nous contacter</Link>.
+                {rich(t("account.myData.sanctions.note"), { contact: contactLink })}
               </p>
             </Section>
 
             <Section
-              title="Avertissements reçus"
+              title={t("account.myData.warns.title")}
               count={data.warnsReceived.length}
-              empty="Aucun avertissement enregistré à ton nom."
+              empty={t("account.myData.warns.empty")}
             >
               <div className="table-scroll">
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>Serveur</th>
-                      <th>Raison</th>
-                      <th>État</th>
-                      <th>Date</th>
+                      <th>{t("account.myData.columns.guild")}</th>
+                      <th>{t("account.myData.columns.reason")}</th>
+                      <th>{t("account.myData.columns.status")}</th>
+                      <th>{t("account.myData.columns.date")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.warnsReceived.map((entry) => (
                       <tr key={`${entry.guildId}-${entry.createdAt}`}>
-                        <td>{guildLabel(entry.guildName, entry.guildId)}</td>
+                        <td>{guildLabel(t, entry.guildName, entry.guildId)}</td>
                         <td>{entry.reason ?? "-"}</td>
-                        <td>{entry.active ? "Actif" : "Retiré"}</td>
-                        <td>{formatDateTime(entry.createdAt)}</td>
+                        <td>
+                          {entry.active
+                            ? t("account.myData.warns.active")
+                            : t("account.myData.warns.removed")}
+                        </td>
+                        <td>{formatDateTime(entry.createdAt, locale)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
               <p className="text-muted" style={{ fontSize: 13 }}>
-                Comme les sanctions, ils appartiennent au serveur qui les a donnés et ne partent pas
-                avec la suppression de ton compte.
+                {t("account.myData.warns.note")}
               </p>
             </Section>
 
             <Section
-              title="Sanctions données en tant que modérateur"
+              title={t("account.myData.moderator.title")}
               count={data.moderatorActivity.moderationCases + data.moderatorActivity.warns}
-              empty="Tu n'as sanctionné personne avec Gaulia."
+              empty={t("account.myData.moderator.empty")}
             >
               <ul className="data-summary">
                 <li>
-                  <span>Sanctions prononcées</span>
-                  <strong>{formatNumber(data.moderatorActivity.moderationCases)}</strong>
+                  <span>{t("account.myData.moderator.cases")}</span>
+                  <strong>{formatNumber(data.moderatorActivity.moderationCases, locale)}</strong>
                 </li>
                 <li>
-                  <span>Avertissements donnés</span>
-                  <strong>{formatNumber(data.moderatorActivity.warns)}</strong>
+                  <span>{t("account.myData.moderator.warns")}</span>
+                  <strong>{formatNumber(data.moderatorActivity.warns, locale)}</strong>
                 </li>
               </ul>
               <p className="text-muted" style={{ fontSize: 13 }}>
-                Ces lignes appartiennent elles aussi à l&apos;historique des serveurs concernés.
+                {t("account.myData.moderator.note")}
               </p>
             </Section>
 
             <Section
-              title="Crédits et votes top.gg"
+              title={t("account.myData.credits.title")}
               count={(data.credits ? 1 : 0) + data.topggVotes.length}
-              empty="Aucun compte de crédits : tu n'as jamais voté pour Gaulia."
+              empty={t("account.myData.credits.empty")}
             >
               {data.credits && (
                 <ul className="data-summary">
                   <li>
-                    <span>Solde actuel</span>
-                    <strong>{formatNumber(data.credits.balance)}</strong>
+                    <span>{t("account.myData.credits.balance")}</span>
+                    <strong>{formatNumber(data.credits.balance, locale)}</strong>
                   </li>
                   <li>
-                    <span>Total gagné depuis le début</span>
-                    <strong>{formatNumber(data.credits.totalEarned)}</strong>
+                    <span>{t("account.myData.credits.totalEarned")}</span>
+                    <strong>{formatNumber(data.credits.totalEarned, locale)}</strong>
                   </li>
                   <li>
-                    <span>Votes comptabilisés</span>
-                    <strong>{formatNumber(data.credits.voteCount)}</strong>
+                    <span>{t("account.myData.credits.voteCount")}</span>
+                    <strong>{formatNumber(data.credits.voteCount, locale)}</strong>
                   </li>
                   <li>
-                    <span>Dernier vote</span>
+                    <span>{t("account.myData.credits.lastVote")}</span>
                     <strong>
-                      {data.credits.lastVoteAt ? formatDateTime(data.credits.lastVoteAt) : "-"}
+                      {data.credits.lastVoteAt
+                        ? formatDateTime(data.credits.lastVoteAt, locale)
+                        : "-"}
                     </strong>
                   </li>
                 </ul>
@@ -568,27 +570,27 @@ export default function MyDataPage() {
                   <table className="table">
                     <thead>
                       <tr>
-                        <th>Mouvement</th>
-                        <th className="numeric">Montant</th>
-                        <th className="numeric">Solde après</th>
-                        <th>Serveur</th>
-                        <th>Date</th>
+                        <th>{t("account.myData.columns.movement")}</th>
+                        <th className="numeric">{t("account.myData.columns.amount")}</th>
+                        <th className="numeric">{t("account.myData.columns.balanceAfter")}</th>
+                        <th>{t("account.myData.columns.guild")}</th>
+                        <th>{t("account.myData.columns.date")}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {data.credits.transactions.map((entry) => (
                         <tr key={`${entry.createdAt}-${entry.balanceAfter}`}>
-                          <td>{label(CREDIT_LABELS, entry.type)}</td>
+                          <td>{enumLabel(t, "creditTypes", entry.type)}</td>
                           <td className="numeric">
                             {entry.amount > 0
-                              ? `+${formatNumber(entry.amount)}`
-                              : formatNumber(entry.amount)}
+                              ? `+${formatNumber(entry.amount, locale)}`
+                              : formatNumber(entry.amount, locale)}
                           </td>
-                          <td className="numeric">{formatNumber(entry.balanceAfter)}</td>
+                          <td className="numeric">{formatNumber(entry.balanceAfter, locale)}</td>
                           <td>
-                            {entry.guildId ? guildLabel(entry.guildName, entry.guildId) : "-"}
+                            {entry.guildId ? guildLabel(t, entry.guildName, entry.guildId) : "-"}
                           </td>
-                          <td>{formatDateTime(entry.createdAt)}</td>
+                          <td>{formatDateTime(entry.createdAt, locale)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -597,108 +599,115 @@ export default function MyDataPage() {
               )}
               {data.topggVotes.length > 0 && (
                 <p className="text-muted" style={{ fontSize: 13 }}>
-                  {formatNumber(data.topggVotes.length)} vote(s) gardé(s) en mémoire, uniquement
-                  pour ne pas te créditer deux fois le même. Le détail est dans le fichier JSON.
+                  {t("account.myData.credits.votesNote", {
+                    count: data.topggVotes.length,
+                    value: formatNumber(data.topggVotes.length, locale),
+                  })}
                 </p>
               )}
             </Section>
 
             <Section
-              title="Droits premium"
+              title={t("account.myData.premium.title")}
               count={data.premiumEntitlements.length}
-              empty="Aucun abonnement premium rattaché à ton compte."
+              empty={t("account.myData.premium.empty")}
             >
               <div className="table-scroll">
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>Serveur</th>
-                      <th>Début</th>
-                      <th>Fin</th>
-                      <th>État</th>
+                      <th>{t("account.myData.columns.guild")}</th>
+                      <th>{t("account.myData.columns.start")}</th>
+                      <th>{t("account.myData.columns.end")}</th>
+                      <th>{t("account.myData.columns.status")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.premiumEntitlements.map((entry) => (
                       <tr key={entry.entitlementId}>
-                        <td>{entry.guildId ? guildLabel(entry.guildName, entry.guildId) : "-"}</td>
-                        <td>{entry.startsAt ? formatDateTime(entry.startsAt) : "-"}</td>
-                        <td>{entry.endsAt ? formatDateTime(entry.endsAt) : "-"}</td>
-                        <td>{entry.deleted ? "Terminé" : "Actif"}</td>
+                        <td>
+                          {entry.guildId ? guildLabel(t, entry.guildName, entry.guildId) : "-"}
+                        </td>
+                        <td>{entry.startsAt ? formatDateTime(entry.startsAt, locale) : "-"}</td>
+                        <td>{entry.endsAt ? formatDateTime(entry.endsAt, locale) : "-"}</td>
+                        <td>
+                          {entry.deleted
+                            ? t("account.myData.premium.ended")
+                            : t("account.myData.premium.active")}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
               <p className="text-muted" style={{ fontSize: 13 }}>
-                Ce sont les droits transmis par Discord. Aucune information de paiement ne nous
-                parvient : l&apos;abonnement lui-même se gère depuis les paramètres Discord.
+                {t("account.myData.premium.note")}
               </p>
             </Section>
 
             <Section
-              title="Aventure"
+              title={t("account.myData.adventure.title")}
               count={data.adventure ? 1 : 0}
-              empty="Aucun personnage d'aventure créé."
+              empty={t("account.myData.adventure.empty")}
             >
               {data.adventure && (
                 <>
                   <ul className="data-summary">
                     <li>
-                      <span>Classe</span>
-                      <strong>{label(CLASS_LABELS, data.adventure.characterClass)}</strong>
+                      <span>{t("account.myData.adventure.characterClass")}</span>
+                      <strong>{enumLabel(t, "classes", data.adventure.characterClass)}</strong>
                     </li>
                     <li>
-                      <span>Niveau</span>
-                      <strong>{formatNumber(data.adventure.level)}</strong>
+                      <span>{t("account.myData.adventure.level")}</span>
+                      <strong>{formatNumber(data.adventure.level, locale)}</strong>
                     </li>
                     <li>
-                      <span>Expérience totale</span>
-                      <strong>{formatNumber(data.adventure.totalXp)}</strong>
+                      <span>{t("account.myData.adventure.totalXp")}</span>
+                      <strong>{formatNumber(data.adventure.totalXp, locale)}</strong>
                     </li>
                     <li>
-                      <span>Or et échos</span>
+                      <span>{t("account.myData.adventure.goldAndEchoes")}</span>
                       <strong>
-                        {formatNumber(data.adventure.gold)} · {formatNumber(data.adventure.echoes)}
+                        {formatNumber(data.adventure.gold, locale)} ·{" "}
+                        {formatNumber(data.adventure.echoes, locale)}
                       </strong>
                     </li>
                     <li>
-                      <span>Objets en inventaire</span>
-                      <strong>{formatNumber(data.adventure.items.length)}</strong>
+                      <span>{t("account.myData.adventure.items")}</span>
+                      <strong>{formatNumber(data.adventure.items.length, locale)}</strong>
                     </li>
                     <li>
-                      <span>Hauts faits débloqués</span>
-                      <strong>{formatNumber(data.adventure.achievements.length)}</strong>
+                      <span>{t("account.myData.adventure.achievements")}</span>
+                      <strong>{formatNumber(data.adventure.achievements.length, locale)}</strong>
                     </li>
                     <li>
-                      <span>Explorations · victoires · défaites</span>
+                      <span>{t("account.myData.adventure.record")}</span>
                       <strong>
-                        {formatNumber(data.adventure.explorations)} ·{" "}
-                        {formatNumber(data.adventure.victories)} ·{" "}
-                        {formatNumber(data.adventure.defeats)}
+                        {formatNumber(data.adventure.explorations, locale)} ·{" "}
+                        {formatNumber(data.adventure.victories, locale)} ·{" "}
+                        {formatNumber(data.adventure.defeats, locale)}
                       </strong>
                     </li>
                     <li>
-                      <span>Dernière partie</span>
+                      <span>{t("account.myData.adventure.lastPlayed")}</span>
                       <strong>
                         {data.adventure.lastPlayedAt
-                          ? formatDateTime(data.adventure.lastPlayedAt)
+                          ? formatDateTime(data.adventure.lastPlayedAt, locale)
                           : "-"}
                       </strong>
                     </li>
                   </ul>
                   <p className="text-muted" style={{ fontSize: 13 }}>
-                    L&apos;inventaire, les quêtes, le journal et l&apos;historique des échanges
-                    figurent en entier dans le fichier JSON.
+                    {t("account.myData.adventure.note")}
                   </p>
                 </>
               )}
             </Section>
 
             <Section
-              title="Serveurs que tu peux gérer"
+              title={t("account.myData.guilds.title")}
               count={account.manageableGuilds.length}
-              empty="Aucun serveur administrable avec ce compte."
+              empty={t("account.myData.guilds.empty")}
             >
               <ul className="data-summary">
                 {account.manageableGuilds.map((guild) => (
@@ -709,42 +718,32 @@ export default function MyDataPage() {
                 ))}
               </ul>
               <p className="text-muted" style={{ fontSize: 13 }}>
-                Cette liste vient de Discord à chaque connexion et n&apos;est pas enregistrée. Elle
-                sert à savoir quels serveurs afficher dans le tableau de bord.
+                {t("account.myData.guilds.note")}
               </p>
             </Section>
           </section>
 
           <section className="card my-data-card my-data-danger">
-            <h2 className="card-title">Supprimer mes données</h2>
-            <p className="card-subtitle">
-              La suppression est définitive et immédiate. Elle efface ce qui suit ton compte :
-            </p>
+            <h2 className="card-title">{t("account.myData.deleteAccount.title")}</h2>
+            <p className="card-subtitle">{t("account.myData.deleteAccount.subtitle")}</p>
             <ul className="my-data-list">
-              <li>ton compte de crédits, son historique et tes votes top.gg enregistrés ;</li>
-              <li>ton personnage d&apos;aventure, son inventaire et sa progression ;</li>
-              <li>les droits premium gardés en cache pour ton compte.</li>
+              {t.list("account.myData.deleteAccount.items").map((item, index) => (
+                <li key={index}>{item}</li>
+              ))}
             </ul>
             <p className="text-muted" style={{ fontSize: 13 }}>
-              L&apos;historique de modération n&apos;en fait pas partie : une sanction ou un
-              avertissement appartient au serveur qui l&apos;a prononcé, pas au membre concerné. Il
-              part avec les données du serveur, ci-dessous si tu l&apos;administres, sinon sur
-              demande aux responsables du serveur ou à nous depuis la page{" "}
-              <Link href="/contact">Nous contacter</Link>. Un abonnement premium encore actif chez
-              Discord sera resynchronisé automatiquement : pour l&apos;arrêter, annule-le depuis les
-              paramètres Discord.
+              {rich(t("account.myData.deleteAccount.note"), { contact: contactLink })}
             </p>
 
             {step === "idle" ? (
               <button type="button" className="button-danger" onClick={() => setStep("confirming")}>
-                Supprimer mes données
+                {t("account.myData.deleteAccount.action")}
               </button>
             ) : (
               <ConfirmBox
                 inputId="confirm-account"
                 value={confirmation}
                 pending={step === "deleting"}
-                confirmLabel="Confirmer la suppression définitive"
                 onChange={setConfirmation}
                 onConfirm={() => void erase()}
                 onCancel={() => {
@@ -763,17 +762,11 @@ export default function MyDataPage() {
           </section>
 
           <section className="card my-data-card my-data-danger">
-            <h2 className="card-title">Supprimer les données d&apos;un serveur</h2>
-            <p className="card-subtitle">
-              Les serveurs que tu administres et pour lesquels Gaulia a enregistré quelque chose.
-              Supprimer, c&apos;est effacer les données du serveur entier, pour tous ses membres,
-              historique de modération compris.
-            </p>
+            <h2 className="card-title">{t("account.myData.deleteGuild.title")}</h2>
+            <p className="card-subtitle">{t("account.myData.deleteGuild.subtitle")}</p>
 
             {guilds.length === 0 ? (
-              <p className="text-muted">
-                Aucun des serveurs que tu administres n&apos;a de données enregistrées chez Gaulia.
-              </p>
+              <p className="text-muted">{t("account.myData.deleteGuild.empty")}</p>
             ) : (
               guilds.map((guild) => <GuildSection key={guild.guildId} guild={guild} />)
             )}

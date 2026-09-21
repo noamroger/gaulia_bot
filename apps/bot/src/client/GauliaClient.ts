@@ -13,7 +13,7 @@ export class GauliaClient extends Client {
   public readonly cooldowns = new CooldownManager();
   public readonly logger = logger;
 
-  /** Instance lavalink-client de ce process de shard, initialisée dans bot.ts après le ready. */
+  /** lavalink-client instance of this shard process, created in bot.ts after ready. */
   public lavalink!: LavalinkManager;
 
   constructor() {

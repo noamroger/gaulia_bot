@@ -6,33 +6,34 @@ datasource db {
   provider = "postgresql"
 }
 
-/// Configuration générale d'un serveur Discord.
+/// General configuration of a Discord guild.
 model Guild {
   id                  String   @id
-  /// Dénormalisé depuis discord.js (guildCreate/guildUpdate/ready) pour que le panel admin
-  /// puisse afficher un nom pour TOUS les serveurs, même ceux où l'admin connecté n'est pas membre.
+  /// Denormalized from discord.js (guildCreate/guildUpdate/ready) so the admin panel can show a
+  /// name for EVERY guild, including those the signed-in admin is not a member of.
   name                String?
-  /// Hash d'icône Discord et nombre de membres, synchronisés par le bot pour le panel admin.
+  /// Discord icon hash and member count, synced by the bot for the admin panel.
   icon                String?
   memberCount         Int      @default(0)
-  language            String   @default("fr")
+  /// Forced guild language: "en", "fr", or "auto" to follow the Discord locale.
+  language            String   @default("auto")
   premium             Boolean  @default(false)
   premiumExpiresAt    DateTime?
-  /// Premium offert en échange de crédits (voir CreditAccount) : indépendant de `premium`, qui
-  /// reflète les entitlements Discord. Le serveur est premium si l'un OU l'autre est actif.
+  /// Premium granted against credits (see CreditAccount): independent of `premium`, which reflects
+  /// Discord entitlements. The guild is premium when either one is active.
   premiumGrantedUntil DateTime?
-  /// Début de la fenêtre de premium offert en cours : sert à calculer la part non consommée,
-  /// remboursée en crédits si le serveur souscrit ensuite l'abonnement Discord payant.
+  /// Start of the running granted premium window: used to compute the unused share, refunded as
+  /// credits if the guild later subscribes to the paid Discord plan.
   premiumGrantedAt    DateTime?
-  /// Faux dès que le bot quitte le serveur (guildDelete) ; permet à l'API/dashboard de ne lister
-  /// que les serveurs où le bot est réellement présent, sans perdre l'historique associé.
+  /// False as soon as the bot leaves the guild (guildDelete), so the API and dashboard list only
+  /// the guilds the bot is actually in, without losing the associated history.
   botPresent          Boolean  @default(true)
 
   modLogChannelId     String?
   automodLogChannelId String?
   djRoleId            String?
   musicChannelId      String?
-  /// Salons où les commandes du module fun sont utilisables ; liste vide = tous les salons.
+  /// Channels where the fun module commands are allowed; empty list = every channel.
   funChannelIds       String[] @default([])
 
   createdAt DateTime @default(now())
@@ -49,6 +50,18 @@ model Guild {
   @@map("guilds")
 }
 
+/// Per-user preferences, shared across every guild.
+model UserPreference {
+  userId String @id
+  /// "en", "fr", or "auto" to follow the user's Discord locale.
+  language String @default("auto")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_preferences")
+}
+
 enum ModerationCaseType {
   BAN
   UNBAN
@@ -60,7 +73,7 @@ enum ModerationCaseType {
   PURGE
 }
 
-/// Historique de modération, numéroté par serveur (caseNumber).
+/// Moderation history, numbered per guild (caseNumber).
 model ModerationCase {
   id           Int                @id @default(autoincrement())
   guildId      String
@@ -80,7 +93,7 @@ model ModerationCase {
   @@map("moderation_cases")
 }
 
-/// Avertissement individuel (peut être révoqué sans supprimer l'historique).
+/// A single warn (can be revoked without deleting the history).
 model Warn {
   id          Int      @id @default(autoincrement())
   guildId     String
@@ -95,17 +108,17 @@ model Warn {
   @@map("warns")
 }
 
-/// Réglages de la couche automod custom (en complément de l'AutoMod natif Discord).
+/// Settings of the custom automod layer (on top of Discord's native AutoMod).
 model AutomodConfig {
   guildId String @id
   guild   Guild  @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
-  /// Règles et sanctions, validées par `automodRulesSchema` (src/schemas/automod.ts) : ajouter une
-  /// option ne demande pas de migration.
+  /// Rules and sanctions, validated by `automodRulesSchema` (src/schemas/automod.ts): adding an
+  /// option needs no migration.
   rules             Json     @default("{}")
   ignoredChannelIds String[] @default([])
   ignoredRoleIds    String[] @default([])
-  /// Les membres ayant la permission « Gérer les messages » ne sont pas contrôlés.
+  /// Members with the "Manage Messages" permission are not checked.
   exemptStaff       Boolean  @default(true)
 
   updatedAt DateTime @updatedAt
@@ -113,12 +126,12 @@ model AutomodConfig {
   @@map("automod_configs")
 }
 
-/// Réglages de modération par serveur.
+/// Per-guild moderation settings.
 model ModerationSettings {
   guildId        String   @id
   guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
   dmOnSanction   Boolean  @default(true)
-  /// Paliers de sanctions automatiques selon le nombre d'avertissements actifs, validés par
+  /// Automatic sanction steps based on the active warn count, validated by
   /// `warnEscalationSchema` (src/schemas/moderation.ts).
   warnEscalation Json     @default("[]")
   updatedAt      DateTime @updatedAt
@@ -132,24 +145,24 @@ enum LoopMode {
   QUEUE
 }
 
-/// Réglages musique persistants par serveur.
+/// Persistent per-guild music settings.
 model MusicSettings {
   guildId     String   @id
   guild       Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
   volume      Int      @default(100)
   stay247     Boolean  @default(false)
   defaultLoop LoopMode @default(NONE)
-  /// Salons où `/blindtest` peut être lancé ; liste vide = tous les salons.
+  /// Channels where `/blindtest` can be started; empty list = every channel.
   blindtestChannelIds         String[] @default([])
-  /// Identifiants des catégories prédéfinies de blindtest désactivées sur ce serveur.
+  /// Ids of the preset blindtest categories disabled on this guild.
   blindtestDisabledCategories String[] @default([])
   updatedAt   DateTime @updatedAt
 
   @@map("music_settings")
 }
 
-/// Liste de musiques créée par un serveur pour ses blindtests. `tracks` est validé par
-/// `blindtestTracksSchema` (src/schemas/blindtest.ts) ; `trackCount` évite de lire le JSON pour lister.
+/// Track list a guild created for its blindtests. `tracks` is validated by
+/// `blindtestTracksSchema` (src/schemas/blindtest.ts); `trackCount` avoids reading the JSON to list.
 model BlindtestPlaylist {
   id         String   @id @default(cuid())
   guildId    String
@@ -164,7 +177,7 @@ model BlindtestPlaylist {
   @@map("blindtest_playlists")
 }
 
-/// Cache persistant des entitlements Discord (source de vérité de secours après redémarrage).
+/// Persistent cache of the Discord entitlements (fallback source of truth after a restart).
 model PremiumEntitlement {
   id        String    @id
   skuId     String
@@ -179,8 +192,8 @@ model PremiumEntitlement {
   @@map("premium_entitlements")
 }
 
-/// Heartbeat écrit périodiquement par chaque process de shard (voir apps/bot/src/core/heartbeat) ;
-/// l'API agrège ces lignes pour les statistiques globales affichées sur le dashboard.
+/// Heartbeat written periodically by each shard process (see apps/bot/src/core/heartbeat); the API
+/// aggregates these rows for the global statistics shown on the dashboard.
 model ShardStatus {
   shardId     Int      @id
   guildCount  Int
@@ -194,14 +207,14 @@ model ShardStatus {
   @@map("shard_status")
 }
 
-/// Historique des métriques de chaque shard par tranche de 10 minutes (UTC), pour les graphiques du
-/// panel admin. Chaque heartbeat met à jour la tranche courante ; l'API additionne les shards.
+/// Per-shard metric history in 10 minute buckets (UTC), for the admin panel charts. Each heartbeat
+/// updates the current bucket; the API sums the shards.
 model ShardMetricSample {
   shardId     Int
   bucket      DateTime
   guildCount  Int
   memberCount Int
-  /// Somme des pings relevés dans la tranche et nombre de relevés, pour en tirer la moyenne.
+  /// Sum of the pings sampled in the bucket and sample count, to derive the average.
   pingTotal   Int      @default(0)
   pingSamples Int      @default(0)
   updatedAt   DateTime @updatedAt
@@ -211,11 +224,11 @@ model ShardMetricSample {
   @@map("shard_metric_samples")
 }
 
-/// Compteur agrégé par jour (UTC) et par commande, alimente l'onglet statistiques du panel admin.
+/// Counter aggregated per day (UTC) and per command, feeds the admin panel statistics tab.
 model CommandUsageDaily {
   date        DateTime @db.Date
   commandName String
-  /// Dossier `modules/<module>` de la commande côté bot, pour filtrer les statistiques par catégorie.
+  /// The command's `modules/<module>` folder on the bot side, to filter statistics by category.
   category    String   @default("other")
   count       Int      @default(0)
 
@@ -224,17 +237,17 @@ model CommandUsageDaily {
   @@map("command_usage_daily")
 }
 
-/// Compte de crédits d'un utilisateur Discord. Les crédits sont gagnés en votant pour Gaulia sur
-/// top.gg (webhook de vote, voir apps/api/src/routes/topgg.routes.ts) et dépensés contre du
-/// premium offert sur un serveur (Guild.premiumGrantedUntil). `username`/`avatar` sont
-/// dénormalisés depuis le payload du vote pour que le panel admin affiche autre chose qu'un ID.
+/// Credit account of a Discord user. Credits are earned by voting for Gaulia on top.gg (vote
+/// webhook, see apps/api/src/routes/topgg.routes.ts) and spent on granted premium for a guild
+/// (Guild.premiumGrantedUntil). `username` and `avatar` are denormalized from the vote payload so
+/// the admin panel shows something other than an id.
 model CreditAccount {
   userId      String   @id
   username    String?
   avatar      String?
   balance     Int      @default(0)
-  /// Total cumulé des crédits gagnés (votes + ajouts admin), jamais décrémenté : sert de repère
-  /// historique dans le panel admin.
+  /// Lifetime credits earned (votes plus admin additions), never decremented: a historical
+  /// reference in the admin panel.
   totalEarned Int      @default(0)
   voteCount   Int      @default(0)
   lastVoteAt  DateTime?
@@ -248,29 +261,29 @@ model CreditAccount {
 }
 
 enum CreditTransactionType {
-  /// Vote sur top.gg
+  /// top.gg vote
   VOTE
-  /// Échange contre du premium offert
+  /// Redeemed for granted premium
   PREMIUM_REDEEM
-  /// Ajout ou retrait manuel depuis le panel admin
+  /// Manual addition or removal from the admin panel
   ADMIN_ADJUST
-  /// Remboursement au prorata du premium offert non consommé, lors du passage à l'abonnement payant
+  /// Pro rata refund of unused granted premium, when moving to the paid subscription
   PREMIUM_REFUND
 }
 
-/// Journal des mouvements de crédits : chaque ligne explique une variation du solde, ce qui rend
-/// les ajustements admin traçables et permet d'afficher un historique à l'utilisateur.
+/// Credit movement log: each row explains one balance change, which keeps admin adjustments
+/// auditable and lets the user see a history.
 model CreditTransaction {
   id           Int                   @id @default(autoincrement())
   userId       String
   account      CreditAccount         @relation(fields: [userId], references: [userId], onDelete: Cascade)
   type         CreditTransactionType
-  /// Positif pour un gain, négatif pour une dépense.
+  /// Positive for a gain, negative for a spend.
   amount       Int
   balanceAfter Int
-  /// Serveur concerné pour un échange premium, null sinon.
+  /// Guild involved in a premium redeem, null otherwise.
   guildId      String?
-  /// Auteur d'un ajustement admin (OWNER_IDS), null sinon.
+  /// Author of an admin adjustment (OWNER_IDS), null otherwise.
   actorId      String?
   reason       String?
   createdAt    DateTime              @default(now())
@@ -279,9 +292,8 @@ model CreditTransaction {
   @@map("credit_transactions")
 }
 
-/// Votes top.gg déjà traités, identifiés par l'id du vote fourni dans le webhook. Top.gg réessaie
-/// une livraison tant qu'elle n'a pas abouti : cette table garantit qu'un même vote ne crédite
-/// l'utilisateur qu'une seule fois.
+/// top.gg votes already processed, keyed by the vote id given in the webhook. top.gg retries a
+/// delivery until it succeeds, so this table guarantees a vote credits the user only once.
 model TopggVote {
   id        String   @id
   userId    String
@@ -293,19 +305,18 @@ model TopggVote {
   @@map("topgg_votes")
 }
 
-// ─── Module aventure ────────────────────────────────────────────────────────
-// Le personnage est global (un seul par utilisateur Discord, jouable en DM comme sur n'importe
-// quel serveur autorisé) : seul l'accès aux salons se règle par serveur, via AdventureSettings.
+// Adventure module.
+// The character is global (one per Discord user, playable in DMs as well as on any allowed guild):
+// only channel access is configured per guild, through AdventureSettings.
 
-/// Comment interpréter `channelIds` : liste blanche (seuls ces salons) ou liste noire (tous sauf).
+/// How to read `channelIds`: allowlist (only these channels) or blocklist (all but these).
 enum AdventureChannelMode {
   ALLOWLIST
   BLOCKLIST
 }
 
-/// Accès au module aventure sur un serveur. Par défaut : liste blanche vide, donc l'aventure est
-/// injouable dans les salons du serveur tant qu'un salon n'a pas été autorisé (les DM, eux, sont
-/// toujours ouverts).
+/// Adventure module access on a guild. Default: empty allowlist, so the adventure is unplayable in
+/// the guild channels until one is allowed (DMs stay open regardless).
 model AdventureSettings {
   guildId     String               @id
   guild       Guild                @relation(fields: [guildId], references: [id], onDelete: Cascade)
@@ -323,19 +334,19 @@ enum AdventureClass {
   RODEUR
 }
 
-/// Personnage d'un joueur. `hp` et `energy` sont des valeurs figées à `regenAt` : la régénération
-/// réelle est calculée à la lecture (voir services/character/vitalsService.ts côté bot), ce qui
-/// évite toute tâche de fond pour des milliers de joueurs.
+/// A player's character. `hp` and `energy` are the values frozen at `regenAt`: the actual
+/// regeneration is computed on read (see services/character/vitalsService.ts on the bot side),
+/// which avoids any background job for thousands of players.
 model AdventureCharacter {
   userId         String         @id
-  /// Dénormalisé à chaque partie pour que le panel admin affiche autre chose qu'un identifiant.
+  /// Denormalized on every session so the admin panel shows something other than an id.
   username       String?
   characterClass AdventureClass
 
   level      Int @default(1)
-  /// Expérience accumulée dans le niveau courant (remise à zéro à chaque passage de niveau).
+  /// Experience accumulated in the current level (reset on each level up).
   xp         Int @default(0)
-  /// Expérience totale gagnée depuis la création, jamais décrémentée : sert aux classements.
+  /// Total experience earned since creation, never decremented: used by the leaderboards.
   totalXp    Int @default(0)
   statPoints Int @default(0)
   might      Int @default(0)
@@ -344,17 +355,17 @@ model AdventureCharacter {
 
   hp       Int
   energy   Int
-  /// Dernier instant où PV et énergie ont été recalculés.
+  /// Last time hp and energy were recomputed.
   regenAt  DateTime @default(now())
   gold     Int      @default(0)
-  /// Fragments d'écho : monnaie de scénario, gagnée par les quêtes et les donjons, dépensée pour
-  /// sceller un chapitre. C'est la ressource qui donne au scénario sa durée de vie.
+  /// Echo shards: story currency, earned from quests and dungeons, spent to seal a chapter. This
+  /// is the resource that paces the story.
   echoes   Int      @default(0)
 
   zoneId          String @default("clairiere")
   actIndex        Int    @default(0)
   chapterIndex    Int    @default(0)
-  /// Compteurs des objectifs du chapitre courant, validés par `chapterProgressSchema`.
+  /// Objective counters of the current chapter, validated by `chapterProgressSchema`.
   chapterProgress Json   @default("{}")
   storyEndedAt    DateTime?
 
@@ -368,7 +379,7 @@ model AdventureCharacter {
   bestStreak    Int @default(0)
 
   lastPlayedAt  DateTime?
-  /// Jour (UTC) du dernier passage compté dans la série quotidienne.
+  /// Day (UTC) of the last session counted in the daily streak.
   lastStreakDay DateTime?
   lastDungeonAt DateTime?
 
@@ -386,18 +397,18 @@ model AdventureCharacter {
   @@map("adventure_characters")
 }
 
-/// Ligne d'inventaire. `itemId` référence le catalogue de code (modules/adventure/data/items.ts) :
-/// ajouter un objet ne demande pas de migration.
+/// Inventory row. `itemId` references the code catalog (modules/adventure/data/items.ts): adding
+/// an item needs no migration.
 model AdventureItem {
   id           Int                @id @default(autoincrement())
   userId       String
   character    AdventureCharacter @relation(fields: [userId], references: [userId], onDelete: Cascade)
   itemId       String
   quantity     Int                @default(1)
-  /// Vrai pour la pièce portée dans son emplacement (une seule par emplacement, garanti par le service).
+  /// True for the piece worn in its slot (one per slot, enforced by the service).
   equipped     Boolean            @default(false)
-  /// Palier de renforcement de l'exemplaire de ce joueur (0 à 10, voir data/adventureUpgrades.ts).
-  /// Il ne suit pas l'objet lors d'un échange : il récompense celui qui a dépensé les ressources.
+  /// Upgrade tier of this player's copy (0 to 10, see data/adventureUpgrades.ts). It does not
+  /// follow the item through a trade: it rewards whoever spent the resources.
   upgradeLevel Int                @default(0)
   updatedAt    DateTime           @updatedAt
 
@@ -411,9 +422,9 @@ enum AdventureQuestKind {
   WEEKLY
 }
 
-/// Quête d'un lot quotidien ou hebdomadaire. `periodStart` identifie le lot (jour UTC ou lundi
-/// UTC) : un nouveau lot est tiré à la première commande de la période, les anciens restent comme
-/// historique et sont purgés par le job de rétention.
+/// A quest from a daily or weekly batch. `periodStart` identifies the batch (UTC day or UTC
+/// Monday): a new batch is drawn on the first command of the period, older ones stay as history
+/// until the retention job purges them.
 model AdventureQuest {
   id          Int                @id @default(autoincrement())
   userId      String
@@ -430,7 +441,7 @@ model AdventureQuest {
   @@map("adventure_quests")
 }
 
-/// Haut fait débloqué (catalogue de code, voir data/achievements.ts).
+/// Unlocked achievement (code catalog, see data/achievements.ts).
 model AdventureAchievement {
   userId        String
   character     AdventureCharacter @relation(fields: [userId], references: [userId], onDelete: Cascade)
@@ -449,15 +460,15 @@ enum AdventureLogType {
   ADMIN
 }
 
-/// Journal du personnage : moments marquants (chapitres, donjons, niveaux) et interventions du
-/// panel admin, qui restent ainsi traçables pour le joueur comme pour le propriétaire du bot.
+/// Character log: milestones (chapters, dungeons, levels) and admin panel actions, which stay
+/// auditable for the player as well as for the bot owner.
 model AdventureLog {
   id        Int                @id @default(autoincrement())
   userId    String
   character AdventureCharacter @relation(fields: [userId], references: [userId], onDelete: Cascade)
   type      AdventureLogType
   message   String
-  /// Propriétaire à l'origine d'une intervention admin, null pour un évènement de jeu.
+  /// Owner behind an admin action, null for a game event.
   actorId   String?
   createdAt DateTime           @default(now())
 
@@ -473,10 +484,10 @@ enum AdventureTradeStatus {
   EXPIRED
 }
 
-/// Proposition d'échange entre deux aventuriers. Les lots sont stockés en JSON (validés par
-/// `adventureTradeItemsSchema`) : ajouter un objet au catalogue ne demande aucune migration. Rien
-/// n'est prélevé à la proposition - tout est vérifié et transféré au moment de l'acceptation, ce
-/// qui évite d'immobiliser des ressources dans une offre qui n'aboutira peut-être jamais.
+/// Trade offer between two adventurers. Both sides are stored as JSON (validated by
+/// `adventureTradeItemsSchema`), so adding an item to the catalog needs no migration. Nothing is
+/// taken when the offer is made: everything is checked and moved on acceptance, which avoids
+/// locking resources in an offer that may never go through.
 model AdventureTrade {
   id          Int                  @id @default(autoincrement())
   initiatorId String
@@ -485,13 +496,13 @@ model AdventureTrade {
   target      AdventureCharacter   @relation("AdventureTradeTarget", fields: [targetId], references: [userId], onDelete: Cascade)
   status      AdventureTradeStatus @default(PENDING)
 
-  /// Ce que l'initiateur donne, et ce qu'il demande en retour.
+  /// What the initiator gives, and what they ask in return.
   offeredItems   Json @default("[]")
   offeredGold    Int  @default(0)
   requestedItems Json @default("[]")
   requestedGold  Int  @default(0)
 
-  /// Salon où la proposition a été faite, pour que la réponse arrive au même endroit.
+  /// Channel the offer was made in, so the answer lands in the same place.
   channelId  String?
   expiresAt  DateTime
   resolvedAt DateTime?

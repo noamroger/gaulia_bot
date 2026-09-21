@@ -3,9 +3,7 @@ import type { Guild, Prisma } from "@prisma/client";
 import { prisma } from "../client";
 import { describePremium } from "./premium.repo";
 
-/**
- * Récupère la config d'un serveur, ou la crée avec les valeurs par défaut si elle n'existe pas encore.
- */
+/** Guild config, created with the default values when it does not exist yet. */
 export async function getOrCreateGuild(guildId: string): Promise<Guild> {
   return prisma.guild.upsert({
     where: { id: guildId },
@@ -48,9 +46,9 @@ export async function setGuildPremium(
 }
 
 /**
- * Synchronise le nom et/ou la présence du bot sur le serveur (guildCreate/guildDelete/guildUpdate/
- * sync au ready). L'API/dashboard ne liste que les serveurs où `botPresent` est vrai ; `name` sert
- * uniquement à l'affichage (ex: panel admin, pour les serveurs où l'admin connecté n'est pas membre).
+ * Syncs the guild name and the bot presence (guildCreate/guildDelete/guildUpdate/ready sync). The
+ * API and dashboard only list guilds where `botPresent` is true; `name` is display only, for guilds
+ * the signed-in admin is not a member of.
  */
 export async function upsertGuildInfo(
   guildId: string,
@@ -71,7 +69,7 @@ export async function listPresentGuildIds(): Promise<string[]> {
   return guilds.map((guild) => guild.id);
 }
 
-/** Parmi une liste de guildId (ex: ceux gérables par un utilisateur côté Discord), retourne ceux où le bot est présent. */
+/** Of the given guild ids (e.g. those a user can manage on Discord), the ones the bot is in. */
 export async function filterPresentGuildIds(guildIds: string[]): Promise<string[]> {
   if (guildIds.length === 0) return [];
   const guilds = await prisma.guild.findMany({
@@ -81,21 +79,21 @@ export async function filterPresentGuildIds(guildIds: string[]): Promise<string[
   return guilds.map((guild) => guild.id);
 }
 
-// ─── Liste du panel admin : filtres, tri et pagination ──────────────────────
-// Tout est calculé par Postgres plutôt que dans le navigateur : la liste peut grossir sans que la
-// page ait à télécharger la totalité des serveurs pour en filtrer une poignée.
+// Admin panel list: filters, sorting and pagination.
+// Everything is computed by Postgres rather than in the browser, so the list can grow without the
+// page downloading every guild just to filter a handful out.
 
-/** Filtre à trois états sur un réglage optionnel : sans contrainte, renseigné, vide. */
+/** Three-state filter on an optional setting: unconstrained, set, empty. */
 export type GuildFlagFilter = "all" | "yes" | "no";
 
 /**
- * Premium : `active` = l'une des deux sources en cours, `subscription` = abonnement Discord,
- * `credits` = premium offert contre des crédits, `expiring` = actif mais qui se termine bientôt.
+ * Premium: `active` = either source running, `subscription` = Discord subscription, `credits` =
+ * premium granted against credits, `expiring` = active but ending soon.
  */
 export type GuildPremiumFilter =
   "all" | "active" | "none" | "subscription" | "credits" | "expiring";
 
-/** Module aventure : réglé et ouvert, réglé et fermé, ou jamais réglé sur ce serveur. */
+/** Adventure module: set and open, set and closed, or never set for the guild. */
 export type GuildAdventureFilter = "all" | "enabled" | "disabled" | "none";
 
 export type GuildSortField =
@@ -114,13 +112,13 @@ export type GuildSortField =
 
 export type SortOrder = "asc" | "desc";
 
-/** Fenêtre au-delà de laquelle un premium n'est plus considéré comme « bientôt terminé ». */
+/** Window within which a premium counts as ending soon. */
 export const PREMIUM_EXPIRING_WINDOW_MS = 7 * 24 * 60 * 60 * 1_000;
 
 export const GUILD_PAGE_SIZE_MAX = 200;
 
 export interface AdminGuildFilters {
-  /** Recherche libre sur le nom ou l'identifiant. */
+  /** Free-text search on the name or the id. */
   query?: string | null;
   premium?: GuildPremiumFilter;
   language?: string | null;
@@ -149,7 +147,7 @@ export interface AdminGuildFilters {
   perPage?: number;
 }
 
-/** Une ligne de la liste : les champs bruts du serveur, plus ce qui n'existe qu'agrégé. */
+/** One list row: the raw guild fields, plus what only exists aggregated. */
 export interface AdminGuildRow {
   id: string;
   name: string | null;
@@ -170,7 +168,7 @@ export interface AdminGuildRow {
   automodConfigured: boolean;
   moderationConfigured: boolean;
   musicConfigured: boolean;
-  /** Null quand le module aventure n'a jamais été réglé sur ce serveur. */
+  /** Null when the adventure module was never set for the guild. */
   adventureEnabled: boolean | null;
   moderationCaseCount: number;
   warnCount: number;
@@ -181,14 +179,14 @@ export interface AdminGuildRow {
 
 export interface AdminGuildPage {
   items: AdminGuildRow[];
-  /** Serveurs retenus par les filtres, toutes pages confondues. */
+  /** Guilds matching the filters, across every page. */
   total: number;
-  /** Serveurs où le bot est présent, sans aucun filtre : le « sur N » affiché à côté du total. */
+  /** Guilds the bot is in, unfiltered: the "of N" shown next to the total. */
   totalPresent: number;
   page: number;
   perPage: number;
   pageCount: number;
-  /** Langues réellement utilisées, pour ne proposer dans le filtre que des choix qui donnent un résultat. */
+  /** Languages actually in use, so the filter only offers choices that yield a result. */
   languages: string[];
 }
 
@@ -249,14 +247,14 @@ function toAdminGuildRow(guild: AdminGuildRecord): AdminGuildRow {
   };
 }
 
-/** Condition « ce champ optionnel est renseigné / est vide », ou rien du tout. */
+/** Condition "this optional field is set / is empty", or none at all. */
 function nullableFilter(flag: GuildFlagFilter | undefined): { not: null } | null | undefined {
   if (flag === "yes") return { not: null };
   if (flag === "no") return null;
   return undefined;
 }
 
-/** Même logique pour une relation un-à-un optionnelle (réglages d'un module). */
+/** Same logic for an optional one-to-one relation (a module's settings). */
 function relationFilter(
   flag: GuildFlagFilter | undefined,
 ): { is: null } | { isNot: null } | undefined {
@@ -265,7 +263,7 @@ function relationFilter(
   return undefined;
 }
 
-/** Et pour une relation un-à-plusieurs : au moins une ligne, ou aucune. */
+/** And for a one-to-many relation: at least one row, or none. */
 function collectionFilter(
   flag: GuildFlagFilter | undefined,
 ): { some: object } | { none: object } | undefined {
@@ -274,7 +272,7 @@ function collectionFilter(
   return undefined;
 }
 
-/** Abonnement Discord en cours : actif et pas encore arrivé à échéance. */
+/** Running Discord subscription: active and not past its end date. */
 function subscriptionActiveWhere(now: Date): Prisma.GuildWhereInput {
   return {
     premium: true,
@@ -290,9 +288,9 @@ function premiumWhere(filter: GuildPremiumFilter, now: Date): Prisma.GuildWhereI
     case "active":
       return anyActive;
     case "none":
-      // La négation de la condition « premium actif » ne convient pas : en SQL, comparer une date
-      // absente ne donne ni vrai ni faux, et les serveurs sans aucune date se feraient écarter.
-      // On décrit donc l'absence de premium source par source, en nommant le cas « jamais rien ».
+      // Negating the "premium active" condition would not do: in SQL, comparing a missing date
+      // yields neither true nor false, so guilds without any date would be dropped. The absence is
+      // described source by source instead.
       return {
         AND: [
           { OR: [{ premium: false }, { premiumExpiresAt: { lte: now } }] },
@@ -413,8 +411,8 @@ function buildWhere(filters: AdminGuildFilters, now: Date): Prisma.GuildWhereInp
 }
 
 /**
- * Tri demandé, suivi de l'identifiant : sans ce départage, deux serveurs de même valeur peuvent
- * changer de place d'une page à l'autre et une ligne se retrouve affichée deux fois ou jamais.
+ * Requested sort, then the id: without that tiebreak, two guilds with equal values can swap places
+ * between pages, so a row ends up shown twice or never.
  */
 function buildOrderBy(
   sort: GuildSortField,
@@ -450,7 +448,7 @@ function buildOrderBy(
   }
 }
 
-/** Liste filtrée, triée et paginée des serveurs, pour le panel admin réservé aux propriétaires. */
+/** Filtered, sorted and paginated guild list, for the owner-only admin panel. */
 export async function listAdminGuilds(filters: AdminGuildFilters = {}): Promise<AdminGuildPage> {
   const now = new Date();
   const where = buildWhere(filters, now);
@@ -468,8 +466,8 @@ export async function listAdminGuilds(filters: AdminGuildFilters = {}): Promise<
     }),
   ]);
 
-  // Un filtre qui vide la dernière page (suppression, premium retiré) ramène sur la dernière
-  // page qui contient encore quelque chose, plutôt que sur un tableau vide sans explication.
+  // A filter that empties the last page (deletion, premium removed) falls back to the last page
+  // that still holds something, rather than an empty table with no explanation.
   const pageCount = Math.max(Math.ceil(total / perPage), 1);
   const page = Math.min(requestedPage, pageCount);
 
@@ -492,7 +490,7 @@ export async function listAdminGuilds(filters: AdminGuildFilters = {}): Promise<
   };
 }
 
-/** Une ligne seule, au même format que la liste : sert à rafraîchir le tableau après un changement. */
+/** A single row in the list format, to refresh the table after a change. */
 export async function getAdminGuild(guildId: string): Promise<AdminGuildRow | null> {
   const guild = await prisma.guild.findUnique({
     where: { id: guildId },

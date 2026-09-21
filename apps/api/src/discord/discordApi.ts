@@ -3,15 +3,14 @@ import { env } from "../config/env";
 const DISCORD_API_BASE = "https://discord.com/api/v10";
 const MANAGE_GUILD_FLAG = 0x20n;
 
-// Permissions demandées à l'invitation : Kick/Ban/Moderate Members, Manage Messages, Manage Roles,
-// Manage Guild (règles d'automod natif), View/Send/Embed/Attach/History (channels texte),
-// Connect/Speak (musique). Doit couvrir tout ce que les commandes du bot exigent (voir
-// core/permissions et les commandes de modération) sans aller jusqu'à Administrator.
+// Permissions asked for at invite time: Kick/Ban/Moderate Members, Manage Messages, Manage Roles,
+// Manage Guild (native automod rules), View/Send/Embed/Attach/History (text channels),
+// Connect/Speak (music). Must cover everything the bot commands need, without Administrator.
 const INVITE_PERMISSIONS = 1099783334966n;
 
 const CDN_BASE = "https://cdn.discordapp.com";
 
-/** Avatar d'un membre, ou l'avatar par défaut que Discord dérive de l'identifiant. */
+/** Member avatar, or the default one Discord derives from the id. */
 export function userAvatarUrl(userId: string, avatar: string | null, size = 128): string {
   if (avatar) {
     const extension = avatar.startsWith("a_") ? "gif" : "png";
@@ -20,7 +19,7 @@ export function userAvatarUrl(userId: string, avatar: string | null, size = 128)
   return `${CDN_BASE}/embed/avatars/${Number((BigInt(userId) >> 22n) % 6n)}.png`;
 }
 
-/** Lien d'invitation Discord pré-rempli pour un serveur précis (popup OAuth2 côté dashboard). */
+/** Discord invite link prefilled for one server (OAuth2 popup on the dashboard). */
 export function buildInviteUrl(guildId: string): string {
   const params = new URLSearchParams({
     client_id: env.DISCORD_CLIENT_ID,
@@ -46,7 +45,7 @@ export interface DiscordUser {
   username: string;
   discriminator: string;
   avatar: string | null;
-  /** Présent uniquement avec le scope `email`, et nul si le compte n'en a pas de vérifié. */
+  /** Only with the `email` scope, and null when the account has no verified address. */
   email?: string | null;
   verified?: boolean;
 }
@@ -64,8 +63,8 @@ export function buildAuthorizeUrl(state: string): string {
     client_id: env.DISCORD_CLIENT_ID,
     redirect_uri: env.DISCORD_REDIRECT_URI,
     response_type: "code",
-    // `email` sert au formulaire de contact : il évite de faire saisir une adresse à la main, donc
-    // de recevoir des demandes signées d'une adresse que personne n'a vérifiée.
+    // `email` serves the contact form: no address typed by hand, so no request signed with an
+    // address nobody verified.
     scope: "identify guilds email",
     state,
   });
@@ -89,7 +88,7 @@ export async function exchangeCodeForToken(code: string): Promise<DiscordTokenRe
   });
 
   if (!response.ok) {
-    throw new Error(`Échange du code OAuth2 échoué (${response.status})`);
+    throw new Error(`OAuth2 code exchange failed (${response.status})`);
   }
 
   return response.json() as Promise<DiscordTokenResponse>;
@@ -101,7 +100,7 @@ export async function fetchDiscordUser(accessToken: string): Promise<DiscordUser
   });
 
   if (!response.ok) {
-    throw new Error(`Récupération de l'utilisateur Discord échouée (${response.status})`);
+    throw new Error(`Discord user lookup failed (${response.status})`);
   }
 
   return response.json() as Promise<DiscordUser>;
@@ -113,13 +112,13 @@ export async function fetchUserGuilds(accessToken: string): Promise<DiscordUserG
   });
 
   if (!response.ok) {
-    throw new Error(`Récupération des serveurs Discord échouée (${response.status})`);
+    throw new Error(`Discord guild list lookup failed (${response.status})`);
   }
 
   return response.json() as Promise<DiscordUserGuild[]>;
 }
 
-/** Vrai si l'utilisateur est owner ou a la permission MANAGE_GUILD sur ce serveur. */
+/** True when the user owns that server or holds MANAGE_GUILD on it. */
 export function canManageGuild(guild: DiscordUserGuild): boolean {
   if (guild.owner) return true;
   const permissions = BigInt(guild.permissions);

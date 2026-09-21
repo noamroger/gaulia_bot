@@ -15,7 +15,7 @@ export const warnEscalationSchema = z
   .array(escalationStepSchema)
   .max(10)
   .refine((steps) => new Set(steps.map((step) => step.warnCount)).size === steps.length, {
-    message: "Chaque palier doit avoir un nombre d'avertissements différent.",
+    message: "Each step must use a different warn count.",
   })
   .transform((steps) => [...steps].sort((a, b) => a.warnCount - b.warnCount));
 

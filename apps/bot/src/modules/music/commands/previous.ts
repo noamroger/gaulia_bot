@@ -2,28 +2,28 @@ import { SlashCommandBuilder } from "discord.js";
 
 import { Emojis } from "../../../client/Constants";
 import { GauliaError } from "../../../core/errors";
+import { localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
-import { interventionOf, musicActionPayload, trackLink } from "../services/musicUi";
+import { musicActionPayload, trackLink } from "../services/musicUi";
 import { getPlayerOrThrow, requireSameVoiceChannel, resolveMember } from "../services/playerUtils";
+
+const KEY = "music.commands.previous";
 
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   guildOnly: true,
-  data: new SlashCommandBuilder().setName("previous").setDescription("Rejoue le morceau précédent"),
 
-  help: {
-    details: "Relance le dernier morceau joué. Tu dois être dans le même salon vocal que Gaulia.",
-    examples: ["previous"],
-  },
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY),
 
-  async execute(interaction, client) {
+  async execute(interaction, client, t) {
     const member = await resolveMember(interaction);
     const player = getPlayerOrThrow(client, interaction.guildId!);
     requireSameVoiceChannel(member, player);
 
     const previous = player.queue.previous.at(0);
     if (!previous) {
-      throw new GauliaError("Aucun morceau précédent.");
+      throw new GauliaError("music.error.noPreviousTrack");
     }
 
     await player.play({ track: previous });
@@ -31,8 +31,11 @@ const command: ChatInputCommand = {
       musicActionPayload(
         interaction.user,
         Emojis.Back,
-        "Retour en arrière",
-        `${trackLink(previous)} est rejouée ${interventionOf(interaction.user)}.`,
+        t("music.actions.previous.title"),
+        t("music.actions.previous.playing", {
+          track: trackLink(previous),
+          user: interaction.user.id,
+        }),
       ),
     );
   },

@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEve
 
 export interface SeriesPoint {
   key: string;
-  /** null : pas de donnée, la courbe est interrompue. */
+  /** null means no data: the line breaks there. */
   value: number | null;
 }
 
@@ -12,7 +12,7 @@ interface TimeSeriesChartProps {
   points: SeriesPoint[];
   ariaLabel: string;
   height?: number;
-  /** Vrai : l'axe part de 0 (volumes) ; faux : il encadre les valeurs observées (niveaux lents). */
+  /** True: the axis starts at 0 (volumes). False: it frames the observed values (slow levels). */
   zeroBaseline?: boolean;
   formatTick: (value: number) => string;
   formatAxisLabel: (key: string) => string;
@@ -27,7 +27,7 @@ const TARGET_TICKS = 5;
 const TOOLTIP_EDGE_PX = 90;
 const MIN_LABEL_SPACING_PX = 72;
 
-/** Pas d'axe "rond" (1, 2, 5 × 10^n) pour que les graduations restent des entiers lisibles. */
+/** Round axis step (1, 2, 5 x 10^n) so the ticks stay readable integers. */
 function niceStep(raw: number): number {
   if (raw <= 1) return 1;
   const magnitude = 10 ** Math.floor(Math.log10(raw));
@@ -67,9 +67,8 @@ export function TimeSeriesChart({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-  // Les dégradés SVG sont référencés par id : il doit rester unique quand plusieurs graphiques
-  // cohabitent sur la page. useId encadre sa valeur de caractères spéciaux, retirés ici pour que
-  // la référence url(#…) reste un identifiant simple.
+  // SVG gradients are referenced by id, which must stay unique when several charts share the
+  // page. useId wraps its value in special characters, stripped here so url(#...) stays simple.
   const gradientId = useId().replace(/[^a-zA-Z0-9-]/g, "");
   const lineGradient = `${gradientId}-line`;
   const areaGradient = `${gradientId}-area`;

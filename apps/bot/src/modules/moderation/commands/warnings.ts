@@ -1,42 +1,43 @@
+import { listActiveWarns } from "@gaulia/database";
 import { SlashCommandBuilder } from "discord.js";
 
 import { Colors, Emojis } from "../../../client/Constants";
 import { PermissionLevel } from "../../../core/permissions/permissionLevel";
 import { buildContainer, toV2Payload } from "../../../core/ui/containers";
+import { localizeOption, localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
-import { listActiveWarns } from "@gaulia/database";
+
+const KEY = "moderation.commands.warnings";
 
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   guildOnly: true,
   permissionLevel: PermissionLevel.Moderator,
-  data: new SlashCommandBuilder()
-    .setName("warnings")
-    .setDescription("Liste les avertissements actifs d'un membre")
-    .addUserOption((option) =>
-      option.setName("utilisateur").setDescription("Membre concerné").setRequired(true),
-    ),
 
-  help: {
-    details:
-      "Liste les avertissements actifs d'un membre avec leur numéro, leur raison et leur date. La réponse n'est visible que par toi.",
-    examples: ["warnings utilisateur:@Pseudo"],
-  },
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY).addUserOption((option) =>
+    localizeOption(option, `${KEY}.options.user`).setRequired(true),
+  ),
 
-  async execute(interaction) {
-    const targetUser = interaction.options.getUser("utilisateur", true);
+  async execute(interaction, _client, t) {
+    const targetUser = interaction.options.getUser("user", true);
     const warns = await listActiveWarns(interaction.guildId!, targetUser.id);
 
-    const lines = [`### ${Emojis.Warning} Avertissements de ${targetUser.tag}`];
+    const lines = [
+      `### ${Emojis.Warning} ${t("moderation.warnings.title", { target: targetUser.tag })}`,
+    ];
 
     if (warns.length === 0) {
-      lines.push("Aucun avertissement actif.");
+      lines.push(t("moderation.warnings.empty"));
     } else {
       lines.push(
         warns
-          .map(
-            (warn) =>
-              `**#${warn.id}** - ${warn.reason ?? "Sans raison"} (<t:${Math.floor(warn.createdAt.getTime() / 1000)}:R>)`,
+          .map((warn) =>
+            t("moderation.warnings.entry", {
+              id: warn.id,
+              reason: warn.reason ?? t("moderation.warnings.noReason"),
+              date: `<t:${Math.floor(warn.createdAt.getTime() / 1000)}:R>`,
+            }),
           )
           .join("\n"),
       );

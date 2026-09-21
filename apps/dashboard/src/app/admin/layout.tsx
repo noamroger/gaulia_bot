@@ -5,20 +5,22 @@ import { useEffect, type ReactNode } from "react";
 
 import { TabNav } from "@/components/TabNav";
 import { TopNav } from "@/components/TopNav";
+import { useTranslation } from "@/i18n";
 import { useSession } from "@/lib/useSession";
 
 const TABS = [
-  { href: "/admin", label: "Statistiques" },
-  { href: "/admin/servers", label: "Serveurs" },
-  { href: "/admin/credits", label: "Crédits" },
-  { href: "/admin/aventure", label: "Aventure" },
-  { href: "/admin/data", label: "Données" },
+  { href: "/admin", key: "stats" },
+  { href: "/admin/servers", key: "servers" },
+  { href: "/admin/credits", key: "credits" },
+  { href: "/admin/adventure", key: "adventure" },
+  { href: "/admin/data", key: "data" },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const { session, loading } = useSession();
   const router = useRouter();
   const pathname = usePathname();
+  const t = useTranslation();
 
   useEffect(() => {
     if (!loading && session && !session.isOwner) {
@@ -32,15 +34,19 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       <div className="container container-wide">
         {session?.isOwner ? (
           <>
-            <h1>Panel admin</h1>
+            <h1>{t("admin.layout.title")}</h1>
             <TabNav
-              items={TABS.map((tab) => ({ ...tab, active: pathname === tab.href }))}
-              label="Sections du panel admin"
+              items={TABS.map((tab) => ({
+                href: tab.href,
+                label: t(`admin.layout.tabs.${tab.key}`),
+                active: pathname === tab.href,
+              }))}
+              label={t("admin.layout.tabsLabel")}
             />
             {children}
           </>
         ) : (
-          <p className="text-muted">Chargement…</p>
+          <p className="text-muted">{t("common.state.loading")}</p>
         )}
       </div>
     </div>

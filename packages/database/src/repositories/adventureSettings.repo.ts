@@ -4,8 +4,8 @@ import { prisma } from "../client";
 import { getOrCreateGuild } from "./guild.repo";
 
 /**
- * Par défaut le module est actif mais sa liste blanche est vide : concrètement, l'aventure n'est
- * jouable dans aucun salon du serveur tant qu'un salon n'a pas été autorisé depuis le dashboard.
+ * The module is enabled by default but its allowlist is empty, so the adventure is playable in no
+ * guild channel until one is allowed from the dashboard.
  */
 const DEFAULTS: Omit<AdventureSettings, "guildId" | "updatedAt"> = {
   enabled: true,

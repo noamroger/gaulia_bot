@@ -3,19 +3,14 @@ import path from "node:path";
 import dotenv from "dotenv";
 import { z } from "zod";
 
-// `__dirname` est ici `packages/database/src` (tsx, dev) ou `packages/database/dist` (compilé) -
-// dans les deux cas 3 niveaux sous la racine du monorepo, où vit le `.env` partagé par tous les
-// workspaces. En Docker les variables sont déjà injectées par docker-compose, donc l'absence de
-// fichier ici (chemin inexistant) est un no-op silencieux pour dotenv.
+// Under tsx (src) as well as compiled (dist), `__dirname` sits 3 levels below the monorepo root,
+// where the `.env` shared by every workspace lives. In Docker the variables are already injected
+// by docker-compose, so a missing file here is a silent no-op for dotenv.
 dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 
-/**
- * Variables d'env propres au package base de données (partagé par le bot et l'API, qui ont
- * chacun leurs propres variables par ailleurs - voir apps/bot/src/config/env.ts et
- * apps/api/src/config/env.ts).
- */
+/** Env variables owned by the database package; the bot and the API have their own on top. */
 const envSchema = z.object({
-  DATABASE_URL: z.string().min(1, "DATABASE_URL est requis"),
+  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 });
 

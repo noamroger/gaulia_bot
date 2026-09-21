@@ -1,3 +1,6 @@
+"use client";
+
+import { useTranslation, type Translator } from "@/i18n";
 import type { EscalationAction, EscalationStep } from "@/lib/types";
 
 import { DurationInput } from "./DurationInput";
@@ -5,17 +8,11 @@ import { NumberInput } from "./NumberInput";
 
 const MAX_STEPS = 10;
 
-const ACTION_LABELS: Record<EscalationAction, string> = {
-  timeout: "Sourdine",
-  kick: "Expulsion",
-  ban: "Bannissement",
-};
+const ACTIONS: readonly EscalationAction[] = ["timeout", "kick", "ban"];
 
-export function escalationError(steps: EscalationStep[]): string | null {
+export function escalationError(steps: EscalationStep[], t: Translator): string | null {
   const counts = steps.map((step) => step.warnCount);
-  return new Set(counts).size === counts.length
-    ? null
-    : "Deux paliers ont le même nombre d'avertissements.";
+  return new Set(counts).size === counts.length ? null : t("settings.escalation.duplicate");
 }
 
 export function EscalationEditor({
@@ -25,6 +22,8 @@ export function EscalationEditor({
   steps: EscalationStep[];
   onChange: (steps: EscalationStep[]) => void;
 }) {
+  const t = useTranslation();
+
   function updateStep(index: number, patch: Partial<EscalationStep>): void {
     onChange(steps.map((step, position) => (position === index ? { ...step, ...patch } : step)));
   }
@@ -37,39 +36,37 @@ export function EscalationEditor({
   return (
     <div>
       {steps.length === 0 ? (
-        <p className="setting-hint">
-          Aucun palier : les avertissements n&apos;entraînent pas de sanction automatique.
-        </p>
+        <p className="setting-hint">{t("settings.escalation.empty")}</p>
       ) : (
         steps.map((step, index) => (
           <div key={index} className="escalation-row">
-            <span>À</span>
+            <span>{t("settings.escalation.at")}</span>
             <NumberInput
               value={step.warnCount}
               min={1}
               max={50}
-              ariaLabel="Nombre d'avertissements"
+              ariaLabel={t("settings.escalation.warnCountAria")}
               onChange={(warnCount) => updateStep(index, { warnCount })}
             />
-            <span>avertissements :</span>
+            <span>{t("settings.escalation.warnings")}</span>
             <select
               className="select"
-              aria-label="Sanction du palier"
+              aria-label={t("settings.escalation.stepActionAria")}
               value={step.action}
               onChange={(event) =>
                 updateStep(index, { action: event.target.value as EscalationAction })
               }
             >
-              {(Object.keys(ACTION_LABELS) as EscalationAction[]).map((action) => (
+              {ACTIONS.map((action) => (
                 <option key={action} value={action}>
-                  {ACTION_LABELS[action]}
+                  {t(`settings.escalation.action.${action}`)}
                 </option>
               ))}
             </select>
             {step.action === "timeout" && (
               <DurationInput
                 minutes={step.timeoutMinutes}
-                ariaLabel="Durée de la sourdine"
+                ariaLabel={t("settings.sanction.timeout")}
                 onChange={(timeoutMinutes) => updateStep(index, { timeoutMinutes })}
               />
             )}
@@ -78,14 +75,14 @@ export function EscalationEditor({
               className="button-secondary"
               onClick={() => onChange(steps.filter((_, position) => position !== index))}
             >
-              Retirer
+              {t("settings.escalation.remove")}
             </button>
           </div>
         ))
       )}
       {steps.length < MAX_STEPS && (
         <button type="button" className="button-secondary add-step" onClick={addStep}>
-          Ajouter un palier
+          {t("settings.escalation.add")}
         </button>
       )}
     </div>

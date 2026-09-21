@@ -1,7 +1,8 @@
 import type { AutocompleteInteraction, ChatInputCommandInteraction } from "discord.js";
 
 import { successPayload } from "../../../core/ui/containers";
-import { findItem, itemLabel, shopItems } from "../data/items";
+import type { Translator } from "../../../i18n";
+import { findItem, itemLabel, itemName, shopItems } from "../data/items";
 import { RECIPES } from "../data/recipes";
 import { craft } from "../services/economy/craftService";
 import { buyItem, sellItem } from "../services/economy/shopService";
@@ -11,103 +12,138 @@ import { playerContext } from "./context";
 
 const MAX_CHOICES = 25;
 
-export async function handleShop(interaction: ChatInputCommandInteraction): Promise<void> {
+export async function handleShop(
+  interaction: ChatInputCommandInteraction,
+  t: Translator,
+): Promise<void> {
   await interaction.deferReply();
-  await interaction.editReply(await renderAdventureView(interaction.user, "boutique"));
+  await interaction.editReply(await renderAdventureView(interaction.user, "shop", t));
 }
 
-export async function handleBuy(interaction: ChatInputCommandInteraction): Promise<void> {
-  const itemId = interaction.options.getString("objet", true);
-  const quantity = interaction.options.getInteger("quantite") ?? 1;
+export async function handleBuy(
+  interaction: ChatInputCommandInteraction,
+  t: Translator,
+): Promise<void> {
+  const itemId = interaction.options.getString("item", true);
+  const quantity = interaction.options.getInteger("quantity") ?? 1;
 
   await interaction.deferReply();
   const { character, items } = await playerContext(interaction);
-  const result = await buyItem(character, items, itemId, quantity);
+  const result = await buyItem(character, items, itemId, quantity, t);
 
   await interaction.editReply(
     successPayload(
       false,
-      "Achat conclu",
+      t("adventure.replies.boughtTitle"),
       [
-        `${quantity} × ${itemLabel(itemId)} pour ${gold(result.total)}.`,
-        `Il te reste ${gold(result.character.gold)}.`,
+        t("adventure.replies.boughtLine", {
+          quantity,
+          item: itemLabel(t, itemId),
+          total: gold(t, result.total),
+        }),
+        t("adventure.replies.purseLeft", { gold: gold(t, result.character.gold) }),
         ...result.notices,
       ].join("\n"),
     ),
   );
 }
 
-export async function handleSell(interaction: ChatInputCommandInteraction): Promise<void> {
-  const itemId = interaction.options.getString("objet", true);
-  const quantity = interaction.options.getInteger("quantite") ?? 1;
+export async function handleSell(
+  interaction: ChatInputCommandInteraction,
+  t: Translator,
+): Promise<void> {
+  const itemId = interaction.options.getString("item", true);
+  const quantity = interaction.options.getInteger("quantity") ?? 1;
 
   await interaction.deferReply();
   const { character, items } = await playerContext(interaction);
-  const result = await sellItem(character, items, itemId, quantity);
+  const result = await sellItem(character, items, itemId, quantity, t);
 
   await interaction.editReply(
     successPayload(
       false,
-      "Vente conclue",
+      t("adventure.replies.soldTitle"),
       [
-        `${quantity} × ${itemLabel(itemId)} vendu(s) pour ${gold(result.total)}.`,
-        `Ta bourse : ${gold(result.character.gold)}.`,
+        t("adventure.replies.soldLine", {
+          quantity,
+          item: itemLabel(t, itemId),
+          total: gold(t, result.total),
+        }),
+        t("adventure.replies.purse", { gold: gold(t, result.character.gold) }),
         ...result.notices,
       ].join("\n"),
     ),
   );
 }
 
-export async function handleForge(interaction: ChatInputCommandInteraction): Promise<void> {
+export async function handleForge(
+  interaction: ChatInputCommandInteraction,
+  t: Translator,
+): Promise<void> {
   await interaction.deferReply();
-  await interaction.editReply(await renderAdventureView(interaction.user, "forge"));
+  await interaction.editReply(await renderAdventureView(interaction.user, "forge", t));
 }
 
-export async function handleCraft(interaction: ChatInputCommandInteraction): Promise<void> {
-  const recipeId = interaction.options.getString("recette", true);
+export async function handleCraft(
+  interaction: ChatInputCommandInteraction,
+  t: Translator,
+): Promise<void> {
+  const recipeId = interaction.options.getString("recipe", true);
 
   await interaction.deferReply();
   const { character, items } = await playerContext(interaction);
-  const result = await craft(character, items, recipeId);
+  const result = await craft(character, items, recipeId, t);
 
   await interaction.editReply(
     successPayload(
       false,
-      "Forge terminée",
+      t("adventure.replies.craftedTitle"),
       [
-        `${result.recipe.quantity} × ${itemLabel(result.recipe.itemId)} sort de l'enclume.`,
-        `Ta bourse : ${gold(result.character.gold)}.`,
+        t("adventure.replies.craftedLine", {
+          quantity: result.recipe.quantity,
+          item: itemLabel(t, result.recipe.itemId),
+        }),
+        t("adventure.replies.purse", { gold: gold(t, result.character.gold) }),
         ...result.notices,
       ].join("\n"),
     ),
   );
 }
 
-export async function autocompleteShop(interaction: AutocompleteInteraction): Promise<void> {
+export async function autocompleteShop(
+  interaction: AutocompleteInteraction,
+  t: Translator,
+): Promise<void> {
   const query = interaction.options.getFocused().toLowerCase();
 
   await interaction.respond(
     shopItems()
-      .filter((item) => item.name.toLowerCase().includes(query))
+      .filter((item) => itemName(t, item.id).toLowerCase().includes(query))
       .slice(0, MAX_CHOICES)
       .map((item) => ({
-        name: `${item.name} - ${formatNumber(item.price ?? 0)} pièces`.slice(0, 100),
+        name: t("adventure.replies.autocompleteShop", {
+          item: itemName(t, item.id),
+          price: formatNumber(t, item.price ?? 0),
+        }).slice(0, 100),
         value: item.id,
       })),
   );
 }
 
-export async function autocompleteRecipes(interaction: AutocompleteInteraction): Promise<void> {
+export async function autocompleteRecipes(
+  interaction: AutocompleteInteraction,
+  t: Translator,
+): Promise<void> {
   const query = interaction.options.getFocused().toLowerCase();
 
   await interaction.respond(
-    RECIPES.filter((recipe) => (findItem(recipe.itemId)?.name ?? "").toLowerCase().includes(query))
+    RECIPES.filter((recipe) => itemName(t, recipe.itemId).toLowerCase().includes(query))
       .slice(0, MAX_CHOICES)
       .map((recipe) => ({
-        name: `${findItem(recipe.itemId)?.name ?? recipe.itemId} - niveau ${recipe.levelRequirement}`.slice(
-          0,
-          100,
-        ),
+        name: t("adventure.replies.autocompleteRecipe", {
+          item: findItem(recipe.itemId) ? itemName(t, recipe.itemId) : recipe.itemId,
+          level: recipe.levelRequirement,
+        }).slice(0, 100),
         value: recipe.id,
       })),
   );

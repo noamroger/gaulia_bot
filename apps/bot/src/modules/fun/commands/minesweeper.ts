@@ -2,14 +2,17 @@ import { randomInt } from "node:crypto";
 
 import { SlashCommandBuilder } from "discord.js";
 
+import { localizeChoices, localizeOption, localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
 import {
-  DIFFICULTY_CHOICES,
+  DIFFICULTIES,
   difficultyLabel,
   funPayload,
   parseDifficulty,
   type Difficulty,
 } from "../services/funUi";
+
+const KEY = "fun.commands.minesweeper";
 
 const LEVELS: Record<Difficulty, { size: number; mines: number }> = {
   easy: { size: 6, mines: 5 },
@@ -19,7 +22,7 @@ const LEVELS: Record<Difficulty, { size: number; mines: number }> = {
 const NUMBER_EMOJIS = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣"];
 const MINE_EMOJI = "💣";
 
-/** Grille en spoilers ; une case sans mine (sans voisine piégée si possible) est laissée visible. */
+/** Grid of spoilers; one mine free cell (with no trapped neighbour when possible) is left visible. */
 export function buildMinesweeperGrid(size: number, mines: number): string {
   const cellCount = size * size;
   const mineCells = new Set<number>();
@@ -58,32 +61,28 @@ export function buildMinesweeperGrid(size: number, mines: number): string {
 
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   cooldownSeconds: 3,
-  data: new SlashCommandBuilder()
-    .setName("demineur")
-    .setDescription("Génère une grille de démineur à découvrir")
-    .addStringOption((option) =>
-      option
-        .setName("difficulte")
-        .setDescription("Taille de la grille et nombre de mines (normale par défaut)")
-        .addChoices(...DIFFICULTY_CHOICES),
+
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY).addStringOption((option) =>
+    localizeOption(option, `${KEY}.options.difficulty`).addChoices(
+      ...localizeChoices(`${KEY}.options.difficulty`, DIFFICULTIES),
     ),
+  ),
 
-  help: {
-    details:
-      "Affiche une grille dont les cases sont cachées : clique dessus pour les découvrir sans tomber sur une mine. Chaque chiffre indique le nombre de mines dans les cases voisines, et une case sans danger est déjà révélée pour commencer. Facile : 6×6 et 5 mines, normale : 8×8 et 10 mines, difficile : 9×9 et 16 mines.",
-    examples: ["demineur", "demineur difficulte:Difficile"],
-  },
-
-  async execute(interaction) {
-    const difficulty = parseDifficulty(interaction.options.getString("difficulte"));
+  async execute(interaction, _client, t) {
+    const difficulty = parseDifficulty(interaction.options.getString("difficulty"));
     const { size, mines } = LEVELS[difficulty];
 
     await interaction.reply(
       funPayload([
-        "### Démineur",
-        `Grille ${size}×${size} · ${mines} mines · difficulté ${difficultyLabel(difficulty)}`,
-        "-# Clique sur les cases pour les découvrir ; une case sans danger est déjà révélée.",
+        `### ${t("fun.minesweeper.title")}`,
+        t("fun.minesweeper.summary", {
+          size,
+          mines,
+          difficulty: difficultyLabel(difficulty, t),
+        }),
+        `-# ${t("fun.minesweeper.hint")}`,
         "",
         buildMinesweeperGrid(size, mines),
       ]),

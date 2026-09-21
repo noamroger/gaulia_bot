@@ -1,6 +1,7 @@
 import { ButtonStyle } from "discord.js";
 
 import { GauliaError } from "../../../core/errors";
+import type { Translator } from "../../../i18n";
 import {
   difficultyLabel,
   funButton,
@@ -14,7 +15,7 @@ import { GAME_IDLE_MS, GameStore } from "./gameStore";
 
 const ROWS = 6;
 const COLS = 7;
-/** Colonnes centrales d'abord : meilleures en moyenne, donc plus d'élagage alpha-bêta. */
+/** Middle columns first: better on average, so alpha-beta prunes more. */
 const COLUMN_ORDER = [3, 2, 4, 1, 5, 0, 6];
 const DIRECTIONS = [
   [0, 1],
@@ -34,7 +35,7 @@ type Outcome = { kind: "win" | "forfeit"; player: Player } | { kind: "draw" } | 
 
 export interface Connect4Game {
   board: Disc[];
-  /** Rouge puis jaune ; `null` désigne Gaulia. */
+  /** Red then yellow; `null` stands for Gaulia. */
   players: [string | null, string | null];
   turn: Player;
   difficulty: Difficulty;
@@ -162,7 +163,7 @@ function chooseAiColumn(board: Disc[], disc: Player, difficulty: Difficulty): nu
 
 function applyMove(game: Connect4Game, column: number): void {
   const row = dropRow(game.board, column);
-  if (row < 0) throw new GauliaError("Cette colonne est pleine.");
+  if (row < 0) throw new GauliaError("fun.connect4.columnFull");
 
   const index = row * COLS + column;
   game.board[index] = game.turn;
@@ -176,21 +177,34 @@ function applyMove(game: Connect4Game, column: number): void {
   }
 }
 
-function statusLine(game: Connect4Game, expired: boolean): string {
+function statusLine(game: Connect4Game, expired: boolean, t: Translator): string {
   const { outcome } = game;
   if (outcome?.kind === "win") {
-    return `${mention(playerAt(game, outcome.player))} ${DISCS[outcome.player]} remporte la partie !`;
+    return t("fun.match.win", {
+      player: mention(playerAt(game, outcome.player), t),
+      mark: DISCS[outcome.player],
+    });
   }
   if (outcome?.kind === "forfeit") {
-    return `${mention(playerAt(game, outcome.player))} abandonne, ${mention(playerAt(game, opponentOf(outcome.player)))} remporte la partie.`;
+    return t("fun.match.forfeited", {
+      loser: mention(playerAt(game, outcome.player), t),
+      winner: mention(playerAt(game, opponentOf(outcome.player)), t),
+    });
   }
-  if (outcome?.kind === "draw") return "Match nul, la grille est pleine.";
-  if (expired) return "Partie expirée après 10 minutes d'inactivité.";
-  return `Au tour de ${mention(playerAt(game, game.turn))} ${DISCS[game.turn]}`;
+  if (outcome?.kind === "draw") return t("fun.connect4.draw");
+  if (expired) return t("fun.game.expired");
+  return t("fun.match.turn", {
+    player: mention(playerAt(game, game.turn), t),
+    mark: DISCS[game.turn],
+  });
 }
 
-/** `gameId` null : partie expirée, affichée sans contrôles. */
-export function renderConnect4(game: Connect4Game, gameId: string | null): FunPayload {
+/** A null `gameId` means the game expired and is shown without controls. */
+export function renderConnect4(
+  game: Connect4Game,
+  gameId: string | null,
+  t: Translator,
+): FunPayload {
   const vsAi = game.players.includes(null);
   const grid = Array.from({ length: ROWS }, (_, row) =>
     game.board
@@ -199,14 +213,24 @@ export function renderConnect4(game: Connect4Game, gameId: string | null): FunPa
       .join(""),
   ).join("\n");
 
+  const players = t("fun.match.players", {
+    firstMark: DISCS[1],
+    first: mention(game.players[0], t),
+    secondMark: DISCS[2],
+    second: mention(game.players[1], t),
+  });
+  const difficulty = vsAi
+    ? ` · ${t("fun.game.difficultyNote", { difficulty: difficultyLabel(game.difficulty, t) })}`
+    : "";
+
   const lines = [
-    "### Puissance 4",
-    `${DISCS[1]} ${mention(game.players[0])} contre ${DISCS[2]} ${mention(game.players[1])}${vsAi ? ` · difficulté ${difficultyLabel(game.difficulty)}` : ""}`,
+    `### ${t("fun.connect4.title")}`,
+    `${players}${difficulty}`,
     "",
     COLUMN_HEADER,
     grid,
     "",
-    statusLine(game, gameId === null),
+    statusLine(game, gameId === null, t),
   ];
 
   if (!gameId || game.outcome) return funPayload(lines);
@@ -223,19 +247,20 @@ export function renderConnect4(game: Connect4Game, gameId: string | null): FunPa
     funRow(...[0, 1, 2, 3].map(columnButton)),
     funRow(
       ...[4, 5, 6].map(columnButton),
-      funButton(`fun:c4-quit:${gameId}`, "Abandonner", ButtonStyle.Danger),
+      funButton(`fun:c4-quit:${gameId}`, t("fun.game.forfeitButton"), ButtonStyle.Danger),
     ),
   ]);
 }
 
 export const connect4Games = new GameStore<Connect4Game>({
   idleMs: GAME_IDLE_MS,
-  renderExpired: (game) => renderConnect4(game, null),
+  renderExpired: (game, t) => renderConnect4(game, null, t),
 });
 
 export function startConnect4(
   players: [string | null, string | null],
   difficulty: Difficulty,
+  t: Translator,
 ): { gameId: string; payload: FunPayload } {
   const game: Connect4Game = {
     board: Array<Disc>(ROWS * COLS).fill(0),
@@ -244,18 +269,21 @@ export function startConnect4(
     difficulty,
     outcome: null,
   };
-  const gameId = connect4Games.create(game);
-  return { gameId, payload: renderConnect4(game, gameId) };
+  const gameId = connect4Games.create(game, t);
+  return { gameId, payload: renderConnect4(game, gameId, t) };
 }
 
-export function playConnect4(gameId: string, userId: string, column: number): FunPayload {
+export function playConnect4(
+  gameId: string,
+  userId: string,
+  column: number,
+  t: Translator,
+): FunPayload {
   const game = connect4Games.require(gameId);
-  if (!game.players.includes(userId)) {
-    throw new GauliaError("Tu ne participes pas à cette partie.");
-  }
-  if (playerAt(game, game.turn) !== userId) throw new GauliaError("Ce n'est pas ton tour.");
+  if (!game.players.includes(userId)) throw new GauliaError("fun.match.notPlaying");
+  if (playerAt(game, game.turn) !== userId) throw new GauliaError("fun.match.notYourTurn");
   if (!Number.isInteger(column) || column < 0 || column >= COLS) {
-    throw new GauliaError("Colonne invalide.");
+    throw new GauliaError("fun.connect4.invalidColumn");
   }
 
   applyMove(game, column);
@@ -264,15 +292,15 @@ export function playConnect4(gameId: string, userId: string, column: number): Fu
   }
   if (game.outcome) connect4Games.finish(gameId);
 
-  return renderConnect4(game, gameId);
+  return renderConnect4(game, gameId, t);
 }
 
-export function forfeitConnect4(gameId: string, userId: string): FunPayload {
+export function forfeitConnect4(gameId: string, userId: string, t: Translator): FunPayload {
   const game = connect4Games.require(gameId);
   const index = game.players.indexOf(userId);
-  if (index === -1) throw new GauliaError("Tu ne participes pas à cette partie.");
+  if (index === -1) throw new GauliaError("fun.match.notPlaying");
 
   game.outcome = { kind: "forfeit", player: index === 0 ? 1 : 2 };
   connect4Games.finish(gameId);
-  return renderConnect4(game, gameId);
+  return renderConnect4(game, gameId, t);
 }

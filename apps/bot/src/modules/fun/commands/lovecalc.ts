@@ -1,23 +1,25 @@
 import { SlashCommandBuilder } from "discord.js";
 
+import { localizeOption, localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
 import { funPayload } from "../services/funUi";
 
+const KEY = "fun.commands.lovecalc";
 const HEART_COUNT = 10;
 const SCORE_MODULUS = BigInt(101);
 
-const VERDICTS: { min: number; text: string }[] = [
-  { min: 100, text: "L'âme sœur, tout simplement." },
-  { min: 80, text: "Une connexion rare, foncez !" },
-  { min: 60, text: "Belle complicité, ça promet." },
-  { min: 40, text: "Il y a quelque chose, à creuser." },
-  { min: 20, text: "Ce n'est pas gagné, mais rien n'est impossible." },
-  { min: 0, text: "Aucune alchimie : restez amis… de loin." },
-];
+const VERDICTS = [
+  { min: 100, key: "soulmates" },
+  { min: 80, key: "strong" },
+  { min: 60, key: "good" },
+  { min: 40, key: "spark" },
+  { min: 20, key: "faint" },
+  { min: 0, key: "none" },
+] as const;
 
 /**
- * Même résultat pour un même duo, dans les deux sens (XOR commutatif) : rien à enregistrer.
- * Le modulo 101 donne un score de 0 à 100 %.
+ * Same result for a given pair, either way round (XOR is commutative), so nothing is stored.
+ * The modulo 101 gives a score from 0 to 100%.
  */
 export function loveScore(firstId: string, secondId: string): number {
   if (firstId === secondId) return 100;
@@ -26,39 +28,29 @@ export function loveScore(firstId: string, secondId: string): number {
 
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   cooldownSeconds: 2,
-  data: new SlashCommandBuilder()
-    .setName("lovecalc")
-    .setDescription("Calcule la compatibilité amoureuse entre deux membres")
-    .addUserOption((option) =>
-      option.setName("membre").setDescription("Premier membre").setRequired(true),
-    )
-    .addUserOption((option) =>
-      option.setName("membre2").setDescription("Second membre (toi par défaut)"),
-    ),
 
-  help: {
-    details:
-      "Calcule un score de compatibilité de 0 à 100 % à partir des identifiants Discord des deux membres. Le résultat est toujours le même pour un même duo, quel que soit l'ordre, et rien n'est enregistré. Sans second membre, le calcul se fait avec toi.",
-    examples: ["lovecalc membre:@Pseudo", "lovecalc membre:@Pseudo membre2:@Autre"],
-  },
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY)
+    .addUserOption((option) => localizeOption(option, `${KEY}.options.member`).setRequired(true))
+    .addUserOption((option) => localizeOption(option, `${KEY}.options.member2`)),
 
-  async execute(interaction) {
-    const first = interaction.options.getUser("membre", true);
-    const second = interaction.options.getUser("membre2") ?? interaction.user;
+  async execute(interaction, _client, t) {
+    const first = interaction.options.getUser("member", true);
+    const second = interaction.options.getUser("member2") ?? interaction.user;
     const score = loveScore(first.id, second.id);
     const filled = Math.round(score / HEART_COUNT);
     const verdict =
       first.id === second.id
-        ? "S'aimer soi-même, c'est la base."
-        : VERDICTS.find((entry) => score >= entry.min)!.text;
+        ? t("fun.lovecalc.self")
+        : t(`fun.lovecalc.verdict.${VERDICTS.find((entry) => score >= entry.min)!.key}`);
 
     await interaction.reply(
       funPayload([
-        "### Love calculator",
-        `<@${first.id}> et <@${second.id}>`,
+        `### ${t("fun.lovecalc.title")}`,
+        t("fun.lovecalc.pair", { first: `<@${first.id}>`, second: `<@${second.id}>` }),
         "",
-        `${"❤️".repeat(filled)}${"🖤".repeat(HEART_COUNT - filled)}  **${score} %**`,
+        `${"❤️".repeat(filled)}${"🖤".repeat(HEART_COUNT - filled)}  ${t("fun.lovecalc.score", { score })}`,
         verdict,
       ]),
     );

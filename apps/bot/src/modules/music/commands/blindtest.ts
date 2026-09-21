@@ -3,6 +3,7 @@ import { SlashCommandBuilder } from "discord.js";
 import { Colors } from "../../../client/Constants";
 import { GauliaError } from "../../../core/errors";
 import { buildContainer, toV2Payload } from "../../../core/ui/containers";
+import { localizeOption, localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
 import {
   assertBlindtestChannel,
@@ -17,105 +18,87 @@ import {
   stopBlindtest,
 } from "../services/blindtest";
 
+const KEY = "music.commands.blindtest";
+const MIN_ROUNDS = 3;
+const MAX_ROUNDS = 30;
+const MIN_ROUND_SECONDS = 10;
+const MAX_ROUND_SECONDS = 30;
+
 function ephemeralText(lines: string[]) {
   return toV2Payload(true, buildContainer(Colors.Primary, lines));
 }
 
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   cooldownSeconds: 3,
-  data: new SlashCommandBuilder()
-    .setName("blindtest")
-    .setDescription("Blindtest musical dans ton salon vocal")
+
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY)
     .addSubcommand((subcommand) =>
-      subcommand
-        .setName("lancer")
-        .setDescription("Lance un blindtest dans ton salon vocal")
+      localizeSlashCommand(subcommand, `${KEY}.subcommands.start`)
         .addStringOption((option) =>
-          option
-            .setName("categorie")
-            .setDescription("Catégorie ou liste de musiques du serveur")
+          localizeOption(option, `${KEY}.subcommands.start.options.category`)
             .setRequired(true)
             .setAutocomplete(true),
         )
         .addIntegerOption((option) =>
-          option
-            .setName("manches")
-            .setDescription(`Nombre de manches (${BLINDTEST_DEFAULT_ROUNDS} par défaut)`)
-            .setMinValue(3)
-            .setMaxValue(30),
+          localizeOption(option, `${KEY}.subcommands.start.options.rounds`)
+            .setMinValue(MIN_ROUNDS)
+            .setMaxValue(MAX_ROUNDS),
         )
         .addIntegerOption((option) =>
-          option
-            .setName("duree")
-            .setDescription(
-              `Durée d'une manche en secondes (${BLINDTEST_DEFAULT_SECONDS} par défaut)`,
-            )
-            .setMinValue(10)
-            .setMaxValue(30),
+          localizeOption(option, `${KEY}.subcommands.start.options.duration`)
+            .setMinValue(MIN_ROUND_SECONDS)
+            .setMaxValue(MAX_ROUND_SECONDS),
         ),
     )
     .addSubcommand((subcommand) =>
-      subcommand
-        .setName("categories")
-        .setDescription("Liste les catégories et listes disponibles sur ce serveur"),
+      localizeSlashCommand(subcommand, `${KEY}.subcommands.categories`),
     )
-    .addSubcommand((subcommand) =>
-      subcommand.setName("passer").setDescription("Passe la manche en cours"),
-    )
-    .addSubcommand((subcommand) =>
-      subcommand.setName("arreter").setDescription("Arrête le blindtest en cours"),
-    ),
+    .addSubcommand((subcommand) => localizeSlashCommand(subcommand, `${KEY}.subcommands.skip`))
+    .addSubcommand((subcommand) => localizeSlashCommand(subcommand, `${KEY}.subcommands.stop`)),
 
-  help: {
-    details:
-      "Gaulia joue des extraits de 30 secondes dans ton salon vocal. Écris le titre ou l'artiste dans le salon de la partie : le premier qui trouve marque 1 point pour chacun, les fautes de frappe légères sont tolérées. Seuls les membres présents dans le salon vocal peuvent répondre. Les catégories proposées, les listes personnalisées et les salons autorisés se règlent dans l'onglet Musique du dashboard. Les commandes musique sont indisponibles pendant la partie. Le lanceur et les membres ayant « Gérer le serveur » peuvent passer une manche ou arrêter la partie.",
-    examples: [
-      "blindtest lancer categorie:Années 80",
-      "blindtest lancer categorie:Chanson française manches:15 duree:20",
-      "blindtest categories",
-    ],
-  },
-
-  async autocomplete(interaction) {
+  async autocomplete(interaction, _client, t) {
     if (!interaction.inCachedGuild()) {
       await interaction.respond([]);
       return;
     }
     await interaction.respond(
-      await blindtestCategoryChoices(interaction.guildId, interaction.options.getFocused()),
+      await blindtestCategoryChoices(interaction.guildId, interaction.options.getFocused(), t),
     );
   },
 
-  async execute(interaction, client) {
+  async execute(interaction, client, t) {
     if (!interaction.inCachedGuild()) {
-      throw new GauliaError("Cette commande n'est utilisable qu'en serveur.");
+      throw new GauliaError("common.guard.guildOnly.description");
     }
 
     switch (interaction.options.getSubcommand()) {
       case "categories": {
-        const lines = await listBlindtestCategoryLines(interaction.guildId);
-        await interaction.reply(ephemeralText(["### Blindtest", ...lines]));
+        const lines = await listBlindtestCategoryLines(interaction.guildId, t);
+        await interaction.reply(
+          ephemeralText([`### ${t("music.blindtest.categoriesTitle")}`, ...lines]),
+        );
         return;
       }
 
-      case "passer": {
+      case "skip": {
         const session = requireBlindtestControl(interaction.guildId, interaction.member);
         await skipBlindtestRound(session);
-        await interaction.reply(ephemeralText(["Manche passée."]));
+        await interaction.reply(ephemeralText([t("music.blindtest.round.skipped")]));
         return;
       }
 
-      case "arreter": {
+      case "stop": {
         const session = requireBlindtestControl(interaction.guildId, interaction.member);
-        await interaction.reply(ephemeralText(["Blindtest arrêté."]));
+        await interaction.reply(ephemeralText([t("music.blindtest.stopReply")]));
         await stopBlindtest(session, interaction.user.id);
         return;
       }
 
       default: {
         if (!interaction.channel) {
-          throw new GauliaError("Impossible de lancer un blindtest dans ce salon.");
+          throw new GauliaError("music.blindtest.error.unsupportedChannel");
         }
         await assertBlindtestChannel(
           interaction.member,
@@ -124,7 +107,7 @@ const command: ChatInputCommand = {
         );
         const category = await resolveBlindtestCategory(
           interaction.guildId,
-          interaction.options.getString("categorie", true),
+          interaction.options.getString("category", true),
         );
 
         await interaction.deferReply();
@@ -132,8 +115,8 @@ const command: ChatInputCommand = {
           member: interaction.member,
           channel: interaction.channel,
           category,
-          rounds: interaction.options.getInteger("manches") ?? BLINDTEST_DEFAULT_ROUNDS,
-          roundSeconds: interaction.options.getInteger("duree") ?? BLINDTEST_DEFAULT_SECONDS,
+          rounds: interaction.options.getInteger("rounds") ?? BLINDTEST_DEFAULT_ROUNDS,
+          roundSeconds: interaction.options.getInteger("duration") ?? BLINDTEST_DEFAULT_SECONDS,
         });
         await interaction.editReply(payload);
       }

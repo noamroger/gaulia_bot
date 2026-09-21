@@ -6,8 +6,8 @@ import { GauliaError } from "../../../core/errors";
 const MAX_LISTED_CHANNELS = 5;
 
 /**
- * Applique la liste des salons fun choisie sur le dashboard (vide = partout). Un fil suit son salon
- * parent ; seuls les administrateurs du serveur ne sont jamais bloqués.
+ * Applies the fun channel list picked on the dashboard (empty means everywhere). A thread follows
+ * its parent channel; only server administrators are never blocked.
  */
 export async function assertFunChannel(
   member: GuildMember,
@@ -28,5 +28,5 @@ export async function assertFunChannel(
     .join(", ");
   const more = funChannelIds.length > MAX_LISTED_CHANNELS ? "…" : "";
 
-  throw new GauliaError(`Les commandes fun sont réservées aux salons suivants : ${listed}${more}`);
+  throw new GauliaError("fun.error.channelRestricted", { channels: `${listed}${more}` });
 }

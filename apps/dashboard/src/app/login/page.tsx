@@ -3,11 +3,13 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
+import { useTranslation } from "@/i18n";
 import { API_URL } from "@/lib/config";
 
 function LoginCard() {
   const params = useSearchParams();
   const error = params.get("error");
+  const t = useTranslation();
 
   return (
     <div
@@ -16,12 +18,10 @@ function LoginCard() {
     >
       <div className="card" style={{ maxWidth: 380, textAlign: "center" }}>
         <h1 style={{ marginTop: 0 }}>Gaulia</h1>
-        <p className="text-muted">Connecte-toi avec Discord pour gérer tes serveurs.</p>
-        {error && (
-          <p style={{ color: "var(--danger)", fontSize: 14 }}>La connexion a échoué, réessaie.</p>
-        )}
+        <p className="text-muted">{t("login.intro")}</p>
+        {error && <p style={{ color: "var(--danger)", fontSize: 14 }}>{t("login.failed")}</p>}
         <a className="button-primary" href={`${API_URL}/auth/login`}>
-          Se connecter avec Discord
+          {t("login.action")}
         </a>
       </div>
     </div>

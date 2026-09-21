@@ -1,52 +1,61 @@
 "use client";
 
+import { useLocale, useTranslation } from "@/i18n";
 import { formatDateTime, formatNumber } from "@/lib/format";
-import type { CreditTransactionType } from "@/lib/types";
+import { offerDuration } from "@/lib/premiumOffers";
 import { useCredits } from "@/lib/useCredits";
 
-const TRANSACTION_LABELS: Record<CreditTransactionType, string> = {
-  VOTE: "Vote top.gg",
-  PREMIUM_REDEEM: "Échange premium",
-  ADMIN_ADJUST: "Ajustement administrateur",
-  PREMIUM_REFUND: "Remboursement premium",
-};
-
 /**
- * Solde de crédits de l'utilisateur connecté, affiché sur la page « Mes serveurs » : combien il a,
- * comment en gagner (vote top.gg) et ce qu'il peut en faire (premium offert).
+ * Credit balance of the signed in user, shown on the "My servers" page: how many they have, how
+ * to earn more (top.gg vote) and what they can spend them on (gifted premium).
  */
 export function CreditsCard() {
   const { credits, loading } = useCredits();
+  const t = useTranslation();
+  const locale = useLocale();
 
-  if (loading) return <p className="text-muted">Chargement des crédits…</p>;
-  // Solde indisponible (API injoignable) : la page reste utilisable sans cette carte.
+  if (loading) return <p className="text-muted">{t("premium.userCredits.loading")}</p>;
+  // Balance unavailable (API unreachable): the page stays usable without this card.
   if (!credits) return null;
+
+  const voteSummary = [
+    t("premium.userCredits.votes", {
+      count: credits.voteCount,
+      value: formatNumber(credits.voteCount, locale),
+    }),
+    t("premium.userCredits.earned", {
+      count: credits.totalEarned,
+      value: formatNumber(credits.totalEarned, locale),
+    }),
+  ].join(" · ");
 
   return (
     <section className="card credits-card">
       <div className="credits-header">
         <div>
-          <p className="stat-label">Mes crédits</p>
-          <p className="credits-balance">{formatNumber(credits.balance)}</p>
+          <p className="stat-label">{t("premium.userCredits.label")}</p>
+          <p className="credits-balance">{formatNumber(credits.balance, locale)}</p>
           <p className="stat-hint">
-            {credits.voteCount === 0
-              ? "Aucun vote enregistré pour l'instant."
-              : `${formatNumber(credits.voteCount)} vote(s) · ${formatNumber(credits.totalEarned)} crédit(s) gagnés au total`}
+            {credits.voteCount === 0 ? t("premium.userCredits.noVote") : voteSummary}
           </p>
         </div>
-        {/* `/vote` est une redirection du dashboard vers la page top.gg du bot (next.config.js). */}
+        {/* `/vote` is a dashboard redirect to the bot's top.gg page (next.config.js). */}
         <a className="button-primary" href="/vote" target="_blank" rel="noopener noreferrer">
-          Voter
+          {t("premium.userCredits.vote")}
         </a>
       </div>
 
       <p className="text-muted" style={{ fontSize: 14 }}>
-        Chaque vote sur top.gg rapporte {credits.creditsPerVote} crédits (un vote possible toutes
-        les 12 h). Échange-les dans l&apos;onglet <strong>Premium</strong> d&apos;un serveur :{" "}
+        {t("premium.userCredits.explainerBefore", { credits: credits.creditsPerVote })}{" "}
+        <strong>{t("premium.userCredits.premiumTab")}</strong>{" "}
+        {t("premium.userCredits.explainerAfter")}{" "}
         {credits.offers.map((offer, index) => (
           <span key={offer.id}>
             {index > 0 && ", "}
-            {formatNumber(offer.cost)} crédits pour {offer.durationLabel}
+            {t("premium.userCredits.offer", {
+              cost: formatNumber(offer.cost, locale),
+              duration: offerDuration(offer, t),
+            })}
           </span>
         ))}
         .
@@ -54,29 +63,31 @@ export function CreditsCard() {
 
       {credits.transactions.length > 0 && (
         <details className="data-table-toggle">
-          <summary>Historique des crédits</summary>
+          <summary>{t("premium.userCredits.history")}</summary>
           <div style={{ overflowX: "auto", maxHeight: 260 }}>
             <table className="table">
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Opération</th>
-                  <th>Montant</th>
-                  <th>Solde</th>
+                  <th>{t("premium.userCredits.table.date")}</th>
+                  <th>{t("premium.userCredits.table.operation")}</th>
+                  <th>{t("premium.userCredits.table.amount")}</th>
+                  <th>{t("premium.userCredits.table.balance")}</th>
                 </tr>
               </thead>
               <tbody>
                 {credits.transactions.map((transaction) => (
                   <tr key={transaction.id}>
-                    <td>{formatDateTime(transaction.createdAt)}</td>
-                    <td>{transaction.reason ?? TRANSACTION_LABELS[transaction.type]}</td>
+                    <td>{formatDateTime(transaction.createdAt, locale)}</td>
+                    <td>
+                      {transaction.reason ?? t(`admin.userCredits.transaction.${transaction.type}`)}
+                    </td>
                     <td
                       className={`numeric ${transaction.amount < 0 ? "amount-down" : "amount-up"}`}
                     >
                       {transaction.amount > 0 ? "+" : ""}
-                      {formatNumber(transaction.amount)}
+                      {formatNumber(transaction.amount, locale)}
                     </td>
-                    <td className="numeric">{formatNumber(transaction.balanceAfter)}</td>
+                    <td className="numeric">{formatNumber(transaction.balanceAfter, locale)}</td>
                   </tr>
                 ))}
               </tbody>

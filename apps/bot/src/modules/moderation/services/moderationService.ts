@@ -4,6 +4,7 @@ import {
   createWarn,
   getModerationSettings,
   getOrCreateGuild,
+  getUserLanguage,
   type EscalationStep,
   type SanctionType,
 } from "@gaulia/database";
@@ -15,17 +16,12 @@ import { logger } from "../../../client/logger";
 import { canBotModerate } from "../../../core/permissions/hierarchy";
 import { buildContainer, toV2Payload } from "../../../core/ui/containers";
 import { formatDurationMs } from "../../../core/utils/duration";
-
-const TYPE_LABELS: Record<ModerationCaseType, string> = {
-  BAN: "Bannissement",
-  UNBAN: "Débannissement",
-  KICK: "Expulsion",
-  TIMEOUT: "Mise en sourdine temporaire",
-  UNTIMEOUT: "Fin de mise en sourdine",
-  WARN: "Avertissement",
-  UNWARN: "Révocation d'avertissement",
-  PURGE: "Purge de messages",
-};
+import {
+  createTranslator,
+  guildTranslatorFor,
+  readStoredLocale,
+  type Translator,
+} from "../../../i18n";
 
 const TYPE_COLORS: Record<ModerationCaseType, number> = {
   BAN: Colors.Danger,
@@ -59,34 +55,119 @@ export interface MemberSanction {
 
 export interface WarnResult {
   moderationCase: ModerationCase;
-  /** Palier de sanction automatique déclenché par cet avertissement, s'il y en a un. */
+  /** Escalation step this warning triggered, when there is one. */
   escalation: EscalationStep | null;
 }
 
-/** Identité utilisée dans l'historique pour les sanctions appliquées automatiquement. */
+/**
+ * Mod log entries, audit log reasons and reasons stored on a case are read by the guild staff, so
+ * they follow the guild language rather than the language of whoever triggered the action.
+ */
+function guildTranslator(guild: Guild): Promise<Translator> {
+  return guildTranslatorFor(guild.id, guild.preferredLocale);
+}
+
+/**
+ * A sanction DM is read by its recipient alone: it uses their own language when they picked one,
+ * and falls back to the guild language when nothing else tells us what they read.
+ */
+async function memberTranslator(guild: Guild, userId: string): Promise<Translator> {
+  const stored = readStoredLocale(await getUserLanguage(userId));
+  return stored ? createTranslator(stored) : guildTranslator(guild);
+}
+
+/** Identity recorded in the history for automatically applied sanctions. */
 export function botModerator(guild: Guild): ModeratorRef {
   return { id: guild.client.user.id, tag: guild.client.user.tag };
 }
 
-export function describeSanction(sanction: { type: SanctionType; timeoutMinutes: number }): string {
+export function caseTypeLabel(type: ModerationCaseType, t: Translator): string {
+  return t(`moderation.caseType.${type}`);
+}
+
+export function describeSanction(
+  sanction: { type: SanctionType; timeoutMinutes: number },
+  t: Translator,
+): string {
   switch (sanction.type) {
     case "delete":
-      return "Suppression du message";
+      return t("moderation.sanction.delete");
     case "warn":
-      return "Avertissement";
+      return t("moderation.sanction.warn");
     case "timeout":
-      return `Sourdine de ${formatDurationMs(sanction.timeoutMinutes * 60_000)}`;
+      return t("moderation.sanction.timeout", {
+        duration: formatDurationMs(sanction.timeoutMinutes * 60_000, t),
+      });
     case "kick":
-      return "Expulsion";
+      return t("moderation.sanction.kick");
     case "ban":
-      return "Bannissement";
+      return t("moderation.sanction.ban");
   }
 }
 
-export function escalationLine(step: EscalationStep | null): string {
+export function escalationLine(step: EscalationStep | null, t: Translator): string {
   if (!step) return "";
-  const sanction = describeSanction({ type: step.action, timeoutMinutes: step.timeoutMinutes });
-  return `\n**Sanction automatique :** ${sanction} (${step.warnCount} avertissements)`;
+  const sanction = describeSanction({ type: step.action, timeoutMinutes: step.timeoutMinutes }, t);
+  const warnings = t("moderation.escalation.warnCount", { count: step.warnCount });
+  return `\n${t("moderation.escalation.line", { sanction, warnings })}`;
+}
+
+/** Reason attached to the Discord audit log entry when the moderator gave none. */
+export async function auditReason(
+  guild: Guild,
+  reason: string | undefined,
+  moderatorTag: string,
+): Promise<string> {
+  if (reason) return reason;
+  const t = await guildTranslator(guild);
+  return t("moderation.auditReason", { moderator: moderatorTag });
+}
+
+/** Lines describing a case, shared by the mod log and `/case`. */
+export function caseLines(
+  moderationCase: ModerationCase,
+  t: Translator,
+  withDate = false,
+): string[] {
+  const header = t("moderation.case.header", {
+    case: moderationCase.caseNumber,
+    type: caseTypeLabel(moderationCase.type, t),
+  });
+
+  const lines = [
+    `### ${Emojis.Moderation} ${header}`,
+    t("moderation.case.target", {
+      tag: moderationCase.targetTag,
+      id: moderationCase.targetId,
+    }),
+    t("moderation.case.moderator", { tag: moderationCase.moderatorTag }),
+  ];
+
+  if (withDate) {
+    lines.push(
+      t("moderation.case.date", {
+        date: `<t:${Math.floor(moderationCase.createdAt.getTime() / 1000)}:F>`,
+      }),
+    );
+  }
+
+  if (moderationCase.reason) {
+    lines.push(t("moderation.case.reason", { reason: moderationCase.reason }));
+  }
+
+  if (moderationCase.durationSecs) {
+    lines.push(
+      t("moderation.case.duration", {
+        duration: formatDurationMs(moderationCase.durationSecs * 1000, t),
+      }),
+    );
+  }
+
+  return lines;
+}
+
+export function caseColor(type: ModerationCaseType): number {
+  return TYPE_COLORS[type];
 }
 
 async function postModLog(guild: Guild, moderationCase: ModerationCase): Promise<void> {
@@ -96,21 +177,16 @@ async function postModLog(guild: Guild, moderationCase: ModerationCase): Promise
   const channel = await guild.channels.fetch(guildConfig.modLogChannelId).catch(() => null);
   if (!channel || !channel.isTextBased() || !("send" in channel)) return;
 
-  const lines = [
-    `### ${Emojis.Moderation} Cas #${moderationCase.caseNumber} - ${TYPE_LABELS[moderationCase.type]}`,
-    `**Cible :** ${moderationCase.targetTag} (\`${moderationCase.targetId}\`)`,
-    `**Modérateur :** ${moderationCase.moderatorTag}`,
-  ];
-
-  if (moderationCase.reason) lines.push(`**Raison :** ${moderationCase.reason}`);
-  if (moderationCase.durationSecs) {
-    lines.push(`**Durée :** ${formatDurationMs(moderationCase.durationSecs * 1000)}`);
-  }
-
-  await channel.send(toV2Payload(false, buildContainer(TYPE_COLORS[moderationCase.type], lines)));
+  const t = await guildTranslator(guild);
+  await channel.send(
+    toV2Payload(
+      false,
+      buildContainer(caseColor(moderationCase.type), caseLines(moderationCase, t)),
+    ),
+  );
 }
 
-/** Crée un cas de modération en base et le poste dans le salon de logs configuré, s'il y en a un. */
+/** Creates a moderation case and posts it in the configured log channel, when there is one. */
 export async function recordCase(input: RecordCaseInput): Promise<ModerationCase> {
   const moderationCase = await createModerationCase({
     guildId: input.guild.id,
@@ -128,7 +204,7 @@ export async function recordCase(input: RecordCaseInput): Promise<ModerationCase
   return moderationCase;
 }
 
-/** Prévient la cible en DM si le serveur l'a activé ; échoue silencieusement si ses DMs sont fermés. */
+/** Warns the target in DM when the guild enabled it; stays silent when their DMs are closed. */
 export async function notifyTarget(
   guild: Guild,
   user: User,
@@ -138,26 +214,23 @@ export async function notifyTarget(
   const settings = await getModerationSettings(guild.id);
   if (!settings.dmOnSanction) return;
 
+  const t = await memberTranslator(guild, user.id);
   const lines = [
-    `### ${Emojis.Moderation} Action de modération - ${guild.name}`,
-    `**Action :** ${TYPE_LABELS[type]}`,
+    `### ${Emojis.Moderation} ${t("moderation.dm.header", { guild: guild.name })}`,
+    t("moderation.dm.action", { action: caseTypeLabel(type, t) }),
   ];
-  if (reason) lines.push(`**Raison :** ${reason}`);
+  if (reason) lines.push(t("moderation.case.reason", { reason }));
 
   try {
     await user.send(toV2Payload(false, buildContainer(TYPE_COLORS[type], lines)));
   } catch {
-    // DMs fermés : on ignore silencieusement, l'action reste effective côté serveur.
+    // Closed DMs: ignored, the action still stands on the server.
   }
 }
 
-export function caseTypeLabel(type: ModerationCaseType): string {
-  return TYPE_LABELS[type];
-}
-
 /**
- * Applique une sourdine, une expulsion ou un bannissement (automod, paliers d'avertissements).
- * Retourne false si le rôle du bot est trop bas pour agir sur ce membre.
+ * Applies a timeout, a kick or a ban (automod, warning escalation steps).
+ * Returns false when the bot's role is too low to act on this member.
  */
 export async function applyMemberSanction(
   member: GuildMember,
@@ -186,7 +259,7 @@ export async function applyMemberSanction(
   }
 
   const type = sanction.type === "kick" ? "KICK" : "BAN";
-  // Le DM part avant l'expulsion/le bannissement : après, le bot ne partage plus de serveur avec la cible.
+  // The DM goes out before the kick or ban: after it, the bot no longer shares a guild with them.
   await notifyTarget(guild, member.user, type, reason);
   if (sanction.type === "kick") {
     await member.kick(reason);
@@ -209,23 +282,23 @@ async function applyWarnEscalation(guild: Guild, target: User): Promise<Escalati
   if (!member) return null;
 
   try {
+    const t = await guildTranslator(guild);
     const applied = await applyMemberSanction(
       member,
       { type: step.action, timeoutMinutes: step.timeoutMinutes },
-      `Sanction automatique : ${warnCount} avertissements`,
+      t("moderation.escalation.reason", {
+        warnings: t("moderation.escalation.warnCount", { count: warnCount }),
+      }),
       botModerator(guild),
     );
     return applied ? step : null;
   } catch (error) {
-    logger.error(
-      { err: error, guildId: guild.id },
-      "Échec d'une sanction automatique d'avertissements",
-    );
+    logger.error({ err: error, guildId: guild.id }, "Automatic warning sanction failed");
     return null;
   }
 }
 
-/** Logique partagée entre `/warn`, le context-menu "Avertir l'utilisateur" et l'automod. */
+/** Shared by `/warn`, the "Warn user" context menu and the automod. */
 export async function performWarn(
   guild: Guild,
   target: User,

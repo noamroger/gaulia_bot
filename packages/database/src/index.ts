@@ -1,6 +1,7 @@
 export { prisma, disconnectDatabase } from "./client";
 
 export * from "./repositories/guild.repo";
+export * from "./repositories/userPreference.repo";
 export * from "./repositories/moderation.repo";
 export * from "./repositories/warn.repo";
 export * from "./repositories/automod.repo";
@@ -24,6 +25,7 @@ export * from "./schemas/automod";
 export * from "./schemas/blindtest";
 export * from "./schemas/moderation";
 export * from "./schemas/adventure";
+export * from "./data/localized";
 export * from "./data/blindtestPresets";
 export * from "./data/adventureItems";
 export * from "./data/adventurePacing";
@@ -60,4 +62,5 @@ export type {
   PremiumEntitlement,
   ShardStatus,
   TopggVote,
+  UserPreference,
 } from "@prisma/client";

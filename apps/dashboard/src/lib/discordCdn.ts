@@ -6,7 +6,7 @@ export function guildIconUrl(guildId: string, icon: string | null, size = 128): 
   return `${CDN}/icons/${guildId}/${icon}.${extension}?size=${size}`;
 }
 
-/** Sans avatar perso, Discord utilise un avatar par défaut dérivé de l'ID (système de pseudos unique). */
+/** Without a custom avatar, Discord derives a default one from the ID (unique username system). */
 export function userAvatarUrl(userId: string, avatar: string | null, size = 64): string {
   if (avatar) {
     const extension = avatar.startsWith("a_") ? "gif" : "png";

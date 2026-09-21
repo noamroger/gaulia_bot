@@ -2,7 +2,7 @@ export interface Session {
   userId: string;
   username: string;
   avatar: string | null;
-  /** Adresse Discord vérifiée (scope `email`). Nulle pour une session ouverte avant ce scope. */
+  /** Verified Discord address (`email` scope). Null for a session opened before that scope. */
   email: string | null;
   manageableGuilds: ManageableGuild[];
   isOwner: boolean;
@@ -12,9 +12,9 @@ export interface ManageableGuild {
   id: string;
   name: string;
   icon: string | null;
-  /** Faux si l'utilisateur peut gérer ce serveur côté Discord mais que Gaulia n'y est pas encore. */
+  /** False when the user can manage this guild on Discord but Gaulia is not in it yet. */
   botPresent: boolean;
-  /** Lien d'invitation Discord pré-rempli (non-null uniquement quand botPresent est faux). */
+  /** Pre-filled Discord invite link (non-null only when botPresent is false). */
   inviteUrl: string | null;
 }
 
@@ -81,23 +81,23 @@ export interface GuildSettings {
   musicVolume: number;
   musicDefaultLoop: LoopMode;
   musicStay247: boolean;
-  /** Salons où les commandes fun sont utilisables ; vide = tous les salons. */
+  /** Channels where fun commands are allowed; empty = every channel. */
   funChannelIds: string[];
-  /** Salons où /blindtest peut être lancé ; vide = tous les salons. */
+  /** Channels where /blindtest can be started; empty = every channel. */
   blindtestChannelIds: string[];
   blindtestDisabledCategories: string[];
-  /** Module aventure : actif sur le serveur, et salons où il est jouable. */
+  /** Adventure module: enabled on the guild, and channels where it can be played. */
   adventureEnabled: boolean;
   adventureChannelMode: AdventureChannelMode;
   adventureChannelIds: string[];
 }
 
-/** « ALLOWLIST » : jouable uniquement dans les salons listés ; « BLOCKLIST » : partout sauf eux. */
+/** "ALLOWLIST": playable only in the listed channels; "BLOCKLIST": everywhere except them. */
 export type AdventureChannelMode = "ALLOWLIST" | "BLOCKLIST";
 
 export type AdventureClass = "GUERRIER" | "MAGE" | "RODEUR";
 
-/** Une ligne de la liste des joueurs du panel admin. */
+/** One row of the admin panel player list. */
 export interface AdventurePlayer {
   userId: string;
   username: string | null;
@@ -137,11 +137,11 @@ export interface AdventureInventoryRow {
   itemId: string;
   quantity: number;
   equipped: boolean;
-  /** Palier de renforcement de l'exemplaire du joueur (0 à 10). */
+  /** Upgrade tier of the player's own copy (0 to 10). */
   upgradeLevel: number;
 }
 
-/** Proposition d'échange encore ouverte, affichée sur la fiche du joueur. */
+/** Trade offer still open, shown on the player sheet. */
 export interface AdventurePendingTrade {
   id: number;
   initiatorId: string;
@@ -159,7 +159,7 @@ export interface AdventureQuestRow {
   id: number;
   kind: "DAILY" | "WEEKLY";
   questId: string;
-  /** Libellé complet calculé par l'API (« Explorer 12 fois »). */
+  /** Full sentence built by the API, ready to display. */
   label: string;
   target: number;
   progress: number;
@@ -195,7 +195,7 @@ export interface AdventureCatalogueItem {
   price: number | null;
   sellPrice: number;
   description: string;
-  /** Faux pour les objets qui ne peuvent pas passer d'un joueur à l'autre (reliques du scénario). */
+  /** False for items that cannot move from one player to another (story relics). */
   tradable: boolean;
 }
 
@@ -213,7 +213,7 @@ export interface AdventureCatalogue {
   maxUpgrade: number;
 }
 
-/** Corps du PATCH d'intervention : seuls les champs envoyés sont appliqués. */
+/** Intervention PATCH body: only the fields actually sent are applied. */
 export interface AdventureIntervention {
   xp?: number;
   gold?: number;
@@ -237,7 +237,7 @@ export interface BlindtestTrack {
   title: string;
   artist: string;
   durationMs: number;
-  /** Extrait Spotify ; null = recherche SoundCloud pendant la partie. */
+  /** Spotify preview; null = SoundCloud lookup during the game. */
   preview: string | null;
 }
 
@@ -260,21 +260,21 @@ export interface SpotifyImport {
 export interface PremiumOffer {
   id: "week" | "month";
   label: string;
-  /** Coût en crédits. */
+  /** Cost in credits. */
   cost: number;
   durationLabel: string;
 }
 
-/** D'où vient le premium : abonnement Discord payant, ou crédits échangés. */
+/** Where premium comes from: paid Discord subscription, or redeemed credits. */
 export type PremiumSource = "SUBSCRIPTION" | "CREDITS";
 
 export interface PremiumStatus {
   premium: boolean;
-  /** Source affichée quand les deux coexistent : l'abonnement payant prime. */
+  /** Source shown when both coexist: the paid subscription wins. */
   source: PremiumSource | null;
   subscription: {
     active: boolean;
-    /** Prochain renouvellement, null si Discord n'annonce pas d'échéance. */
+    /** Next renewal, null when Discord announces no due date. */
     renewsAt: string | null;
   };
   credits: {
@@ -282,7 +282,7 @@ export interface PremiumStatus {
     startedAt: string | null;
     expiresAt: string | null;
   };
-  /** Solde de crédits de l'utilisateur connecté. */
+  /** Credit balance of the signed-in user. */
   balance: number;
   offers: PremiumOffer[];
 }
@@ -299,7 +299,7 @@ export type CreditTransactionType = "VOTE" | "PREMIUM_REDEEM" | "ADMIN_ADJUST" |
 export interface CreditTransaction {
   id: number;
   type: CreditTransactionType;
-  /** Positif pour un gain, négatif pour une dépense. */
+  /** Positive for a gain, negative for a spend. */
   amount: number;
   balanceAfter: number;
   guildId: string | null;
@@ -334,7 +334,7 @@ export interface AdminGuild {
   icon: string | null;
   memberCount: number;
   language: string;
-  /** Abonnement Discord activé ; `premiumActive` dit s'il est encore valable aujourd'hui. */
+  /** Discord subscription enabled; `premiumActive` says whether it is still valid today. */
   premium: boolean;
   premiumExpiresAt: string | null;
   premiumGrantedAt: string | null;
@@ -349,7 +349,7 @@ export interface AdminGuild {
   automodConfigured: boolean;
   moderationConfigured: boolean;
   musicConfigured: boolean;
-  /** Null quand le module aventure n'a jamais été réglé sur ce serveur. */
+  /** Null when the adventure module has never been configured on this guild. */
   adventureEnabled: boolean | null;
   moderationCaseCount: number;
   warnCount: number;
@@ -358,7 +358,7 @@ export interface AdminGuild {
   updatedAt: string;
 }
 
-/** Une page de la liste des serveurs du panel admin, filtrée et triée côté API. */
+/** One page of the admin panel guild list, filtered and sorted by the API. */
 export interface AdminGuildPage {
   items: AdminGuild[];
   total: number;
@@ -391,7 +391,7 @@ export interface UserDataSummary {
   premiumEntitlements: number;
   creditBalance: number;
   topggVotes: number;
-  /** Niveau du personnage d'aventure supprimé avec le compte, null s'il n'y en a pas. */
+  /** Level of the adventure character deleted along with the account, null when there is none. */
   adventureLevel: number | null;
 }
 
@@ -420,7 +420,7 @@ export interface AdminStats {
     totalInRange: number;
     daily: { date: string; count: number }[];
     topCommands: { commandName: string; count: number }[];
-    /** Toutes les catégories connues, même exclues, avec leur total sur la période. */
+    /** Every known category, excluded ones included, with its total over the range. */
     categories: { category: string; count: number }[];
   };
   history: ShardMetricHistory;
@@ -428,9 +428,9 @@ export interface AdminStats {
 }
 
 export interface ShardMetricPoint {
-  /** Début de la tranche (ISO). */
+  /** Start of the slice (ISO). */
   at: string;
-  /** null : aucun shard n'a envoyé de heartbeat pendant la tranche. */
+  /** null: no shard sent a heartbeat during the slice. */
   guildCount: number | null;
   memberCount: number | null;
   ping: number | null;
@@ -441,7 +441,7 @@ export interface ShardMetricHistory {
   points: ShardMetricPoint[];
 }
 
-/** Totaux publics de la page d'accueil (GET /stats). */
+/** Public home page totals (GET /stats). */
 export interface PublicStats {
   online: boolean;
   guildCount: number;
@@ -449,8 +449,8 @@ export interface PublicStats {
   commandsLast30Days: number;
 }
 
-// ─── Mes données (GET /me/data) ─────────────────────────────────────────────
-// Reflet de `UserDataExport` côté API : les dates arrivent en ISO après passage par JSON.
+// --- My data (GET /me/data) ---
+// Mirrors `UserDataExport` on the API side: dates arrive as ISO strings through JSON.
 
 export interface ExportedModerationCase {
   guildId: string;
@@ -541,7 +541,7 @@ export interface UserDataExport {
   adventure: ExportedAdventure | null;
 }
 
-/** Serveur administré pour lequel Gaulia a enregistré quelque chose (GET /me/data). */
+/** Managed guild for which Gaulia stored something (GET /me/data). */
 export interface StoredGuildRef {
   guildId: string;
   name: string | null;
@@ -549,7 +549,7 @@ export interface StoredGuildRef {
 }
 
 export interface MyDataResponse {
-  /** Reprise du cookie de session : ces champs ne sont pas enregistrés en base. */
+  /** Taken from the session cookie: these fields are not stored in the database. */
   account: {
     userId: string;
     username: string;
@@ -558,6 +558,6 @@ export interface MyDataResponse {
     manageableGuilds: { id: string; name: string }[];
   };
   data: UserDataExport;
-  /** Parmi les serveurs administrés, ceux dont les données peuvent être supprimées. */
+  /** Among the managed guilds, those whose data can be deleted. */
   guilds: StoredGuildRef[];
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { CreditsCard } from "@/components/credits/CreditsCard";
+import { useTranslation } from "@/i18n";
 import { api } from "@/lib/api";
 import type { ManageableGuild } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
@@ -14,6 +15,7 @@ function guildIconUrl(guild: ManageableGuild): string | null {
 }
 
 export default function DashboardPage() {
+  const t = useTranslation();
   const { session, loading } = useSession();
   const [guilds, setGuilds] = useState<ManageableGuild[] | null>(null);
 
@@ -31,7 +33,7 @@ export default function DashboardPage() {
   }
 
   if (loading || !session) {
-    return <div className="container text-muted">Chargement…</div>;
+    return <div className="container text-muted">{t("common.state.loading")}</div>;
   }
 
   const activeGuilds = guilds?.filter((guild) => guild.botPresent) ?? null;
@@ -39,20 +41,17 @@ export default function DashboardPage() {
 
   return (
     <div className="container">
-      <h1>Tes serveurs</h1>
-      <p className="text-muted">Sélectionne un serveur pour gérer sa configuration.</p>
+      <h1>{t("dashboard.guilds.title")}</h1>
+      <p className="text-muted">{t("dashboard.guilds.subtitle")}</p>
 
       <CreditsCard />
 
       {guilds === null ? (
-        <p className="text-muted">Chargement…</p>
+        <p className="text-muted">{t("common.state.loading")}</p>
       ) : (
         <>
           {activeGuilds?.length === 0 && (
-            <div className="empty-state">
-              Gaulia n&apos;est présent sur aucun serveur où tu es gérant. Invite-le depuis la
-              liste ci-dessous.
-            </div>
+            <div className="empty-state">{t("dashboard.guilds.empty")}</div>
           )}
 
           {activeGuilds !== null && activeGuilds.length > 0 && (
@@ -77,11 +76,8 @@ export default function DashboardPage() {
 
           {invitableGuilds !== null && invitableGuilds.length > 0 && (
             <>
-              <h2 style={{ marginTop: 32 }}>Serveurs à inviter</h2>
-              <p className="text-muted">
-                Tu es gérant sur ces serveurs mais Gaulia n&apos;y est pas encore. Clique pour
-                l&apos;inviter.
-              </p>
+              <h2 style={{ marginTop: 32 }}>{t("dashboard.guilds.invitableTitle")}</h2>
+              <p className="text-muted">{t("dashboard.guilds.invitableSubtitle")}</p>
               <div className="guild-grid">
                 {invitableGuilds.map((guild) => {
                   const icon = guildIconUrl(guild);
@@ -91,7 +87,7 @@ export default function DashboardPage() {
                       type="button"
                       onClick={() => openInvitePopup(guild)}
                       className="card guild-card guild-card-invitable"
-                      title={`Inviter Gaulia sur ${guild.name}`}
+                      title={t("dashboard.guilds.invite", { guild: guild.name })}
                     >
                       <div className="guild-avatar">
                         {icon ? <img src={icon} alt="" /> : guild.name.slice(0, 2).toUpperCase()}

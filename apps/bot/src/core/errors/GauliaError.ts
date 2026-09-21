@@ -1,13 +1,18 @@
+import type { TranslationVars } from "../../i18n";
+
 /**
- * Erreur "attendue" (validation métier, permission manquante, etc.) dont le message est
- * directement présentable à l'utilisateur, contrairement à une erreur technique inattendue.
+ * Expected error (failed validation, missing permission, ...) whose message is meant for the
+ * member. It carries a translation key rather than a sentence, so the text is resolved in the
+ * reader's own language when the reply is built.
  */
 export class GauliaError extends Error {
-  public readonly userMessage: string;
+  public readonly key: string;
+  public readonly vars: TranslationVars | undefined;
 
-  constructor(userMessage: string) {
-    super(userMessage);
+  constructor(key: string, vars?: TranslationVars) {
+    super(key);
     this.name = "GauliaError";
-    this.userMessage = userMessage;
+    this.key = key;
+    this.vars = vars;
   }
 }

@@ -3,9 +3,9 @@ import path from "node:path";
 import dotenv from "dotenv";
 import { z } from "zod";
 
-// __dirname ici = apps/bot/src/config (dev, tsx) ou apps/bot/dist/config (compilé) - dans les
-// deux cas 4 niveaux sous la racine du monorepo, où vit le .env partagé par tous les workspaces.
-// En Docker les variables sont déjà injectées par docker-compose (no-op silencieux ici).
+// __dirname is apps/bot/src/config in dev (tsx) or apps/bot/dist/config once built, so 4 levels
+// under the monorepo root, where the .env shared by every workspace lives. In Docker the variables
+// are already injected by docker-compose, and this is a silent no-op.
 dotenv.config({ path: path.resolve(__dirname, "../../../../.env") });
 
 const envSchema = z.object({
@@ -39,10 +39,10 @@ const envSchema = z.object({
 
   PREMIUM_SKU_ID: z.string().optional().default(""),
 
-  // Clé de l'API top.gg (onglet « Integrations & API » de la page du bot) : sert à publier le
-  // nombre de serveurs. Vide = intégration top.gg désactivée, le bot démarre normalement.
+  // top.gg API key, from the "Integrations & API" tab of the bot page, used to publish the server
+  // count. Empty means the top.gg integration is off and the bot starts normally.
   TOPGG_API_KEY: z.string().optional().default(""),
-  // URL publique du dashboard, citée dans /premium pour l'échange de crédits. Vide = lien masqué.
+  // Public dashboard URL, quoted by /premium for the credit exchange. Empty hides the link.
   DASHBOARD_URL: z.string().optional().default(""),
 
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
@@ -58,7 +58,7 @@ function loadEnv(): Env {
     const issues = parsed.error.issues
       .map((issue) => `  - ${issue.path.join(".")}: ${issue.message}`)
       .join("\n");
-    throw new Error(`Configuration invalide (.env) :\n${issues}`);
+    throw new Error(`Invalid configuration (.env):\n${issues}`);
   }
 
   return parsed.data;

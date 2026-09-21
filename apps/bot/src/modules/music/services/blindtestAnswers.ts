@@ -1,4 +1,4 @@
-/** Suffixes de version à ignorer dans un titre : « - Remastered 2011 », « (feat. X) »… */
+/** Version suffixes to ignore in a title: "- Remastered 2011", "(feat. X)" and the like. */
 const IGNORED_SEGMENT =
   /remaster|version|\bedit\b|\blive\b|feat|\bwith\b|\bavec\b|\bmix\b|single|g[ée]n[ée]rique|original|score|soundtrack|bande originale|instrumental|acoustic|radio|extended|mono|st[ée]r[ée]o|deluxe|bonus|reprise|cover|motion picture|^\s*\d{4}\s*$/i;
 const SOURCE_PREFIX = /^\s*(from|tir[ée]e? de|extrait de|du film)\s+/i;
@@ -27,10 +27,10 @@ function addCandidate(candidates: Set<string>, value: string): void {
   if (withoutArticle.length >= 2) candidates.add(withoutArticle);
 }
 
-/** Réponses acceptées pour un titre : titre principal, et nom de l'œuvre cité entre parenthèses. */
+/** Accepted answers for a title: the main title, and the work quoted between brackets. */
 export function titleAnswers(title: string): string[] {
   const candidates = new Set<string>();
-  const main = title.split(/\s[-–\u2014]\s|[([]/)[0] ?? title;
+  const main = title.split(/\s[-\u2013\u2014]\s|[([]/)[0] ?? title;
   addCandidate(candidates, main);
   addCandidate(candidates, main.replace(GENERIC_WORDS, " "));
   const work = main.match(/\b(?:from|du film)\s+(.{2,})$/i)?.[1];
@@ -38,7 +38,7 @@ export function titleAnswers(title: string): string[] {
 
   const segments = [
     ...[...title.matchAll(/[([]([^)\]]+)[)\]]/g)].map((match) => match[1] ?? ""),
-    ...title.split(/\s[-–\u2014]\s/).slice(1),
+    ...title.split(/\s[-\u2013\u2014]\s/).slice(1),
   ];
   for (const segment of segments) {
     if (IGNORED_SEGMENT.test(segment)) continue;
@@ -50,7 +50,7 @@ export function titleAnswers(title: string): string[] {
   return [...candidates];
 }
 
-/** Chaque artiste crédité est une réponse valable, ainsi que le crédit complet. */
+/** Every credited artist is a valid answer, and so is the whole credit line. */
 export function artistAnswers(artist: string): string[] {
   const candidates = new Set<string>();
   addCandidate(candidates, artist);
@@ -100,7 +100,7 @@ function isMatch(guess: string, answer: string): boolean {
   return false;
 }
 
-/** Vrai si le message contient l'une des réponses, avec une tolérance aux fautes de frappe. */
+/** True when the message holds one of the answers, forgiving light typos. */
 export function matchesAny(message: string, answers: readonly string[]): boolean {
   const guess = normalizeAnswer(message);
   if (!guess) return false;

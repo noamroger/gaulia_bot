@@ -17,13 +17,13 @@ import { version as discordJsVersion } from "discord.js";
 import type { GauliaClient } from "../../../../client/GauliaClient";
 import { env } from "../../../../config/env";
 
-/** Au-delà, le shard n'a plus écrit de heartbeat : il est considéré hors ligne (même seuil que l'API). */
+/** Past this, the shard stopped writing heartbeats and counts as offline (same threshold as the API). */
 const SHARD_STALE_AFTER_MS = 90_000;
-/** Fenêtre d'analyse des statistiques d'utilisation des commandes. */
+/** Window the command usage statistics are computed over. */
 export const USAGE_WINDOW_DAYS = 30;
 /**
- * Fenêtre longue affichée par `/botinfo` : la durée de conservation elle-même, au-delà de laquelle
- * les compteurs sont purgés (apps/api/src/jobs/retentionJob.ts). Rien n'est gardé « depuis toujours ».
+ * Long window shown by `/botinfo`: the retention period itself, past which the counters are purged
+ * (apps/api/src/jobs/retentionJob.ts). Nothing is kept forever.
  */
 export const USAGE_HISTORY_DAYS = COMMAND_USAGE_RETENTION_DAYS;
 const TOP_COMMANDS = 5;
@@ -38,7 +38,7 @@ export interface ShardLine {
   online: boolean;
   startedAt: Date;
   updatedAt: Date;
-  /** Vrai pour le shard qui répond à cette interaction. */
+  /** True for the shard answering this interaction. */
   current: boolean;
 }
 
@@ -60,12 +60,12 @@ export interface BotInfoSnapshot {
     tag: string;
     id: string;
     createdAt: Date;
-    version: string;
+    version: string | null;
     owner: string | null;
-    /** Nombre de serveurs renvoyé par Discord, indépendant des heartbeats. */
+    /** Server count reported by Discord, independent of the heartbeats. */
     approximateGuildCount: number | null;
   };
-  /** Somme des shards en ligne uniquement : un shard muet fausserait les totaux. */
+  /** Online shards only: a silent shard would skew the totals. */
   totals: {
     guildCount: number;
     memberCount: number;
@@ -76,7 +76,7 @@ export interface BotInfoSnapshot {
   };
   local: {
     shardId: number;
-    /** `null` tant que la gateway n'a pas mesuré de latence (démarrage, reconnexion). */
+    /** `null` until the gateway has measured a latency (startup, reconnection). */
     wsPing: number | null;
     guildCount: number;
     cachedUsers: number;
@@ -101,20 +101,21 @@ export interface BotInfoSnapshot {
     components: number;
   };
   usage: CommandUsageSummary;
-  /** Total sur toute la durée de conservation, recalculé et non lu dans `usage.totalAllTime`. */
+  /** Total over the whole retention period, recomputed rather than read from `usage.totalAllTime`. */
   usageHistoryTotal: number;
   content: BotContentStats;
 }
 
-function botVersion(): string {
-  // 5 niveaux au-dessus de modules/general/services/botinfo, en dev (src) comme compilé (dist).
+/** `null` when the manifest cannot be read, so the view can label it in the reader's language. */
+function botVersion(): string | null {
+  // 5 levels above modules/general/services/botinfo, in dev (src) as in the build (dist).
   const manifest = path.resolve(__dirname, "../../../../../package.json");
   try {
     const parsed: unknown = JSON.parse(readFileSync(manifest, "utf8"));
     const version = (parsed as { version?: unknown }).version;
-    return typeof version === "string" ? version : "inconnue";
+    return typeof version === "string" ? version : null;
   } catch {
-    return "inconnue";
+    return null;
   }
 }
 
@@ -135,7 +136,7 @@ function describeLavalink(client: GauliaClient): LavalinkNodeLine[] {
   }));
 }
 
-/** Propriétaire de l'application : l'équipe si le bot en appartient à une, sinon l'utilisateur. */
+/** Application owner: the team when the bot belongs to one, the user otherwise. */
 async function describeOwner(client: GauliaClient): Promise<{
   owner: string | null;
   approximateGuildCount: number | null;
@@ -155,9 +156,9 @@ async function describeOwner(client: GauliaClient): Promise<{
 }
 
 /**
- * Photographie complète de l'état du bot, toutes vues de `/botinfo` confondues : les totaux
- * globaux viennent des heartbeats en base (le cache discord.js d'un process ne connaît que SON
- * shard), le reste de ce process et du catalogue chargé en mémoire.
+ * Full snapshot behind every `/botinfo` tab. Global totals come from the heartbeats in the
+ * database, since a process only caches its own shard; the rest comes from this process and from
+ * the catalogue loaded in memory.
  */
 export async function collectBotInfo(client: GauliaClient): Promise<BotInfoSnapshot> {
   const [shardRows, usage, usageHistoryTotal, content, databaseLatencyMs, application] =
@@ -190,7 +191,7 @@ export async function collectBotInfo(client: GauliaClient): Promise<BotInfoSnaps
     online.reduce((total, shard) => total + pick(shard), 0);
 
   const memory = process.memoryUsage();
-  // La gateway renvoie -1, voire NaN, tant qu'aucun battement n'a été mesuré.
+  // The gateway reports -1, or even NaN, until a heartbeat has been measured.
   const rawPing = client.ws.ping;
   const wsPing = Number.isFinite(rawPing) ? rawPing : -1;
 
@@ -219,7 +220,7 @@ export async function collectBotInfo(client: GauliaClient): Promise<BotInfoSnaps
       cachedUsers: client.users.cache.size,
       rssMb: Math.round(memory.rss / 1_048_576),
       heapMb: Math.round(memory.heapUsed / 1_048_576),
-      // `uptime` est nul avant le ready : le temps de process reste la meilleure approximation.
+      // `uptime` is null before ready, so process time is the best approximation.
       uptimeMs: client.uptime ?? Math.round(process.uptime() * 1000),
     },
     runtime: {

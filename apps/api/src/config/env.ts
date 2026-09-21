@@ -3,25 +3,25 @@ import path from "node:path";
 import dotenv from "dotenv";
 import { z } from "zod";
 
-// __dirname ici = apps/api/src/config (dev, tsx) ou apps/api/dist/config (compilé) - dans les
-// deux cas 4 niveaux sous la racine du monorepo, où vit le .env partagé. En Docker les variables
-// sont déjà injectées par docker-compose (no-op silencieux ici).
+// __dirname is apps/api/src/config (dev, tsx) or apps/api/dist/config (built): either way four
+// levels under the monorepo root, where the shared .env lives. Docker injects the variables
+// through docker-compose, so this call is then a silent no-op.
 dotenv.config({ path: path.resolve(__dirname, "../../../../.env") });
 
 const envSchema = z.object({
-  DISCORD_CLIENT_ID: z.string().min(1, "DISCORD_CLIENT_ID est requis"),
-  // Même token que le bot : sert à lister les salons et rôles d'un serveur pour le dashboard.
-  DISCORD_TOKEN: z.string().min(1, "DISCORD_TOKEN est requis"),
-  DISCORD_CLIENT_SECRET: z.string().min(1, "DISCORD_CLIENT_SECRET est requis pour l'OAuth2"),
+  DISCORD_CLIENT_ID: z.string().min(1, "DISCORD_CLIENT_ID is required"),
+  // Same token as the bot: used to list a server's channels and roles for the dashboard.
+  DISCORD_TOKEN: z.string().min(1, "DISCORD_TOKEN is required"),
+  DISCORD_CLIENT_SECRET: z.string().min(1, "DISCORD_CLIENT_SECRET is required for OAuth2"),
   DISCORD_REDIRECT_URI: z
     .string()
     .url()
-    .min(1, "DISCORD_REDIRECT_URI est requis (ex: http://localhost:4000/auth/callback)"),
+    .min(1, "DISCORD_REDIRECT_URI is required (e.g. http://localhost:4000/auth/callback)"),
 
-  DASHBOARD_URL: z.string().url().min(1, "DASHBOARD_URL est requis (ex: http://localhost:3000)"),
+  DASHBOARD_URL: z.string().url().min(1, "DASHBOARD_URL is required (e.g. http://localhost:3000)"),
 
-  // Même variable que côté bot : ID(s) Discord du/des propriétaire(s), séparés par des virgules.
-  // Détermine qui a accès au panel admin (/admin) une fois connecté.
+  // Same variable as the bot: Discord id(s) of the owner(s), comma separated. Decides who reaches
+  // the admin panel (/admin) once signed in.
   OWNER_IDS: z
     .string()
     .optional()
@@ -33,20 +33,20 @@ const envSchema = z.object({
         .filter(Boolean),
     ),
 
-  JWT_SECRET: z.string().min(16, "JWT_SECRET doit faire au moins 16 caractères"),
+  JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 characters long"),
 
-  // Secret de l'intégration webhook top.gg (page du bot > Integrations & API > Webhooks) : sert à
-  // vérifier la signature des votes reçus sur POST /topgg/webhook. Vide = endpoint désactivé
-  // (il répond 503), pour ne jamais créditer sur la foi d'une requête non vérifiée.
+  // Secret of the top.gg webhook integration (bot page > Integrations & API > Webhooks): verifies
+  // the signature of votes posted to POST /topgg/webhook. Empty disables the endpoint (it answers
+  // 503), so credits are never granted on an unverified request.
   TOPGG_WEBHOOK_SECRET: z.string().optional().default(""),
 
-  // Envoi des messages du formulaire de contact (POST /contact). Tout est optionnel : sans
-  // configuration complète, la route répond 503 au lieu de prétendre avoir envoyé un mail.
+  // Delivery of the contact form (POST /contact). All optional: without a complete setup the
+  // route answers 503 instead of pretending a mail went out.
   SMTP_HOST: z.string().optional().default(""),
   SMTP_PORT: z.coerce.number().int().positive().default(587),
-  // Exiger le chiffrement de la connexion. Ce n'est PAS le `secure` de nodemailer, qui désigne le
-  // TLS implicite du port 465 : sur le port 587 la connexion s'ouvre en clair puis passe en TLS
-  // par STARTTLS. Le mode se déduit donc du port, et cette variable rend le chiffrement obligatoire.
+  // Require an encrypted connection. This is NOT nodemailer's `secure`, which means the implicit
+  // TLS of port 465: on port 587 the connection opens in the clear then upgrades through STARTTLS.
+  // The mode is therefore derived from the port, and this variable makes encryption mandatory.
   SMTP_TLS: z
     .string()
     .optional()
@@ -54,10 +54,10 @@ const envSchema = z.object({
     .transform((value) => value !== "false"),
   SMTP_USER: z.string().optional().default(""),
   SMTP_PASS: z.string().optional().default(""),
-  // Expéditeur des mails. À défaut, l'adresse de contact elle-même : un formulaire qui s'envoie à
-  // lui-même part d'un domaine déjà vérifié chez le fournisseur SMTP, donc délivrable.
+  // Sender of the mails. Defaults to the contact address itself: a form mailing itself leaves from
+  // a domain already verified at the SMTP provider, hence deliverable.
   SMTP_FROM: z.string().optional().default(""),
-  // Destinataire des messages. À défaut, l'adresse de contact publique déjà présente dans le .env.
+  // Recipient of the messages. Defaults to the public contact address already in the .env.
   CONTACT_EMAIL_TO: z.string().optional().default(""),
   NEXT_PUBLIC_CONTACT_EMAIL: z.string().optional().default(""),
 
@@ -70,9 +70,9 @@ const envSchema = z.object({
 const parsed = envSchema.parse(process.env);
 
 /**
- * Le formulaire de contact n'a besoin que des identifiants SMTP : l'expéditeur et le destinataire
- * retombent sur l'adresse de contact publique, déjà configurée pour la page de confidentialité et
- * le pied de page. Une seule variable à renseigner au lieu de trois.
+ * The contact form only needs the SMTP credentials: sender and recipient fall back to the public
+ * contact address, already configured for the privacy page and the footer. One variable to fill
+ * in instead of three.
  */
 const contactTo = parsed.CONTACT_EMAIL_TO || parsed.NEXT_PUBLIC_CONTACT_EMAIL;
 

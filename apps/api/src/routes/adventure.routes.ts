@@ -15,6 +15,7 @@ import {
   isAdventureItemTradable,
   listPendingAdventureTrades,
   findAdventureItem,
+  localized,
   getAdventurePlayerDetail,
   listAdventurePlayers,
   removeAdventureItem,
@@ -33,9 +34,8 @@ const MAX_GRANTED_ITEMS = 20;
 const playerParamsSchema = z.object({ userId: snowflakeSchema });
 
 /**
- * Intervention du propriétaire du bot dans la partie d'un joueur. Tout est optionnel : on
- * n'applique que ce qui est envoyé. Les valeurs sont des variations (delta), sauf `level` qui
- * fixe directement le niveau.
+ * Bot owner intervention in a player game. Everything is optional and only what is sent gets
+ * applied. Values are deltas, except `level` which sets the level outright.
  */
 const interventionSchema = z
   .object({
@@ -45,7 +45,7 @@ const interventionSchema = z
     energy: z.number().int().min(-ADVENTURE_ENERGY_MAX).max(ADVENTURE_ENERGY_MAX).optional(),
     statPoints: z.number().int().min(-500).max(500).optional(),
     level: z.number().int().min(1).max(ADVENTURE_MAX_LEVEL).optional(),
-    /** Quantité positive : don ; négative : retrait de l'inventaire. */
+    /** Positive quantity gives items, negative takes them out of the inventory. */
     items: z
       .array(
         z.object({
@@ -55,7 +55,7 @@ const interventionSchema = z
             .int()
             .min(-ADVENTURE_MAX_ITEM_QUANTITY)
             .max(ADVENTURE_MAX_ITEM_QUANTITY)
-            .refine((value) => value !== 0, "La quantité ne peut pas être nulle."),
+            .refine((value) => value !== 0, "Quantity cannot be zero."),
         }),
       )
       .max(MAX_GRANTED_ITEMS)
@@ -71,15 +71,15 @@ const interventionSchema = z
       value.statPoints !== undefined ||
       value.level !== undefined ||
       (value.items?.length ?? 0) > 0,
-    "Aucune modification demandée.",
+    "No change requested.",
   );
 
-/** Catalogue nécessaire au panel admin : objets offrables et découpage du scénario. */
-function catalogue() {
+/** Catalogue the admin panel needs: grantable items and the story breakdown. */
+function catalogue(locale: string) {
   return {
     items: ADVENTURE_ITEMS.map((item) => ({
       id: item.id,
-      name: item.name,
+      name: localized(item.name, locale),
       emoji: item.emoji,
       kind: item.kind,
       rarity: item.rarity,
@@ -87,16 +87,16 @@ function catalogue() {
       level: item.level ?? null,
       price: item.price ?? null,
       sellPrice: item.sellPrice,
-      description: item.description,
+      description: localized(item.description, locale),
       tradable: isAdventureItemTradable(item),
     })),
     acts: ADVENTURE_ACTS.map((act) => ({
       id: act.id,
-      title: act.title,
+      title: localized(act.title, locale),
       emoji: act.emoji,
       chapters: act.chapters.map((chapter) => ({
         id: chapter.id,
-        title: chapter.title,
+        title: localized(chapter.title, locale),
         levelRequirement: chapter.levelRequirement,
         echoCost: chapter.echoCost,
       })),
@@ -109,17 +109,17 @@ function catalogue() {
 }
 
 /**
- * Enrichit la fiche : libellés de quêtes (que seul le catalogue partagé connaît) et propositions
- * d'échange encore ouvertes, utiles pour comprendre une réclamation d'objet disparu.
+ * Enriches the sheet with quest labels (only the shared catalogue knows them) and the trades still
+ * open, which help make sense of a complaint about a missing item.
  */
-async function withDetails(detail: AdventurePlayerDetail) {
+async function withDetails(detail: AdventurePlayerDetail, locale: string) {
   const trades = await listPendingAdventureTrades(detail.character.userId);
 
   return {
     ...detail,
     quests: detail.quests.map((quest) => ({
       ...quest,
-      label: adventureQuestLabel(quest.questId, quest.target),
+      label: localized(adventureQuestLabel(quest.questId, quest.target), locale),
     })),
     pendingTrades: trades.map((trade) => ({
       id: trade.id,
@@ -136,73 +136,73 @@ async function withDetails(detail: AdventurePlayerDetail) {
   };
 }
 
-/** Résumé lisible d'une intervention, écrit dans le journal du joueur. */
+/** Readable summary of an intervention, stored in the player log (English, like the other logs). */
 function describeIntervention(body: z.infer<typeof interventionSchema>): string {
   const parts: string[] = [];
-  if (body.level !== undefined) parts.push(`niveau fixé à ${body.level}`);
+  if (body.level !== undefined) parts.push(`level set to ${body.level}`);
   if (body.xp) parts.push(`+${body.xp} XP`);
-  if (body.gold) parts.push(`${body.gold > 0 ? "+" : ""}${body.gold} pièces`);
-  if (body.echoes) parts.push(`${body.echoes > 0 ? "+" : ""}${body.echoes} fragments d'écho`);
-  if (body.energy) parts.push(`${body.energy > 0 ? "+" : ""}${body.energy} énergie`);
+  if (body.gold) parts.push(`${body.gold > 0 ? "+" : ""}${body.gold} gold`);
+  if (body.echoes) parts.push(`${body.echoes > 0 ? "+" : ""}${body.echoes} echo shards`);
+  if (body.energy) parts.push(`${body.energy > 0 ? "+" : ""}${body.energy} energy`);
   if (body.statPoints) {
-    parts.push(`${body.statPoints > 0 ? "+" : ""}${body.statPoints} point(s) de caractéristique`);
+    parts.push(`${body.statPoints > 0 ? "+" : ""}${body.statPoints} stat point(s)`);
   }
   for (const entry of body.items ?? []) {
     const item = findAdventureItem(entry.itemId);
-    const label = item ? item.name : entry.itemId;
-    parts.push(`${entry.quantity > 0 ? "+" : ""}${entry.quantity} × ${label}`);
+    const label = item ? item.name.en : entry.itemId;
+    parts.push(`${entry.quantity > 0 ? "+" : ""}${entry.quantity} x ${label}`);
   }
 
-  const summary = parts.join(", ") || "aucune modification";
+  const summary = parts.join(", ") || "no change";
   return body.reason ? `${summary} - ${body.reason}` : summary;
 }
 
-/** Panel admin du module aventure : suivi des joueurs et interventions dans leur partie. */
+/** Admin panel of the adventure module: player follow-up and interventions in their game. */
 export default async function adventureRoutes(app: FastifyInstance): Promise<void> {
   app.addHook("preHandler", authenticate);
   app.addHook("preHandler", requireOwner);
 
-  app.get("/admin/adventure/catalogue", async () => catalogue());
+  app.get("/admin/adventure/catalogue", async (request) => catalogue(request.t.locale));
 
   app.get("/admin/adventure/players", async () => listAdventurePlayers());
 
   app.get("/admin/adventure/players/:userId", async (request, reply) => {
     const params = playerParamsSchema.safeParse(request.params);
     if (!params.success) {
-      return reply.status(400).send({ error: "Identifiant invalide." });
+      return reply.status(400).send({ error: request.t("errors.validation.id") });
     }
 
     const detail = await getAdventurePlayerDetail(params.data.userId);
     if (!detail) {
-      return reply.status(404).send({ error: "Ce joueur n'a pas d'aventurier." });
+      return reply.status(404).send({ error: request.t("errors.adventure.noCharacter") });
     }
-    return withDetails(detail);
+    return withDetails(detail, request.t.locale);
   });
 
   app.patch("/admin/adventure/players/:userId", async (request, reply) => {
     const params = playerParamsSchema.safeParse(request.params);
     if (!params.success) {
-      return reply.status(400).send({ error: "Identifiant invalide." });
+      return reply.status(400).send({ error: request.t("errors.validation.id") });
     }
 
     const body = interventionSchema.safeParse(request.body);
     if (!body.success) {
-      return reply.status(400).send({ error: "Corps de requête invalide." });
+      return reply.status(400).send({ error: request.t("errors.validation.body") });
     }
 
     const { userId } = params.data;
     const detail = await getAdventurePlayerDetail(userId);
     if (!detail) {
-      return reply.status(404).send({ error: "Ce joueur n'a pas d'aventurier." });
+      return reply.status(404).send({ error: request.t("errors.adventure.noCharacter") });
     }
 
     const unknown = (body.data.items ?? []).filter((entry) => !findAdventureItem(entry.itemId));
     if (unknown.length > 0) {
-      return reply.status(400).send({ error: "Objet inconnu au catalogue." });
+      return reply.status(400).send({ error: request.t("errors.adventure.unknownItem") });
     }
 
     const { character } = detail;
-    // L'expérience passe par la même règle que le jeu : les niveaux montent comme en partie.
+    // XP goes through the same rule as the game, so levels rise exactly as they do in play.
     const progression = applyAdventureXp(character, body.data.xp ?? 0);
 
     const updated = await updateAdventureCharacter(userId, {
@@ -229,22 +229,22 @@ export default async function adventureRoutes(app: FastifyInstance): Promise<voi
       }
     }
 
-    // Trace visible à la fois par le joueur (`/aventure journal`) et par le panel admin.
+    // Trace visible both to the player (adventure journal) and in the admin panel.
     await addAdventureLog({
       userId,
       type: "ADMIN",
-      message: `Intervention du staff : ${describeIntervention(body.data)}`,
+      message: `Staff intervention: ${describeIntervention(body.data)}`,
       actorId: request.user.userId,
     });
 
     request.log.info(
       { ownerId: request.user.userId, userId, intervention: body.data },
-      "Partie d'aventure modifiée depuis le panel admin",
+      "Adventure game changed from the admin panel",
     );
 
     const refreshed = await getAdventurePlayerDetail(userId);
     return refreshed
-      ? withDetails(refreshed)
+      ? withDetails(refreshed, request.t.locale)
       : {
           character: updated,
           items: [],

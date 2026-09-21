@@ -1,41 +1,36 @@
+import { updateGuild } from "@gaulia/database";
 import { ChannelType, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 
 import { PermissionLevel } from "../../../core/permissions/permissionLevel";
 import { successPayload } from "../../../core/ui/containers";
+import { localizeOption, localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
-import { updateGuild } from "@gaulia/database";
+
+const KEY = "moderation.commands.modlogsConfig";
 
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   guildOnly: true,
   permissionLevel: PermissionLevel.Administrator,
-  data: new SlashCommandBuilder()
-    .setName("modlogs-config")
-    .setDescription("Configure le salon des logs de modération")
+
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY)
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addChannelOption((option) =>
-      option
-        .setName("salon")
-        .setDescription("Salon où envoyer les logs de modération")
+      localizeOption(option, `${KEY}.options.channel`)
         .addChannelTypes(ChannelType.GuildText)
         .setRequired(true),
     ),
 
-  help: {
-    details:
-      "Définit le salon textuel où Gaulia publie chaque cas de modération : bannissements, expulsions, sourdines, avertissements et purges. Gaulia doit pouvoir envoyer des messages dans ce salon.",
-    examples: ["modlogs-config salon:#logs-moderation"],
-  },
-
-  async execute(interaction) {
-    const channel = interaction.options.getChannel("salon", true);
+  async execute(interaction, _client, t) {
+    const channel = interaction.options.getChannel("channel", true);
     await updateGuild(interaction.guildId!, { modLogChannelId: channel.id });
 
     await interaction.reply(
       successPayload(
         false,
-        "Configuration mise à jour",
-        `Les logs de modération seront envoyés dans <#${channel.id}>.`,
+        t("moderation.modlogs.title"),
+        t("moderation.modlogs.description", { channel: channel.id }),
       ),
     );
   },

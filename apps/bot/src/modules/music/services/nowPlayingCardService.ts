@@ -9,15 +9,17 @@ import type { Player, Track } from "lavalink-client";
 import { Emojis } from "../../../client/Constants";
 import type { GauliaClient } from "../../../client/GauliaClient";
 import { toV2Payload, type V2MessagePayload } from "../../../core/ui/containers";
+import type { Translator } from "../../../i18n";
 import { buildTrackContainer } from "./musicUi";
 import { isLoopEnabled, isShuffleEnabled } from "./playbackControls";
+import { guildTranslator } from "./playerUtils";
 
 interface TrackedMessage {
   channelId: string;
   messageId: string;
 }
 
-/** Référence du message "now playing" en cours, par guilde (en mémoire, par process de shard). */
+/** Current "now playing" message per guild, in memory, per shard process. */
 const nowPlayingMessages = new Map<string, TrackedMessage>();
 
 function controlButton(
@@ -30,17 +32,25 @@ function controlButton(
   return label ? button.setLabel(label) : button;
 }
 
-function buildControlRows(player: Player): ActionRowBuilder<MessageActionRowComponentBuilder>[] {
+function buildControlRows(
+  player: Player,
+  t: Translator,
+): ActionRowBuilder<MessageActionRowComponentBuilder>[] {
   const id = (action: string) => `music:${action}:${player.guildId}`;
   const modeStyle = (enabled: boolean) => (enabled ? ButtonStyle.Success : ButtonStyle.Danger);
 
   return [
     new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-      controlButton(id("pause"), Emojis.Pause, ButtonStyle.Secondary, "Pause"),
-      controlButton(id("resume"), Emojis.Resume, ButtonStyle.Secondary, "Resume"),
-      controlButton(id("skip"), Emojis.Skip, ButtonStyle.Secondary, "Skip"),
-      controlButton(id("previous"), Emojis.Back, ButtonStyle.Secondary, "Back"),
-      controlButton(id("stop"), Emojis.Stop, ButtonStyle.Primary, "Stop"),
+      controlButton(id("pause"), Emojis.Pause, ButtonStyle.Secondary, t("music.controls.pause")),
+      controlButton(id("resume"), Emojis.Resume, ButtonStyle.Secondary, t("music.controls.resume")),
+      controlButton(id("skip"), Emojis.Skip, ButtonStyle.Secondary, t("music.controls.skip")),
+      controlButton(
+        id("previous"),
+        Emojis.Back,
+        ButtonStyle.Secondary,
+        t("music.controls.previous"),
+      ),
+      controlButton(id("stop"), Emojis.Stop, ButtonStyle.Primary, t("music.controls.stop")),
     ),
     new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
       controlButton(id("shuffle"), Emojis.Shuffle, modeStyle(isShuffleEnabled(player))),
@@ -51,15 +61,19 @@ function buildControlRows(player: Player): ActionRowBuilder<MessageActionRowComp
   ];
 }
 
-export function buildNowPlayingPayload(player: Player, track: Track): V2MessagePayload {
+export function buildNowPlayingPayload(
+  player: Player,
+  track: Track,
+  t: Translator,
+): V2MessagePayload {
   return toV2Payload(
     false,
-    buildTrackContainer("Musique en cours", track),
-    ...buildControlRows(player),
+    buildTrackContainer(t, t("music.ui.nowPlayingTitle"), track),
+    ...buildControlRows(player, t),
   );
 }
 
-/** Poste la card "now playing", ou édite celle déjà affichée pour cette guilde si elle existe. */
+/** Posts the "now playing" card, or edits the one already shown for this guild. */
 export async function postOrUpdateNowPlayingCard(
   client: GauliaClient,
   player: Player,
@@ -73,7 +87,8 @@ export async function postOrUpdateNowPlayingCard(
   const channel = await client.channels.fetch(channelId).catch(() => null);
   if (!channel || !channel.isTextBased() || !("send" in channel)) return;
 
-  const payload = buildNowPlayingPayload(player, track);
+  const t = await guildTranslator(client, player.guildId);
+  const payload = buildNowPlayingPayload(player, track, t);
 
   const existing = nowPlayingMessages.get(player.guildId);
   if (existing) {
@@ -88,7 +103,7 @@ export async function postOrUpdateNowPlayingCard(
   nowPlayingMessages.set(player.guildId, { channelId, messageId: sent.id });
 }
 
-/** Re-rend la card avec l'état courant du player (ex : mode aléatoire ou répétition modifiés). */
+/** Renders the card again with the current player state (shuffle or repeat mode changed). */
 export async function refreshNowPlayingCard(client: GauliaClient, player: Player): Promise<void> {
   const current = player.queue.current ?? undefined;
   await postOrUpdateNowPlayingCard(client, player, current);

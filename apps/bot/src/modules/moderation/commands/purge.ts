@@ -3,46 +3,38 @@ import { ChannelType, PermissionFlagsBits, SlashCommandBuilder } from "discord.j
 import { GauliaError } from "../../../core/errors";
 import { PermissionLevel } from "../../../core/permissions/permissionLevel";
 import { successPayload } from "../../../core/ui/containers";
+import { guildTranslatorFor, localizeOption, localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
 import { recordCase } from "../services/moderationService";
 
+const KEY = "moderation.commands.purge";
+
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   guildOnly: true,
   permissionLevel: PermissionLevel.Moderator,
   cooldownSeconds: 3,
-  data: new SlashCommandBuilder()
-    .setName("purge")
-    .setDescription("Supprime en masse des messages récents de ce salon")
+
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY)
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
     .addIntegerOption((option) =>
-      option
-        .setName("nombre")
-        .setDescription("Nombre de messages à supprimer (1-100)")
+      localizeOption(option, `${KEY}.options.amount`)
         .setRequired(true)
         .setMinValue(1)
         .setMaxValue(100),
     )
-    .addUserOption((option) =>
-      option.setName("utilisateur").setDescription("Ne supprimer que les messages de ce membre"),
-    ),
+    .addUserOption((option) => localizeOption(option, `${KEY}.options.user`)),
 
-  help: {
-    details:
-      "Supprime jusqu'à 100 messages parmi les plus récents du salon. Avec l'option utilisateur, seuls ses messages parmi ces derniers messages sont supprimés. Les messages de plus de 14 jours sont ignorés (limite de Discord). L'opération est enregistrée comme cas de modération.",
-    examples: ["purge nombre:50", "purge nombre:100 utilisateur:@Pseudo"],
-  },
-
-  async execute(interaction) {
+  async execute(interaction, _client, t) {
     const channel = interaction.channel;
     if (!channel || channel.type !== ChannelType.GuildText) {
-      throw new GauliaError(
-        "Cette commande n'est utilisable que dans un salon textuel de serveur.",
-      );
+      throw new GauliaError("moderation.errors.textChannelOnly");
     }
 
-    const amount = interaction.options.getInteger("nombre", true);
-    const filterUser = interaction.options.getUser("utilisateur");
+    const guild = interaction.guild!;
+    const amount = interaction.options.getInteger("amount", true);
+    const filterUser = interaction.options.getUser("user");
 
     await interaction.deferReply({ ephemeral: true });
 
@@ -53,19 +45,28 @@ const command: ChatInputCommand = {
 
     const deleted = await channel.bulkDelete(toDelete, true);
 
+    // The case reason is stored and read back by the guild staff, so it follows the guild language.
+    const guildText = await guildTranslatorFor(guild.id, guild.preferredLocale);
+    const caseReason = filterUser
+      ? guildText("moderation.purge.caseReasonFrom", {
+          count: deleted.size,
+          target: filterUser.tag,
+        })
+      : guildText("moderation.purge.caseReason", { count: deleted.size });
+
     const moderationCase = await recordCase({
-      guild: interaction.guild!,
+      guild,
       type: "PURGE",
       target: { id: channel.id, tag: `#${channel.name}` },
       moderator: { id: interaction.user.id, tag: interaction.user.tag },
-      reason: `${deleted.size} message(s) supprimé(s)${filterUser ? ` de ${filterUser.tag}` : ""}`,
+      reason: caseReason,
     });
 
     await interaction.editReply(
       successPayload(
         false,
-        `Messages supprimés (cas #${moderationCase.caseNumber})`,
-        `**${deleted.size}** message(s) supprimé(s).`,
+        t("moderation.purge.title", { case: moderationCase.caseNumber }),
+        t("moderation.purge.description", { count: deleted.size }),
       ),
     );
   },

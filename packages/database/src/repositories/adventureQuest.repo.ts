@@ -7,7 +7,7 @@ export interface QuestDraft {
   target: number;
 }
 
-/** Lot de quêtes d'une période (jour ou semaine UTC), dans l'ordre de tirage. */
+/** Quest batch of a period (UTC day or week), in draw order. */
 export async function listAdventureQuests(
   userId: string,
   kind: AdventureQuestKind,
@@ -19,7 +19,7 @@ export async function listAdventureQuests(
   });
 }
 
-/** Crée le lot de la période. `skipDuplicates` couvre deux commandes lancées en même temps. */
+/** Creates the period batch. `skipDuplicates` covers two commands racing. */
 export async function createAdventureQuests(
   userId: string,
   kind: AdventureQuestKind,
@@ -33,8 +33,8 @@ export async function createAdventureQuests(
 }
 
 /**
- * Avance les quêtes en cours qui suivent un évènement de jeu (`questIds` : celles dont l'objectif
- * correspond). Une quête déjà terminée n'est plus incrémentée, pour garder `progress` lisible.
+ * Advances the running quests tracking a game event (`questIds`: those whose objective matches).
+ * A claimed quest is no longer incremented, to keep `progress` readable.
  */
 export async function advanceAdventureQuests(
   userId: string,
@@ -58,7 +58,7 @@ export async function claimAdventureQuest(id: number): Promise<AdventureQuest> {
   return prisma.adventureQuest.update({ where: { id }, data: { claimedAt: new Date() } });
 }
 
-/** Purge des lots antérieurs à une date, appelée par le job de rétention de l'API. */
+/** Purges batches older than a cutoff; called by the API retention job. */
 export async function deleteAdventureQuestsBefore(cutoff: Date): Promise<number> {
   const { count } = await prisma.adventureQuest.deleteMany({
     where: { periodStart: { lt: cutoff } },

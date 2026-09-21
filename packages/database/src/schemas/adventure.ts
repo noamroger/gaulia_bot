@@ -1,16 +1,15 @@
 import { z } from "zod";
 
-/** Bornes partagées par l'API (validation des interventions admin) et le bot (garde-fous de jeu). */
+/** Bounds shared by the API (admin edit validation) and the bot (gameplay guards). */
 export const ADVENTURE_MAX_GOLD = 100_000_000;
 export const ADVENTURE_MAX_ECHOES = 100_000;
 export const ADVENTURE_MAX_ITEM_QUANTITY = 9_999;
-/** Nombre de salons autorisés (ou interdits) enregistrables pour un serveur. */
+/** Allowed (or blocked) channels a guild can register. */
 export const ADVENTURE_MAX_CHANNELS = 100;
 
 /**
- * Compteurs des objectifs du chapitre en cours, indexés par identifiant d'objectif
- * (`<type>:<cible>`, voir data/story.ts côté bot). Volontairement libre : ajouter un type
- * d'objectif ne demande aucune migration.
+ * Objective counters of the current chapter, keyed by objective id (`<type>:<target>`, see
+ * data/story.ts on the bot side). Deliberately free-form: a new objective type needs no migration.
  */
 export const chapterProgressSchema = z.record(
   z.string().max(80),
@@ -19,12 +18,12 @@ export const chapterProgressSchema = z.record(
 
 export type ChapterProgress = z.infer<typeof chapterProgressSchema>;
 
-/** Échanges entre joueurs : bornes de sécurité, partagées par le bot (jeu) et l'API (validation). */
+/** Player trades: safety bounds, shared by the bot (gameplay) and the API (validation). */
 export const ADVENTURE_TRADE_MAX_ITEMS = 5;
 export const ADVENTURE_TRADE_EXPIRY_MS = 15 * 60_000;
-/** Niveau minimum pour échanger : décourage les comptes jetables créés pour vider un inventaire. */
+/** Minimum level to trade: discourages throwaway accounts made to drain an inventory. */
 export const ADVENTURE_TRADE_MIN_LEVEL = 5;
-/** Propositions en attente qu'un même joueur peut avoir ouvertes en même temps. */
+/** Pending offers a single player can have open at once. */
 export const ADVENTURE_MAX_PENDING_TRADES = 5;
 
 export const adventureTradeItemsSchema = z

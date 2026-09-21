@@ -21,10 +21,10 @@ export async function loadComponents(client: GauliaClient): Promise<void> {
     }
   }
 
-  client.logger.info(`${client.components.size} composant(s) chargé(s)`);
+  client.logger.info(`${client.components.size} component(s) loaded`);
 }
 
-/** Trouve le composant enregistré dont le préfixe matche le début du custom_id reçu. */
+/** Finds the registered component whose prefix matches the start of the received custom_id. */
 export function resolveComponent(
   client: GauliaClient,
   customId: string,

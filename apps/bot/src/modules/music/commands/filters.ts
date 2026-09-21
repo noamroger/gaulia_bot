@@ -2,47 +2,34 @@ import { SlashCommandBuilder } from "discord.js";
 
 import { Emojis } from "../../../client/Constants";
 import { GauliaError } from "../../../core/errors";
+import { localizeChoices, localizeOption, localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
-import { interventionOf, musicActionPayload } from "../services/musicUi";
+import { musicActionPayload } from "../services/musicUi";
 import { getPlayerOrThrow, requireSameVoiceChannel, resolveMember } from "../services/playerUtils";
 
-const FILTER_CHOICES = [
-  { name: "Bassboost", value: "bassboost" },
-  { name: "Nightcore", value: "nightcore" },
-  { name: "Vaporwave", value: "vaporwave" },
-  { name: "8D", value: "8d" },
-  { name: "Réinitialiser", value: "clear" },
-] as const;
+const KEY = "music.commands.filters";
+const FILTERS = ["bassboost", "nightcore", "vaporwave", "8d", "clear"] as const;
 
-type FilterName = (typeof FILTER_CHOICES)[number]["value"];
+type FilterName = (typeof FILTERS)[number];
 
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   guildOnly: true,
   premiumOnly: true,
-  data: new SlashCommandBuilder()
-    .setName("filters")
-    .setDescription("[Premium] Applique un filtre audio à la lecture en cours")
-    .addStringOption((option) =>
-      option
-        .setName("filtre")
-        .setDescription("Filtre à appliquer")
-        .setRequired(true)
-        .addChoices(...FILTER_CHOICES),
-    ),
 
-  help: {
-    details:
-      "Applique un effet audio à la lecture en cours. Nightcore, Vaporwave et 8D s'activent ou se désactivent à chaque utilisation, Bassboost renforce les basses et Réinitialiser retire tous les filtres. Tu dois être dans le même salon vocal que Gaulia.",
-    examples: ["filters filtre:Nightcore", "filters filtre:Réinitialiser"],
-  },
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY).addStringOption((option) =>
+    localizeOption(option, `${KEY}.options.filter`)
+      .setRequired(true)
+      .addChoices(...localizeChoices(`${KEY}.options.filter`, FILTERS)),
+  ),
 
-  async execute(interaction, client) {
+  async execute(interaction, client, t) {
     const member = await resolveMember(interaction);
     const player = getPlayerOrThrow(client, interaction.guildId!);
     requireSameVoiceChannel(member, player);
 
-    const filter = interaction.options.getString("filtre", true) as FilterName;
+    const filter = interaction.options.getString("filter", true) as FilterName;
 
     switch (filter) {
       case "bassboost":
@@ -61,20 +48,20 @@ const command: ChatInputCommand = {
         await player.filterManager.resetFilters();
         break;
       default:
-        throw new GauliaError("Filtre inconnu.");
+        throw new GauliaError("music.error.unknownFilter");
     }
-
-    const label = FILTER_CHOICES.find((choice) => choice.value === filter)!.name;
-    const intervention = interventionOf(interaction.user);
 
     await interaction.reply(
       musicActionPayload(
         interaction.user,
         Emojis.Filters,
-        "Filtre audio",
+        t("music.actions.filters.title"),
         filter === "clear"
-          ? `Les filtres ont été réinitialisés ${intervention}.`
-          : `Le filtre \`${label}\` a été appliqué ${intervention}.`,
+          ? t("music.actions.filters.cleared", { user: interaction.user.id })
+          : t("music.actions.filters.applied", {
+              filter: t(`${KEY}.options.filter.choices.${filter}`),
+              user: interaction.user.id,
+            }),
       ),
     );
   },

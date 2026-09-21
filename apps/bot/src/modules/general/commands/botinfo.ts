@@ -1,42 +1,31 @@
 import { SlashCommandBuilder } from "discord.js";
 
+import { localizeChoices, localizeOption, localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
 import { collectBotInfo } from "../services/botinfo/botStatsService";
-import { botInfoView, isBotInfoView } from "../services/botinfo/botinfoUi";
+import { BOT_INFO_VIEWS, botInfoView, isBotInfoView } from "../services/botinfo/botinfoUi";
+
+const KEY = "general.commands.botinfo";
+const VIEW_OPTION = `${KEY}.options.view`;
 
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   guildOnly: false,
   cooldownSeconds: 10,
-  data: new SlashCommandBuilder()
-    .setName("botinfo")
-    .setDescription("Affiche les informations et les statistiques de Gaulia")
-    .addStringOption((option) =>
-      option
-        .setName("vue")
-        .setDescription("Onglet à ouvrir directement")
-        .addChoices(
-          { name: "Aperçu", value: "apercu" },
-          { name: "Technique", value: "technique" },
-          { name: "Shards", value: "shards" },
-          { name: "Commandes", value: "commandes" },
-        ),
-    ),
 
-  help: {
-    details:
-      "Tout ce qu'il y a à savoir sur Gaulia, en quatre onglets navigables aux boutons : l'aperçu (identité, serveurs, membres, état), la fiche technique (versions, mémoire, base de données, Lavalink), le détail des shards et les statistiques d'utilisation des commandes sur 30 jours. Les totaux proviennent des heartbeats envoyés par tous les shards, pas seulement de celui qui te répond.",
-    examples: ["botinfo", "botinfo vue:shards"],
-  },
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY).addStringOption((option) =>
+    localizeOption(option, VIEW_OPTION).addChoices(...localizeChoices(VIEW_OPTION, BOT_INFO_VIEWS)),
+  ),
 
-  async execute(interaction, client) {
+  async execute(interaction, client, t) {
     await interaction.deferReply();
 
-    const requested = interaction.options.getString("vue") ?? "apercu";
-    const view = isBotInfoView(requested) ? requested : "apercu";
+    const requested = interaction.options.getString("view") ?? "overview";
+    const view = isBotInfoView(requested) ? requested : "overview";
     const snapshot = await collectBotInfo(client);
 
-    await interaction.editReply(botInfoView(snapshot, view, interaction.user.id));
+    await interaction.editReply(botInfoView(snapshot, view, interaction.user.id, t));
   },
 };
 

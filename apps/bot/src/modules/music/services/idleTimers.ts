@@ -13,8 +13,8 @@ export function clearIdleTimer(guildId: string): void {
 }
 
 /**
- * Programme la destruction du player après une période d'inactivité, sauf si `stay247` est actif
- * (mode 24/7 premium) - dans ce cas le player reste connecté indéfiniment.
+ * Schedules the destruction of the player after a while without music, unless `stay247` is on
+ * (premium 24/7 mode), where the player stays connected for good.
  */
 export function scheduleIdleDestroy(player: Player, stay247: boolean): void {
   clearIdleTimer(player.guildId);

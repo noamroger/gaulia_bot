@@ -3,7 +3,7 @@ import { env } from "../config/env";
 const DISCORD_API_BASE = "https://discord.com/api/v10";
 const CACHE_TTL_MS = 30_000;
 const CATEGORY_CHANNEL_TYPE = 4;
-/** GUILD_TEXT et GUILD_ANNOUNCEMENT : les seuls salons où le bot publie des messages. */
+/** GUILD_TEXT and GUILD_ANNOUNCEMENT: the only channels the bot posts in. */
 const TEXT_CHANNEL_TYPES = new Set([0, 5]);
 
 export interface GuildChannelOption {
@@ -47,12 +47,12 @@ async function discordGet<T>(path: string): Promise<T | null> {
   });
   if (response.status === 403 || response.status === 404) return null;
   if (!response.ok) {
-    throw new Error(`Appel Discord ${path} échoué (${response.status})`);
+    throw new Error(`Discord call ${path} failed (${response.status})`);
   }
   return response.json() as Promise<T>;
 }
 
-/** Salons texte et rôles d'un serveur, lus avec le token du bot ; null si le bot n'y a pas accès. */
+/** Text channels and roles of a server, read with the bot token; null when the bot has no access. */
 export async function getGuildResources(guildId: string): Promise<GuildResources | null> {
   const cached = cache.get(guildId);
   if (cached && cached.expiresAt > Date.now()) return cached.value;

@@ -2,15 +2,17 @@
 
 import { useState } from "react";
 
+import { useTranslation } from "@/i18n";
+
 import { NumberInput } from "./NumberInput";
 
-/** Durée maximale d'un timeout imposée par Discord. */
+/** Longest timeout Discord accepts. */
 const MAX_TIMEOUT_MINUTES = 28 * 24 * 60;
 
 const UNITS = [
-  { id: "minutes", label: "minutes", factor: 1 },
-  { id: "hours", label: "heures", factor: 60 },
-  { id: "days", label: "jours", factor: 1440 },
+  { id: "minutes", factor: 1 },
+  { id: "hours", factor: 60 },
+  { id: "days", factor: 1440 },
 ] as const;
 
 type UnitId = (typeof UNITS)[number]["id"];
@@ -38,6 +40,7 @@ export function DurationInput({
   ariaLabel: string;
   onChange: (minutes: number) => void;
 }) {
+  const t = useTranslation();
   const [unit, setUnit] = useState<UnitId>(() => unitFor(minutes));
   const factor = factorOf(unit);
   const amount = Math.max(1, Math.round(minutes / factor));
@@ -53,7 +56,7 @@ export function DurationInput({
       />
       <select
         className="select select-compact"
-        aria-label="Unité de durée"
+        aria-label={t("settings.duration.unitAria")}
         value={unit}
         onChange={(event) => {
           const nextUnit = event.target.value as UnitId;
@@ -63,7 +66,7 @@ export function DurationInput({
       >
         {UNITS.map((candidate) => (
           <option key={candidate.id} value={candidate.id}>
-            {candidate.label}
+            {t(`settings.duration.${candidate.id}`)}
           </option>
         ))}
       </select>

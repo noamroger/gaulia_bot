@@ -6,7 +6,7 @@ import { DEFAULT_THEME, normalizeTheme, THEME_STORAGE_KEY, type Theme } from "./
 
 const listeners = new Set<() => void>();
 
-/** Source de vérité : l'attribut posé par le script inline de layout.tsx, puis par `apply()`. */
+/** Source of truth: the attribute set by the inline script in layout.tsx, then by `apply()`. */
 function getSnapshot(): Theme {
   return normalizeTheme(document.documentElement.dataset.theme) ?? DEFAULT_THEME;
 }
@@ -23,7 +23,7 @@ function apply(theme: Theme): void {
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
 
-  // Un autre onglet a changé le thème : on s'aligne sans réécrire le stockage.
+  // Another tab changed the theme: follow it without writing storage back.
   const onStorage = (event: StorageEvent): void => {
     if (event.key !== THEME_STORAGE_KEY) return;
     apply(normalizeTheme(event.newValue) ?? DEFAULT_THEME);
@@ -43,7 +43,7 @@ export function useTheme(): { theme: Theme; setTheme: (theme: Theme) => void } {
     try {
       localStorage.setItem(THEME_STORAGE_KEY, next);
     } catch {
-      // Stockage indisponible (navigation privée, cookies bloqués) : le choix vaut pour l'onglet.
+      // Storage unavailable (private browsing, blocked cookies): the choice holds for this tab.
     }
     apply(next);
   }, []);

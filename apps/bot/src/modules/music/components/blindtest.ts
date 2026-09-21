@@ -4,11 +4,13 @@ import { GauliaError } from "../../../core/errors";
 import type { ButtonComponent } from "../../../structures/Component";
 import { requireBlindtestControl, skipBlindtestRound, stopBlindtest } from "../services/blindtest";
 
-/** customId `blindtest:<action>:<serveur>` : seul le serveur de la partie est accepté. */
+/** customId `blindtest:<action>:<guild>`: only the server running the game is accepted. */
 function controlledSession(interaction: ButtonInteraction) {
-  if (!interaction.inCachedGuild()) throw new GauliaError("Ce bouton n'est plus valide.");
+  if (!interaction.inCachedGuild()) throw new GauliaError("music.blindtest.error.staleButton");
   const guildId = interaction.customId.split(":")[2];
-  if (guildId !== interaction.guildId) throw new GauliaError("Ce bouton n'est plus valide.");
+  if (guildId !== interaction.guildId) {
+    throw new GauliaError("music.blindtest.error.staleButton");
+  }
   return requireBlindtestControl(guildId, interaction.member);
 }
 

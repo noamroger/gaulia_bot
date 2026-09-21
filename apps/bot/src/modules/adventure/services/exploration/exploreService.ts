@@ -5,6 +5,8 @@ import {
 } from "@gaulia/database";
 
 import { GauliaError } from "../../../../core/errors";
+import { formatDurationMs } from "../../../../core/utils/duration";
+import type { Translator } from "../../../../i18n";
 import type { MonsterDefinition } from "../../data/monsters";
 import {
   baseExploreGold,
@@ -24,12 +26,11 @@ import { drawEncounter, rollMonsterLoot } from "../combat/encounterService";
 import { dispatchGameEvents } from "../events/eventDispatcher";
 import type { GameEvent } from "../events/gameEvents";
 import { grantItems, healingItems } from "../inventory/inventoryService";
-import { formatDuration } from "../../ui/format";
 
 export interface ExploreOutcome {
   character: AdventureCharacter;
   zone: ZoneDefinition;
-  kind: "COMBAT" | "TROUVAILLE" | "CALME";
+  kind: "COMBAT" | "FIND" | "CALM";
   monster: MonsterDefinition | null;
   combat: CombatResult | null;
   ambiance: string | null;
@@ -39,11 +40,11 @@ export interface ExploreOutcome {
   echoFound: boolean;
   levelsGained: number;
   notices: string[];
-  /** Vrai si une potion du sac rendrait des points de vie : commande l'affichage du bouton de soin. */
+  /** True when a potion in the bag would restore health: drives the heal button. */
   canHeal: boolean;
 }
 
-/** Multiplicateur de butin : série de jours consécutifs, et flair du rôdeur. */
+/** Loot multiplier: streak of consecutive days, plus the ranger's flair. */
 function lootMultiplier(character: AdventureCharacter): number {
   const streak = Math.min(STREAK_BONUS_MAX, character.streak * STREAK_BONUS_PER_DAY);
   const classBonus = character.characterClass === "RODEUR" ? 0.1 : 0;
@@ -51,29 +52,27 @@ function lootMultiplier(character: AdventureCharacter): number {
 }
 
 /**
- * Boucle principale du jeu. Une exploration consomme de l'énergie, tire une rencontre dans la
- * zone courante et en applique toutes les conséquences : combat, butin, expérience, quêtes,
- * chapitre et hauts faits.
+ * Main loop of the game. An exploration spends energy, draws an encounter in the current zone and
+ * applies every consequence: fight, loot, experience, quests, chapter and achievements.
  */
 export async function explore(
   character: AdventureCharacter,
   items: AdventureItem[],
+  t: Translator,
 ): Promise<ExploreOutcome> {
   const stats = computeStats(character, items);
 
   if (character.energy < ENERGY_PER_EXPLORE) {
-    throw new GauliaError(
-      `Tu n'as plus d'énergie. Le prochain point revient dans ${formatDuration(msUntilNextEnergy(character, Date.now()))} (ou utilise une ration de voyage).`,
-    );
+    throw new GauliaError("adventure.error.noEnergy", {
+      duration: formatDurationMs(msUntilNextEnergy(character, Date.now()), t),
+    });
   }
   if (character.hp < Math.round(stats.maxHp * HP_EXPLORE_THRESHOLD)) {
-    throw new GauliaError(
-      "Tu es trop amoché pour repartir. Soigne-toi avec `/aventure utiliser` ou laisse passer un peu de temps.",
-    );
+    throw new GauliaError("adventure.error.tooHurt");
   }
 
   const zone = requireZone(character.zoneId);
-  const encounter = drawEncounter(zone);
+  const encounter = drawEncounter(zone, t);
   const multiplier = lootMultiplier(character);
 
   let xp = 0;
@@ -88,7 +87,7 @@ export async function explore(
 
   if (encounter.kind === "COMBAT") {
     monster = encounter.monster;
-    combat = resolveCombat(stats, character.characterClass, character.hp, monster);
+    combat = resolveCombat(stats, character.characterClass, character.hp, monster, t);
     hp = combat.hpLeft;
 
     if (combat.victory) {
@@ -99,11 +98,11 @@ export async function explore(
       loot = rollMonsterLoot(monster);
       events.push({ type: "DEFEAT", family: monster.family, zoneId: zone.id, amount: 1 });
     } else {
-      // Pas de mort permanente : on repart à un point de vie, sans rien perdre d'autre.
+      // No permanent death: the player leaves with one health point and loses nothing else.
       xp = Math.round(baseExploreXp(character.level) * 0.25);
-      notices.push("🤕 Tu romps le combat de justesse et rentres soigner tes plaies.");
+      notices.push(t("adventure.notices.combatBreak"));
     }
-  } else if (encounter.kind === "TROUVAILLE") {
+  } else if (encounter.kind === "FIND") {
     loot = [encounter.loot];
     xp = Math.round(baseExploreXp(character.level) * zone.xpMultiplier * 0.6);
     gold = Math.round(baseExploreGold(character.level) * zone.goldMultiplier * 0.5 * multiplier);
@@ -113,9 +112,7 @@ export async function explore(
   }
 
   const echoFound = Math.random() < ECHO_FIND_CHANCE;
-  if (echoFound) {
-    notices.push("🔷 Un écho perdu résonne sous tes pas : **+1 fragment d'écho**.");
-  }
+  if (echoFound) notices.push(t("adventure.notices.echoFound"));
 
   if (loot.length > 0) {
     await grantItems(character.userId, loot);
@@ -138,12 +135,10 @@ export async function explore(
   const gain = await grantXp(updated, items, xp);
   updated = gain.character;
   if (gain.levelsGained > 0) {
-    notices.push(
-      `⬆️ Niveau **${gain.level}** atteint ! Points à répartir : \`/aventure ameliorer\`.`,
-    );
+    notices.push(t("adventure.notices.levelUpPoints", { level: gain.level }));
   }
 
-  const dispatched = await dispatchGameEvents(updated, items, events);
+  const dispatched = await dispatchGameEvents(updated, items, events, t);
   const healed = dispatched.character;
 
   return {

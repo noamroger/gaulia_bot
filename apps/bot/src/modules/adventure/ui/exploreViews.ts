@@ -3,46 +3,81 @@ import type { AdventureCharacter } from "@gaulia/database";
 
 import { Colors } from "../../../client/Constants";
 import { buildContainer, toV2Payload, type V2MessagePayload } from "../../../core/ui/containers";
+import { formatDurationMs } from "../../../core/utils/duration";
+import type { Translator } from "../../../i18n";
 import { itemLabel } from "../data/items";
+import { monsterName } from "../data/monsters";
 import { ENERGY_MAX } from "../data/pacing";
+import { actTitle, requireAct } from "../data/story";
+import { zoneDescription, zoneName, type ZoneDefinition } from "../data/zones";
 import type { DungeonOutcome, DungeonStatus } from "../services/dungeon/dungeonService";
 import type { ExploreOutcome } from "../services/exploration/exploreService";
 import { appendRow, exploreButton, navigationRow, viewButton } from "./navigation";
-import { formatDuration, formatNumber, gold } from "./format";
+import { formatNumber, gold } from "./format";
 
-function lootLine(loot: { itemId: string; quantity: number }[]): string | null {
+function lootLine(loot: { itemId: string; quantity: number }[], t: Translator): string | null {
   if (loot.length === 0) return null;
-  return `🎒 ${loot.map((entry) => `${entry.quantity} × ${itemLabel(entry.itemId)}`).join(" · ")}`;
+  return t("adventure.views.explore.loot", {
+    list: loot
+      .map((entry) =>
+        t("adventure.views.explore.lootEntry", {
+          quantity: entry.quantity,
+          item: itemLabel(t, entry.itemId),
+        }),
+      )
+      .join(" · "),
+  });
 }
 
-function vitalsLine(character: AdventureCharacter): string {
-  return `❤️ ${formatNumber(character.hp)} · ⚡ ${character.energy}/${ENERGY_MAX} · 🪙 ${formatNumber(character.gold)}`;
+function vitalsLine(character: AdventureCharacter, t: Translator): string {
+  return t("adventure.views.explore.vitals", {
+    hp: formatNumber(t, character.hp),
+    energy: character.energy,
+    maxEnergy: ENERGY_MAX,
+    gold: formatNumber(t, character.gold),
+  });
 }
 
-export function exploreView(outcome: ExploreOutcome): V2MessagePayload {
+export function exploreView(outcome: ExploreOutcome, t: Translator): V2MessagePayload {
   const { zone, monster, combat } = outcome;
   const lines: string[] = [];
 
   if (outcome.kind === "COMBAT" && monster && combat) {
     lines.push(
-      `## ${monster.emoji} ${combat.victory ? `${monster.name} vaincu` : `${monster.name} te repousse`}`,
-      `${zone.emoji} ${zone.name} · niveau ${monster.level}`,
+      t(combat.victory ? "adventure.views.explore.victory" : "adventure.views.explore.defeat", {
+        emoji: monster.emoji,
+        monster: monsterName(t, monster),
+      }),
+      t("adventure.views.explore.zoneLevel", {
+        emoji: zone.emoji,
+        zone: zoneName(t, zone),
+        level: monster.level,
+      }),
       combat.highlights.join("\n"),
     );
-  } else if (outcome.kind === "TROUVAILLE") {
-    lines.push(`## 🔎 Trouvaille`, `${zone.emoji} ${zone.name}`);
+  } else if (outcome.kind === "FIND") {
+    lines.push(
+      t("adventure.views.explore.findTitle"),
+      t("adventure.views.explore.zone", { emoji: zone.emoji, zone: zoneName(t, zone) }),
+    );
   } else {
-    lines.push(`## 🧭 Exploration`, `${zone.emoji} ${zone.name}`, `*${outcome.ambiance ?? ""}*`);
+    lines.push(
+      t("adventure.views.explore.calmTitle"),
+      t("adventure.views.explore.zone", { emoji: zone.emoji, zone: zoneName(t, zone) }),
+      t("adventure.views.explore.ambiance", { ambiance: outcome.ambiance ?? "" }),
+    );
   }
 
   const gains = [
-    outcome.xp > 0 ? `✨ +${formatNumber(outcome.xp)} XP` : null,
-    outcome.gold > 0 ? `🪙 +${formatNumber(outcome.gold)}` : null,
-    lootLine(outcome.loot),
+    outcome.xp > 0 ? t("adventure.views.explore.xp", { xp: formatNumber(t, outcome.xp) }) : null,
+    outcome.gold > 0
+      ? t("adventure.views.explore.gold", { gold: formatNumber(t, outcome.gold) })
+      : null,
+    lootLine(outcome.loot, t),
   ].filter(Boolean);
   if (gains.length > 0) lines.push(gains.join(" · "));
 
-  lines.push(vitalsLine(outcome.character));
+  lines.push(vitalsLine(outcome.character, t));
   if (outcome.notices.length > 0) lines.push(outcome.notices.join("\n"));
 
   const color =
@@ -50,88 +85,107 @@ export function exploreView(outcome: ExploreOutcome): V2MessagePayload {
   const payload = toV2Payload(false, buildContainer(color, lines));
   const userId = outcome.character.userId;
 
-  // Le bouton de soin n'apparaît que quand il sert : inutile de l'afficher sans potion au sac.
-  const actions = [exploreButton(userId, "Explorer encore"), viewButton(userId, "sac")];
+  // The heal button only shows when it is useful: no point offering it without a potion in the bag.
+  const actions = [
+    exploreButton(t, userId, t("adventure.buttons.exploreAgain")),
+    viewButton(t, userId, "bag"),
+  ];
   if (outcome.canHeal) {
     actions.push(
       new ButtonBuilder()
         .setCustomId(`adventure:heal:${userId}`)
-        .setLabel("Se soigner")
+        .setLabel(t("adventure.buttons.heal"))
         .setEmoji("🧪")
         .setStyle(ButtonStyle.Success),
     );
   }
   appendRow(payload, actions);
 
-  return navigationRow(payload, userId, ["carte", "quetes", "histoire"]);
+  return navigationRow(payload, t, userId, ["map", "quests", "story"]);
 }
 
 export function dungeonStatusView(
   character: AdventureCharacter,
   status: DungeonStatus,
+  t: Translator,
 ): V2MessagePayload {
   const lines = [
-    `## 🚪 Donjon - ${status.actTitle}`,
-    `Gardien : ${status.guardian.emoji} **${status.guardian.name}** (niveau ${status.guardian.level})`,
+    t("adventure.views.dungeon.title", { act: actTitle(t, requireAct(status.actIndex)) }),
+    t("adventure.views.dungeon.guardian", {
+      emoji: status.guardian.emoji,
+      name: monsterName(t, status.guardian),
+      level: status.guardian.level,
+    }),
     status.cooldownMs > 0
-      ? `⏳ Prochaine tentative dans **${formatDuration(status.cooldownMs)}**.`
-      : "Le passage est ouvert : affronte le gardien d'un bouton, ou `/aventure donjon lancer:true`.",
-    `Un donjon remporté rapporte l'essentiel de tes fragments d'écho - c'est le rendez-vous de la semaine.`,
-    vitalsLine(character),
+      ? t("adventure.views.dungeon.cooldown", {
+          duration: formatDurationMs(status.cooldownMs, t),
+        })
+      : t("adventure.views.dungeon.open"),
+    t("adventure.views.dungeon.reward"),
+    vitalsLine(character, t),
   ];
   const payload = toV2Payload(false, buildContainer(Colors.Premium, lines));
   if (status.cooldownMs === 0) {
     appendRow(payload, [
       new ButtonBuilder()
         .setCustomId(`adventure:dungeon:${character.userId}`)
-        .setLabel("Affronter le gardien")
+        .setLabel(t("adventure.buttons.fightGuardian"))
         .setEmoji("⚔️")
         .setStyle(ButtonStyle.Danger),
     ]);
   }
-  return navigationRow(payload, character.userId, ["profil", "sac", "histoire"]);
+  return navigationRow(payload, t, character.userId, ["profile", "bag", "story"]);
 }
 
-export function dungeonResultView(outcome: DungeonOutcome): V2MessagePayload {
+export function dungeonResultView(outcome: DungeonOutcome, t: Translator): V2MessagePayload {
   const lines = [
-    `## ${outcome.guardian.emoji} ${outcome.combat.victory ? "Gardien vaincu" : "Le gardien tient bon"}`,
-    `**${outcome.guardian.name}** - niveau ${outcome.guardian.level}`,
+    t(outcome.combat.victory ? "adventure.views.dungeon.won" : "adventure.views.dungeon.held", {
+      emoji: outcome.guardian.emoji,
+    }),
+    t("adventure.views.dungeon.guardianLine", {
+      name: monsterName(t, outcome.guardian),
+      level: outcome.guardian.level,
+    }),
     outcome.combat.highlights.join("\n"),
   ];
 
   if (outcome.combat.victory) {
     const gains = [
-      `✨ +${formatNumber(outcome.xp)} XP`,
-      `🪙 +${formatNumber(outcome.gold)}`,
-      lootLine(outcome.loot),
+      t("adventure.views.explore.xp", { xp: formatNumber(t, outcome.xp) }),
+      t("adventure.views.explore.gold", { gold: formatNumber(t, outcome.gold) }),
+      lootLine(outcome.loot, t),
     ].filter(Boolean);
     lines.push(gains.join(" · "));
   }
 
-  lines.push(vitalsLine(outcome.character));
+  lines.push(vitalsLine(outcome.character, t));
   if (outcome.notices.length > 0) lines.push(outcome.notices.join("\n"));
 
   const payload = toV2Payload(
     false,
     buildContainer(outcome.combat.victory ? Colors.Success : Colors.Danger, lines),
   );
-  return navigationRow(payload, outcome.character.userId, ["profil", "sac", "histoire", "quetes"]);
+  return navigationRow(payload, t, outcome.character.userId, ["profile", "bag", "story", "quests"]);
 }
 
 export function travelView(
   character: AdventureCharacter,
-  zone: { emoji: string; name: string; description: string },
+  zone: ZoneDefinition,
   notices: string[],
+  t: Translator,
 ): V2MessagePayload {
   const payload = toV2Payload(
     false,
     buildContainer(Colors.Success, [
-      `## ${zone.emoji} En route pour ${zone.name}`,
-      `*${zone.description}*`,
-      `${vitalsLine(character)} · ${gold(character.gold)}`,
+      t("adventure.views.travel.title", { emoji: zone.emoji, zone: zoneName(t, zone) }),
+      t("adventure.views.travel.description", { description: zoneDescription(t, zone) }),
+      t("adventure.views.travel.vitals", {
+        vitals: vitalsLine(character, t),
+        gold: gold(t, character.gold),
+      }),
       ...(notices.length > 0 ? [notices.join("\n")] : []),
     ]),
   );
-  appendRow(payload, [exploreButton(character.userId), viewButton(character.userId, "carte")]);
+  appendRow(payload, [exploreButton(t, character.userId), viewButton(t, character.userId, "map")]);
   return payload;
 }

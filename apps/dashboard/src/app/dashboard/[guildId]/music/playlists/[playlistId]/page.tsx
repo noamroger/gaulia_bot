@@ -6,6 +6,7 @@ import { useState, type FormEvent } from "react";
 
 import { SaveBar } from "@/components/settings/SaveBar";
 import { SettingRow, SettingsSection } from "@/components/settings/SettingsSection";
+import { useLocale, useTranslation, type Translator } from "@/i18n";
 import { api, ApiError } from "@/lib/api";
 import {
   BLINDTEST_PLAYLIST_MAX_TRACKS,
@@ -13,9 +14,11 @@ import {
   BLINDTEST_PLAYLIST_NAME_MAX,
   blindtestTrackKey,
 } from "@/lib/blindtest";
+import { formatNumber } from "@/lib/format";
 import type { BlindtestPlaylist, BlindtestTrack, SpotifyImport } from "@/lib/types";
 import { useEditableResource } from "@/lib/useEditableResource";
 
+/** Above this many tracks the list gets a search field. */
 const FILTER_THRESHOLD = 10;
 
 interface Notice {
@@ -23,17 +26,15 @@ interface Notice {
   text: string;
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof ApiError && error.status < 500
+function errorMessage(error: unknown, t: Translator): string {
+  return error instanceof ApiError && error.status < 500 && !error.generic
     ? error.message
-    : "Une erreur interne est survenue.";
-}
-
-function plural(count: number, singular: string, pluralForm: string): string {
-  return `${count} ${count > 1 ? pluralForm : singular}`;
+    : t("common.state.error");
 }
 
 export default function BlindtestPlaylistPage() {
+  const t = useTranslation();
+  const locale = useLocale();
   const { guildId, playlistId } = useParams<{ guildId: string; playlistId: string }>();
   const editor = useEditableResource<BlindtestPlaylist>(
     `/guilds/${guildId}/blindtest/playlists/${playlistId}`,
@@ -47,7 +48,7 @@ export default function BlindtestPlaylistPage() {
 
   const backLink = (
     <Link href={`/dashboard/${guildId}/music`} className="back-link">
-      Retour aux réglages musique
+      {t("music.playlist.back")}
     </Link>
   );
 
@@ -55,12 +56,12 @@ export default function BlindtestPlaylistPage() {
     return (
       <div>
         {backLink}
-        <div className="empty-state">Impossible de charger cette liste.</div>
+        <div className="empty-state">{t("music.playlist.loadError")}</div>
       </div>
     );
   }
   if (!editor.draft) {
-    return <p className="text-muted">Chargement…</p>;
+    return <p className="text-muted">{t("common.state.loading")}</p>;
   }
 
   const { draft, update } = editor;
@@ -101,21 +102,23 @@ export default function BlindtestPlaylistPage() {
         url: link.trim(),
       });
       const { added, duplicates, overflow } = addTracks(result.tracks);
-      const details = [
-        duplicates > 0 ? `${plural(duplicates, "déjà présent", "déjà présents")}` : null,
-        overflow > 0
-          ? `${plural(overflow, "ignoré", "ignorés")} (limite de ${BLINDTEST_PLAYLIST_MAX_TRACKS} titres)`
-          : null,
-      ].filter(Boolean);
+      const parts = [t("music.playlist.imported", { count: added, name: result.name })];
+      if (duplicates > 0) parts.push(t("music.playlist.duplicates", { count: duplicates }));
+      if (overflow > 0) {
+        parts.push(
+          t("music.playlist.overflow", {
+            count: overflow,
+            max: BLINDTEST_PLAYLIST_MAX_TRACKS,
+          }),
+        );
+      }
       setNotice({
         kind: added > 0 ? "success" : "error",
-        text: `${plural(added, "titre ajouté", "titres ajoutés")} depuis « ${result.name} »${
-          details.length > 0 ? ` · ${details.join(" · ")}` : ""
-        }. Pense à enregistrer.`,
+        text: `${parts.join(" · ")}. ${t("music.playlist.remember")}`,
       });
       setLink("");
     } catch (importError) {
-      setNotice({ kind: "error", text: errorMessage(importError) });
+      setNotice({ kind: "error", text: errorMessage(importError, t) });
     } finally {
       setImporting(false);
     }
@@ -138,8 +141,8 @@ export default function BlindtestPlaylistPage() {
         kind: "error",
         text:
           duplicates > 0
-            ? "Ce titre est déjà dans la liste."
-            : `La liste est limitée à ${BLINDTEST_PLAYLIST_MAX_TRACKS} titres.`,
+            ? t("music.playlist.duplicateTrack")
+            : t("music.playlist.full", { max: BLINDTEST_PLAYLIST_MAX_TRACKS }),
       });
     }
   }
@@ -164,12 +167,12 @@ export default function BlindtestPlaylistPage() {
     <div className="settings-page">
       {backLink}
 
-      <SettingsSection title="Liste personnalisée">
-        <SettingRow label="Nom" hint="Affiché dans l'autocomplétion de /blindtest.">
+      <SettingsSection title={t("music.playlist.title")}>
+        <SettingRow label={t("music.playlist.name.label")} hint={t("music.playlist.name.hint")}>
           <input
             type="text"
             className="input"
-            aria-label="Nom de la liste"
+            aria-label={t("music.playlist.name.aria")}
             maxLength={BLINDTEST_PLAYLIST_NAME_MAX}
             value={draft.name}
             onChange={(event) => update({ name: event.target.value })}
@@ -178,15 +181,15 @@ export default function BlindtestPlaylistPage() {
       </SettingsSection>
 
       <SettingsSection
-        title="Ajouter des titres"
-        description="Colle le lien d'une playlist, d'un album ou d'un titre Spotify public (les 100 premiers titres d'une playlist sont lus). Un titre ajouté à la main sera cherché sur SoundCloud pendant la partie."
+        title={t("music.playlist.add.title")}
+        description={t("music.playlist.add.description")}
       >
         <form className="inline-form" onSubmit={(event) => void importLink(event)}>
           <input
             type="url"
             className="input input-grow"
-            placeholder="https://open.spotify.com/playlist/…"
-            aria-label="Lien Spotify à importer"
+            placeholder={t("music.playlist.add.linkPlaceholder")}
+            aria-label={t("music.playlist.add.linkAria")}
             value={link}
             disabled={importing || full}
             onChange={(event) => setLink(event.target.value)}
@@ -196,7 +199,7 @@ export default function BlindtestPlaylistPage() {
             className="button-primary"
             disabled={importing || full || !link.trim()}
           >
-            {importing ? "Import…" : "Importer"}
+            {importing ? t("music.playlist.add.importing") : t("music.playlist.add.import")}
           </button>
         </form>
 
@@ -204,8 +207,8 @@ export default function BlindtestPlaylistPage() {
           <input
             type="text"
             className="input input-grow"
-            placeholder="Titre"
-            aria-label="Titre à ajouter"
+            placeholder={t("music.playlist.add.titlePlaceholder")}
+            aria-label={t("music.playlist.add.titleAria")}
             maxLength={200}
             value={manualTitle}
             disabled={full}
@@ -214,8 +217,8 @@ export default function BlindtestPlaylistPage() {
           <input
             type="text"
             className="input input-grow"
-            placeholder="Artiste"
-            aria-label="Artiste du titre à ajouter"
+            placeholder={t("music.playlist.add.artistPlaceholder")}
+            aria-label={t("music.playlist.add.artistAria")}
             maxLength={300}
             value={manualArtist}
             disabled={full}
@@ -226,7 +229,7 @@ export default function BlindtestPlaylistPage() {
             className="button-secondary"
             disabled={full || !manualTitle.trim() || !manualArtist.trim()}
           >
-            Ajouter
+            {t("music.playlist.add.submit")}
           </button>
         </form>
 
@@ -241,10 +244,13 @@ export default function BlindtestPlaylistPage() {
       </SettingsSection>
 
       <SettingsSection
-        title={`Titres (${tracks.length} / ${BLINDTEST_PLAYLIST_MAX_TRACKS})`}
+        title={t("music.playlist.tracks.title", {
+          value: formatNumber(tracks.length, locale),
+          max: BLINDTEST_PLAYLIST_MAX_TRACKS,
+        })}
         description={
           tracks.length < BLINDTEST_PLAYLIST_MIN_TRACKS
-            ? `Il faut au moins ${BLINDTEST_PLAYLIST_MIN_TRACKS} titres pour lancer un blindtest avec cette liste.`
+            ? t("music.playlist.tracks.minimum", { count: BLINDTEST_PLAYLIST_MIN_TRACKS })
             : undefined
         }
       >
@@ -252,28 +258,30 @@ export default function BlindtestPlaylistPage() {
           <input
             type="search"
             className="search-input track-filter"
-            placeholder="Filtrer par titre ou artiste"
-            aria-label="Filtrer les titres"
+            placeholder={t("music.playlist.tracks.filterPlaceholder")}
+            aria-label={t("music.playlist.tracks.filterAria")}
             value={filter}
             onChange={(event) => setFilter(event.target.value)}
           />
         )}
 
         {tracks.length === 0 ? (
-          <p className="setting-hint">Aucun titre pour le moment.</p>
+          <p className="setting-hint">{t("music.playlist.tracks.empty")}</p>
         ) : visible.length === 0 ? (
-          <p className="setting-hint">Aucun titre ne correspond à ce filtre.</p>
+          <p className="setting-hint">{t("music.playlist.tracks.noMatch")}</p>
         ) : (
           <div className="table-scroll">
             <table className="table track-table">
               <thead>
                 <tr>
                   <th className="numeric">#</th>
-                  <th>Titre</th>
-                  <th>Artiste</th>
-                  <th>Extrait</th>
+                  <th>{t("music.playlist.tracks.columnTitle")}</th>
+                  <th>{t("music.playlist.tracks.columnArtist")}</th>
+                  <th>{t("music.playlist.tracks.columnPreview")}</th>
                   <th>
-                    <span className="visually-hidden">Actions</span>
+                    <span className="visually-hidden">
+                      {t("music.playlist.tracks.columnActions")}
+                    </span>
                   </th>
                 </tr>
               </thead>
@@ -292,10 +300,10 @@ export default function BlindtestPlaylistPage() {
                       <button
                         type="button"
                         className="button-secondary button-small"
-                        aria-label={`Retirer ${track.title}`}
+                        aria-label={t("music.playlist.tracks.removeAria", { title: track.title })}
                         onClick={() => removeTrack(index)}
                       >
-                        Retirer
+                        {t("music.playlist.tracks.remove")}
                       </button>
                     </td>
                   </tr>
@@ -308,7 +316,7 @@ export default function BlindtestPlaylistPage() {
 
       <SaveBar
         editor={editor}
-        invalidReason={draft.name.trim() ? null : "Donne un nom à la liste."}
+        invalidReason={draft.name.trim() ? null : t("music.playlist.name.required")}
       />
     </div>
   );

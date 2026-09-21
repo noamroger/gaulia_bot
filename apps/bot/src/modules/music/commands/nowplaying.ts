@@ -2,35 +2,37 @@ import { SlashCommandBuilder } from "discord.js";
 
 import { GauliaError } from "../../../core/errors";
 import { toV2Payload } from "../../../core/ui/containers";
+import { localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
-import { buildTrackContainer, formatTrackTime } from "../services/musicUi";
+import { buildTrackContainer, formatClockTime } from "../services/musicUi";
 import { getPlayerOrThrow } from "../services/playerUtils";
+
+const KEY = "music.commands.nowplaying";
 
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   guildOnly: true,
-  data: new SlashCommandBuilder()
-    .setName("nowplaying")
-    .setDescription("Affiche le morceau en cours"),
 
-  help: {
-    details:
-      "Affiche la musique en cours : titre, source, durée, membre qui l'a ajoutée, pochette et position de lecture.",
-    examples: ["nowplaying"],
-  },
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY),
 
-  async execute(interaction, client) {
+  async execute(interaction, client, t) {
     const player = getPlayerOrThrow(client, interaction.guildId!);
     const track = player.queue.current;
 
     if (!track) {
-      throw new GauliaError("Rien n'est en cours de lecture.");
+      throw new GauliaError("music.error.nothingPlaying");
     }
 
-    const position = `Position : \`${formatTrackTime(player.position)}\`${player.paused ? " (en pause)" : ""}`;
+    const position = t(
+      player.paused
+        ? "music.actions.nowplaying.positionPaused"
+        : "music.actions.nowplaying.position",
+      { position: formatClockTime(player.position) },
+    );
 
     await interaction.reply(
-      toV2Payload(false, buildTrackContainer("Musique en cours", track, [position])),
+      toV2Payload(false, buildTrackContainer(t, t("music.ui.nowPlayingTitle"), track, [position])),
     );
   },
 };

@@ -47,7 +47,7 @@ export async function getBlindtestPlaylist(
   return playlist && toDetail(playlist);
 }
 
-/** Comparaison insensible à la casse, pour éviter « Rock » et « rock » sur le même serveur. */
+/** Case-insensitive, so "Rock" and "rock" cannot coexist in the same guild. */
 export async function isBlindtestPlaylistNameTaken(
   guildId: string,
   name: string,

@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { useLocale, useTranslation, type AppLocale, type Translator } from "@/i18n";
 import { api } from "@/lib/api";
 import { guildIconUrl } from "@/lib/discordCdn";
 import { formatNumber } from "@/lib/format";
 import type { AdminGuild, AdminGuildPage } from "@/lib/types";
 
-/** Filtre à trois états sur un réglage optionnel : sans contrainte, renseigné, vide. */
+/** Three state filter on an optional setting: unconstrained, filled in, empty. */
 type FlagFilter = "all" | "yes" | "no";
 
 type SortField =
@@ -27,8 +28,10 @@ type SortField =
 
 type SortOrder = "asc" | "desc";
 
+type PremiumFilter = "all" | "active" | "none" | "subscription" | "credits" | "expiring";
+
 interface Filters {
-  premium: "all" | "active" | "none" | "subscription" | "credits" | "expiring";
+  premium: PremiumFilter;
   language: string;
   membersMin: string;
   membersMax: string;
@@ -75,50 +78,49 @@ const EMPTY_FILTERS: Filters = {
   warns: "all",
 };
 
-/** Tous les champs triables, y compris ceux qui n'ont pas de colonne dans le tableau. */
-const SORT_FIELDS: { value: SortField; label: string }[] = [
-  { value: "createdAt", label: "Arrivée du bot" },
-  { value: "updatedAt", label: "Dernière modification" },
-  { value: "name", label: "Nom" },
-  { value: "id", label: "Identifiant" },
-  { value: "members", label: "Membres" },
-  { value: "language", label: "Langue" },
-  { value: "premium", label: "Abonnement premium" },
-  { value: "subscriptionEnd", label: "Fin d'abonnement" },
-  { value: "creditsEnd", label: "Fin du premium offert" },
-  { value: "cases", label: "Sanctions" },
-  { value: "warns", label: "Avertissements" },
-  { value: "playlists", label: "Playlists blindtest" },
+/** Every sortable field, including those without a column in the table. */
+const SORT_FIELDS: SortField[] = [
+  "createdAt",
+  "updatedAt",
+  "name",
+  "id",
+  "members",
+  "language",
+  "premium",
+  "subscriptionEnd",
+  "creditsEnd",
+  "cases",
+  "warns",
+  "playlists",
 ];
 
-/** Les champs texte se lisent mieux de A à Z, les nombres et les dates du plus grand au plus petit. */
+/** Text fields read better from A to Z, numbers and dates from largest to smallest. */
 const ASCENDING_BY_DEFAULT: SortField[] = ["name", "id", "language"];
 
 const PAGE_SIZES = [25, 50, 100, 200];
 
-const LANGUAGE_LABELS: Record<string, string> = {
-  fr: "Français",
-  en: "Anglais",
-};
+const PREMIUM_FILTERS: PremiumFilter[] = [
+  "all",
+  "active",
+  "none",
+  "subscription",
+  "credits",
+  "expiring",
+];
 
-const PREMIUM_LABELS: Record<Filters["premium"], string> = {
-  all: "Tous",
-  active: "Premium actif",
-  none: "Sans premium",
-  subscription: "Abonnement Discord",
-  credits: "Offert contre des crédits",
-  expiring: "Se termine sous 7 jours",
-};
+/** "auto" follows the Discord locale of the server and is the default for a new server. */
+const LANGUAGE_VALUES = ["auto", "en", "fr"];
 
-function languageLabel(code: string): string {
-  return LANGUAGE_LABELS[code] ?? code;
+/** An unexpected code still shows something readable rather than an empty cell. */
+function languageLabel(code: string, t: Translator): string {
+  return LANGUAGE_VALUES.includes(code) ? t(`admin.servers.language.${code}`) : code.toUpperCase();
 }
 
-function toDate(iso: string | null): string {
-  return iso ? new Date(iso).toLocaleDateString("fr-FR") : "-";
+function toDate(iso: string | null, locale: AppLocale): string {
+  return iso ? new Date(iso).toLocaleDateString(locale) : "-";
 }
 
-/** Nombre de filtres réellement posés, affiché sur le bouton qui ouvre le panneau. */
+/** Number of filters actually set, shown on the button that opens the panel. */
 function countActiveFilters(filters: Filters): number {
   return Object.entries(filters).filter(([, value]) => value !== "all" && value !== "").length;
 }
@@ -169,12 +171,12 @@ function FilterField({ label, value, options, onChange }: FilterFieldProps) {
   );
 }
 
-/** Choix « tous / renseigné / vide » avec des mots adaptés au réglage concerné. */
-function flagOptions(yes: string, no: string): { value: string; label: string }[] {
+/** "All / set / empty" choice, worded to fit the setting it filters on. */
+function flagOptions(t: Translator, yes: string, no: string): { value: string; label: string }[] {
   return [
-    { value: "all", label: "Tous" },
-    { value: "yes", label: yes },
-    { value: "no", label: no },
+    { value: "all", label: t("admin.servers.filter.options.all") },
+    { value: "yes", label: t(`admin.servers.filter.options.${yes}`) },
+    { value: "no", label: t(`admin.servers.filter.options.${no}`) },
   ];
 }
 
@@ -205,21 +207,24 @@ function SortHeader({ field, label, sort, order, onSort }: SortHeaderProps) {
   );
 }
 
-/** Au-delà, les pastilles feraient grandir la ligne plus qu'elles n'aident à lire le tableau. */
+/** Beyond that, the badges grow the row more than they help read the table. */
 const VISIBLE_BADGES = 2;
 
-/** Réglages activés sur le serveur, en pastilles, pour repérer d'un coup d'oeil ce qui est en place. */
+/** Settings enabled on the server, as badges, to spot at a glance what is in place. */
 function ModuleBadges({ guild }: { guild: AdminGuild }) {
+  const t = useTranslation();
   const badges: string[] = [];
-  if (guild.automodConfigured) badges.push("Automod");
-  if (guild.moderationConfigured) badges.push("Modération");
-  if (guild.musicConfigured) badges.push("Musique");
-  if (guild.adventureEnabled === true) badges.push("Aventure");
-  if (guild.modLogChannelId) badges.push("Logs mod");
-  if (guild.automodLogChannelId) badges.push("Logs automod");
-  if (guild.djRoleId) badges.push("Rôle DJ");
-  if (guild.musicChannelId) badges.push("Salon musique");
-  if (guild.funChannelCount > 0) badges.push(`Fun (${guild.funChannelCount})`);
+  if (guild.automodConfigured) badges.push(t("admin.servers.badges.automod"));
+  if (guild.moderationConfigured) badges.push(t("admin.servers.badges.moderation"));
+  if (guild.musicConfigured) badges.push(t("admin.servers.badges.music"));
+  if (guild.adventureEnabled === true) badges.push(t("admin.servers.badges.adventure"));
+  if (guild.modLogChannelId) badges.push(t("admin.servers.badges.modLog"));
+  if (guild.automodLogChannelId) badges.push(t("admin.servers.badges.automodLog"));
+  if (guild.djRoleId) badges.push(t("admin.servers.badges.djRole"));
+  if (guild.musicChannelId) badges.push(t("admin.servers.badges.musicChannel"));
+  if (guild.funChannelCount > 0) {
+    badges.push(t("admin.servers.badges.fun", { count: guild.funChannelCount }));
+  }
 
   if (badges.length === 0) return <span className="text-muted">-</span>;
 
@@ -232,12 +237,18 @@ function ModuleBadges({ guild }: { guild: AdminGuild }) {
           {badge}
         </span>
       ))}
-      {hidden > 0 && <span className="badge badge-muted badge-compact">+{hidden}</span>}
+      {hidden > 0 && (
+        <span className="badge badge-muted badge-compact">
+          {t("admin.servers.badges.more", { count: hidden })}
+        </span>
+      )}
     </div>
   );
 }
 
 function PremiumCell({ guild }: { guild: AdminGuild }) {
+  const t = useTranslation();
+  const locale = useLocale();
   const endsAt =
     guild.premiumSource === "CREDITS" ? guild.premiumGrantedUntil : guild.premiumExpiresAt;
   return (
@@ -245,15 +256,21 @@ function PremiumCell({ guild }: { guild: AdminGuild }) {
       <span
         className={`badge badge-compact ${guild.premiumActive ? "badge-success" : "badge-muted"}`}
       >
-        {guild.premiumActive ? "Actif" : "Inactif"}
+        {guild.premiumActive
+          ? t("admin.servers.premiumCell.active")
+          : t("admin.servers.premiumCell.inactive")}
       </span>
       {guild.premiumSource && (
         <span className="badge badge-accent badge-compact">
-          {guild.premiumSource === "CREDITS" ? "Offert" : "Abonnement"}
+          {guild.premiumSource === "CREDITS"
+            ? t("admin.servers.premiumCell.gifted")
+            : t("admin.servers.premiumCell.subscription")}
         </span>
       )}
       {guild.premiumActive && endsAt && (
-        <span className="text-muted">jusqu&apos;au {toDate(endsAt)}</span>
+        <span className="text-muted">
+          {t("admin.servers.premiumCell.until", { date: toDate(endsAt, locale) })}
+        </span>
       )}
     </div>
   );
@@ -275,7 +292,10 @@ export default function AdminServersPage() {
   const [pendingGuildId, setPendingGuildId] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
-  // La frappe ne déclenche pas une requête par caractère : seule la dernière saisie part.
+  const t = useTranslation();
+  const locale = useLocale();
+
+  // Typing does not fire one request per character: only the last input goes out.
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query), 300);
     return () => clearTimeout(timer);
@@ -285,8 +305,8 @@ export default function AdminServersPage() {
     setPage(1);
   }, [debouncedQuery, filters, sort, order, perPage]);
 
-  // Seule la dernière requête lancée a le droit d'écrire le résultat : sans ce garde-fou, une
-  // réponse lente arrivée après une plus récente réafficherait des lignes déjà périmées.
+  // Only the latest request may write the result: without this guard, a slow response arriving
+  // after a newer one would put stale rows back on screen.
   const latestRequest = useRef(0);
 
   const search = useMemo(
@@ -342,8 +362,8 @@ export default function AdminServersPage() {
         premium: !guild.premium,
         premiumExpiresAt: null,
       });
-      // Rechargement plutôt que remplacement de la ligne : le serveur modifié peut très bien
-      // sortir des filtres en cours, et les compteurs doivent suivre.
+      // Reload rather than patch the row: the edited server may well fall out of the current
+      // filters, and the counters have to follow.
       setReloadToken((current) => current + 1);
     } finally {
       setPendingGuildId(null);
@@ -360,8 +380,8 @@ export default function AdminServersPage() {
         <input
           type="search"
           className="search-input"
-          placeholder="Rechercher par nom ou ID…"
-          aria-label="Rechercher un serveur par nom ou ID"
+          placeholder={t("admin.servers.searchPlaceholder")}
+          aria-label={t("admin.servers.searchLabel")}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -372,42 +392,48 @@ export default function AdminServersPage() {
           aria-expanded={panelOpen}
           onClick={() => setPanelOpen((open) => !open)}
         >
-          Filtres{activeFilters > 0 ? ` (${activeFilters})` : ""}
+          {activeFilters > 0
+            ? t("admin.servers.filtersButtonCount", { count: activeFilters })
+            : t("admin.servers.filtersButton")}
         </button>
 
         <label className="filter-inline">
-          <span>Trier par</span>
+          <span>{t("admin.servers.sortBy")}</span>
           <select
             className="select select-compact"
             value={sort}
             onChange={(event) => changeSort(event.target.value as SortField)}
           >
             {SORT_FIELDS.map((field) => (
-              <option key={field.value} value={field.value}>
-                {field.label}
+              <option key={field} value={field}>
+                {t(`admin.servers.sort.${field}`)}
               </option>
             ))}
           </select>
         </label>
 
-        <div className="segmented" role="group" aria-label="Sens du tri">
+        <div className="segmented" role="group" aria-label={t("admin.servers.orderLabel")}>
           <button type="button" aria-pressed={order === "asc"} onClick={() => setOrder("asc")}>
-            Croissant
+            {t("admin.servers.ascending")}
           </button>
           <button type="button" aria-pressed={order === "desc"} onClick={() => setOrder("desc")}>
-            Décroissant
+            {t("admin.servers.descending")}
           </button>
         </div>
 
         {activeFilters > 0 && (
           <button type="button" className="filter-reset" onClick={resetFilters}>
-            Tout effacer
+            {t("admin.servers.clearAll")}
           </button>
         )}
 
         {result && (
           <span className="text-muted">
-            {formatNumber(result.total)} sur {formatNumber(result.totalPresent)} serveur(s)
+            {t("admin.servers.count", {
+              count: result.totalPresent,
+              shown: formatNumber(result.total, locale),
+              total: formatNumber(result.totalPresent, locale),
+            })}
           </span>
         )}
       </div>
@@ -415,31 +441,34 @@ export default function AdminServersPage() {
       {panelOpen && (
         <div className="card filter-panel">
           <FilterField
-            label="Premium"
+            label={t("admin.servers.filter.premium")}
             value={filters.premium}
-            onChange={(value) => setFilter("premium", value as Filters["premium"])}
-            options={Object.entries(PREMIUM_LABELS).map(([value, label]) => ({ value, label }))}
+            onChange={(value) => setFilter("premium", value as PremiumFilter)}
+            options={PREMIUM_FILTERS.map((value) => ({
+              value,
+              label: t(`admin.servers.premiumFilter.${value}`),
+            }))}
           />
 
           <FilterField
-            label="Langue"
+            label={t("admin.servers.filter.language")}
             value={filters.language}
             onChange={(value) => setFilter("language", value)}
             options={[
-              { value: "", label: "Toutes" },
-              ...languages.map((code) => ({ value: code, label: languageLabel(code) })),
+              { value: "", label: t("admin.servers.filter.languageAll") },
+              ...languages.map((code) => ({ value: code, label: languageLabel(code, t) })),
             ]}
           />
 
           <div className="filter-field">
-            <span>Membres</span>
+            <span>{t("admin.servers.filter.members")}</span>
             <div className="filter-range">
               <input
                 type="number"
                 min={0}
                 className="input input-number"
-                placeholder="min"
-                aria-label="Nombre de membres minimum"
+                placeholder={t("admin.servers.filter.minPlaceholder")}
+                aria-label={t("admin.servers.filter.membersMin")}
                 value={filters.membersMin}
                 onChange={(event) => setFilter("membersMin", event.target.value)}
               />
@@ -447,8 +476,8 @@ export default function AdminServersPage() {
                 type="number"
                 min={0}
                 className="input input-number"
-                placeholder="max"
-                aria-label="Nombre de membres maximum"
+                placeholder={t("admin.servers.filter.maxPlaceholder")}
+                aria-label={t("admin.servers.filter.membersMax")}
                 value={filters.membersMax}
                 onChange={(event) => setFilter("membersMax", event.target.value)}
               />
@@ -456,19 +485,19 @@ export default function AdminServersPage() {
           </div>
 
           <div className="filter-field">
-            <span>Arrivée du bot</span>
+            <span>{t("admin.servers.filter.created")}</span>
             <div className="filter-range">
               <input
                 type="date"
                 className="input"
-                aria-label="Arrivée du bot à partir du"
+                aria-label={t("admin.servers.filter.createdFrom")}
                 value={filters.createdFrom}
                 onChange={(event) => setFilter("createdFrom", event.target.value)}
               />
               <input
                 type="date"
                 className="input"
-                aria-label="Arrivée du bot jusqu'au"
+                aria-label={t("admin.servers.filter.createdTo")}
                 value={filters.createdTo}
                 onChange={(event) => setFilter("createdTo", event.target.value)}
               />
@@ -476,19 +505,19 @@ export default function AdminServersPage() {
           </div>
 
           <div className="filter-field">
-            <span>Dernière modification</span>
+            <span>{t("admin.servers.filter.updated")}</span>
             <div className="filter-range">
               <input
                 type="date"
                 className="input"
-                aria-label="Dernière modification à partir du"
+                aria-label={t("admin.servers.filter.updatedFrom")}
                 value={filters.updatedFrom}
                 onChange={(event) => setFilter("updatedFrom", event.target.value)}
               />
               <input
                 type="date"
                 className="input"
-                aria-label="Dernière modification jusqu'au"
+                aria-label={t("admin.servers.filter.updatedTo")}
                 value={filters.updatedTo}
                 onChange={(event) => setFilter("updatedTo", event.target.value)}
               />
@@ -496,111 +525,111 @@ export default function AdminServersPage() {
           </div>
 
           <FilterField
-            label="Module aventure"
+            label={t("admin.servers.filter.adventure")}
             value={filters.adventure}
             onChange={(value) => setFilter("adventure", value as Filters["adventure"])}
             options={[
-              { value: "all", label: "Tous" },
-              { value: "enabled", label: "Ouvert" },
-              { value: "disabled", label: "Fermé" },
-              { value: "none", label: "Jamais réglé" },
+              { value: "all", label: t("admin.servers.filter.options.all") },
+              { value: "enabled", label: t("admin.servers.filter.options.adventureEnabled") },
+              { value: "disabled", label: t("admin.servers.filter.options.adventureDisabled") },
+              { value: "none", label: t("admin.servers.filter.options.adventureNever") },
             ]}
           />
 
           <FilterField
-            label="Réglages automod"
+            label={t("admin.servers.filter.automod")}
             value={filters.automod}
             onChange={(value) => setFilter("automod", value as FlagFilter)}
-            options={flagOptions("Configurés", "Jamais touchés")}
+            options={flagOptions(t, "configured", "untouched")}
           />
 
           <FilterField
-            label="Réglages modération"
+            label={t("admin.servers.filter.moderation")}
             value={filters.moderation}
             onChange={(value) => setFilter("moderation", value as FlagFilter)}
-            options={flagOptions("Configurés", "Jamais touchés")}
+            options={flagOptions(t, "configured", "untouched")}
           />
 
           <FilterField
-            label="Réglages musique"
+            label={t("admin.servers.filter.music")}
             value={filters.music}
             onChange={(value) => setFilter("music", value as FlagFilter)}
-            options={flagOptions("Configurés", "Jamais touchés")}
+            options={flagOptions(t, "configured", "untouched")}
           />
 
           <FilterField
-            label="Salon de logs modération"
+            label={t("admin.servers.filter.modLog")}
             value={filters.modLog}
             onChange={(value) => setFilter("modLog", value as FlagFilter)}
-            options={flagOptions("Défini", "Non défini")}
+            options={flagOptions(t, "channelSet", "channelUnset")}
           />
 
           <FilterField
-            label="Salon de logs automod"
+            label={t("admin.servers.filter.automodLog")}
             value={filters.automodLog}
             onChange={(value) => setFilter("automodLog", value as FlagFilter)}
-            options={flagOptions("Défini", "Non défini")}
+            options={flagOptions(t, "channelSet", "channelUnset")}
           />
 
           <FilterField
-            label="Rôle DJ"
+            label={t("admin.servers.filter.djRole")}
             value={filters.djRole}
             onChange={(value) => setFilter("djRole", value as FlagFilter)}
-            options={flagOptions("Défini", "Non défini")}
+            options={flagOptions(t, "channelSet", "channelUnset")}
           />
 
           <FilterField
-            label="Salon musique"
+            label={t("admin.servers.filter.musicChannel")}
             value={filters.musicChannel}
             onChange={(value) => setFilter("musicChannel", value as FlagFilter)}
-            options={flagOptions("Défini", "Non défini")}
+            options={flagOptions(t, "channelSet", "channelUnset")}
           />
 
           <FilterField
-            label="Salons du module fun"
+            label={t("admin.servers.filter.funChannels")}
             value={filters.funChannels}
             onChange={(value) => setFilter("funChannels", value as FlagFilter)}
-            options={flagOptions("Restreints", "Tous les salons")}
+            options={flagOptions(t, "funRestricted", "funEveryChannel")}
           />
 
           <FilterField
-            label="Playlists blindtest"
+            label={t("admin.servers.filter.playlists")}
             value={filters.playlists}
             onChange={(value) => setFilter("playlists", value as FlagFilter)}
-            options={flagOptions("Au moins une", "Aucune")}
+            options={flagOptions(t, "playlistsSome", "playlistsNone")}
           />
 
           <FilterField
-            label="Sanctions"
+            label={t("admin.servers.filter.cases")}
             value={filters.cases}
             onChange={(value) => setFilter("cases", value as FlagFilter)}
-            options={flagOptions("Au moins une", "Aucune")}
+            options={flagOptions(t, "casesSome", "casesNone")}
           />
 
           <FilterField
-            label="Avertissements"
+            label={t("admin.servers.filter.warns")}
             value={filters.warns}
             onChange={(value) => setFilter("warns", value as FlagFilter)}
-            options={flagOptions("Au moins un", "Aucun")}
+            options={flagOptions(t, "warnsSome", "warnsNone")}
           />
 
           <FilterField
-            label="Icône du serveur"
+            label={t("admin.servers.filter.icon")}
             value={filters.icon}
             onChange={(value) => setFilter("icon", value as FlagFilter)}
-            options={flagOptions("Personnalisée", "Par défaut")}
+            options={flagOptions(t, "iconCustom", "iconDefault")}
           />
         </div>
       )}
 
       {failed ? (
-        <div className="empty-state">La liste des serveurs n&apos;a pas pu être chargée.</div>
+        <div className="empty-state">{t("admin.servers.loadFailed")}</div>
       ) : result === null ? (
-        <p className="text-muted">Chargement…</p>
+        <p className="text-muted">{t("common.state.loading")}</p>
       ) : result.totalPresent === 0 ? (
-        <div className="empty-state">Aucun serveur.</div>
+        <div className="empty-state">{t("admin.servers.empty")}</div>
       ) : guilds.length === 0 ? (
-        <div className="empty-state">Aucun serveur ne correspond à ces filtres.</div>
+        <div className="empty-state">{t("admin.servers.noMatch")}</div>
       ) : (
         <>
           <div className="table-scroll" aria-busy={loading}>
@@ -609,51 +638,57 @@ export default function AdminServersPage() {
                 <tr>
                   <SortHeader
                     field="name"
-                    label="Serveur"
+                    label={t("admin.servers.table.server")}
                     sort={sort}
                     order={order}
                     onSort={changeSort}
                   />
-                  <SortHeader field="id" label="ID" sort={sort} order={order} onSort={changeSort} />
+                  <SortHeader
+                    field="id"
+                    label={t("admin.servers.table.id")}
+                    sort={sort}
+                    order={order}
+                    onSort={changeSort}
+                  />
                   <SortHeader
                     field="members"
-                    label="Membres"
+                    label={t("admin.servers.table.members")}
                     sort={sort}
                     order={order}
                     onSort={changeSort}
                   />
                   <SortHeader
                     field="language"
-                    label="Langue"
+                    label={t("admin.servers.table.language")}
                     sort={sort}
                     order={order}
                     onSort={changeSort}
                   />
                   <SortHeader
                     field="premium"
-                    label="Premium"
+                    label={t("admin.servers.table.premium")}
                     sort={sort}
                     order={order}
                     onSort={changeSort}
                   />
-                  <th>Réglages</th>
+                  <th>{t("admin.servers.table.settings")}</th>
                   <SortHeader
                     field="cases"
-                    label="Sanctions"
+                    label={t("admin.servers.table.cases")}
                     sort={sort}
                     order={order}
                     onSort={changeSort}
                   />
                   <SortHeader
                     field="warns"
-                    label="Avert."
+                    label={t("admin.servers.table.warns")}
                     sort={sort}
                     order={order}
                     onSort={changeSort}
                   />
                   <SortHeader
                     field="createdAt"
-                    label="Arrivée"
+                    label={t("admin.servers.table.joined")}
                     sort={sort}
                     order={order}
                     onSort={changeSort}
@@ -664,7 +699,7 @@ export default function AdminServersPage() {
               <tbody>
                 {guilds.map((guild) => {
                   const icon = guildIconUrl(guild.id, guild.icon, 64);
-                  const name = guild.name ?? "Sans nom";
+                  const name = guild.name ?? t("admin.servers.table.unnamed");
                   return (
                     <tr key={guild.id}>
                       <td>
@@ -678,31 +713,33 @@ export default function AdminServersPage() {
                       <td>
                         <code>{guild.id}</code>
                       </td>
-                      <td className="numeric">{formatNumber(guild.memberCount)}</td>
-                      <td>{languageLabel(guild.language)}</td>
+                      <td className="numeric">{formatNumber(guild.memberCount, locale)}</td>
+                      <td>{languageLabel(guild.language, t)}</td>
                       <td>
                         <PremiumCell guild={guild} />
                       </td>
                       <td>
                         <ModuleBadges guild={guild} />
                       </td>
-                      <td className="numeric">{formatNumber(guild.moderationCaseCount)}</td>
-                      <td className="numeric">{formatNumber(guild.warnCount)}</td>
-                      <td>{new Date(guild.createdAt).toLocaleDateString("fr-FR")}</td>
+                      <td className="numeric">{formatNumber(guild.moderationCaseCount, locale)}</td>
+                      <td className="numeric">{formatNumber(guild.warnCount, locale)}</td>
+                      <td>{toDate(guild.createdAt, locale)}</td>
                       <td>
                         <div className="table-actions">
                           <Link
                             href={`/dashboard/${guild.id}/settings`}
                             className="button-secondary"
                           >
-                            Paramètres
+                            {t("admin.servers.table.openSettings")}
                           </Link>
                           <button
                             className="button-secondary"
                             disabled={pendingGuildId === guild.id}
                             onClick={() => void togglePremium(guild)}
                           >
-                            {guild.premium ? "Retirer premium" : "Offrir premium"}
+                            {guild.premium
+                              ? t("admin.servers.table.revokePremium")
+                              : t("admin.servers.table.grantPremium")}
                           </button>
                         </div>
                       </td>
@@ -715,7 +752,7 @@ export default function AdminServersPage() {
 
           <div className="pagination">
             <label className="filter-inline">
-              <span>Par page</span>
+              <span>{t("admin.servers.pagination.perPage")}</span>
               <select
                 className="select select-compact"
                 value={perPage}
@@ -730,7 +767,10 @@ export default function AdminServersPage() {
             </label>
 
             <span className="text-muted">
-              Page {formatNumber(result.page)} sur {formatNumber(result.pageCount)}
+              {t("admin.servers.pagination.page", {
+                page: formatNumber(result.page, locale),
+                pageCount: formatNumber(result.pageCount, locale),
+              })}
             </span>
 
             <div className="table-actions">
@@ -740,7 +780,7 @@ export default function AdminServersPage() {
                 disabled={result.page <= 1 || loading}
                 onClick={() => setPage(result.page - 1)}
               >
-                Précédent
+                {t("admin.servers.pagination.previous")}
               </button>
               <button
                 type="button"
@@ -748,7 +788,7 @@ export default function AdminServersPage() {
                 disabled={result.page >= result.pageCount || loading}
                 onClick={() => setPage(result.page + 1)}
               >
-                Suivant
+                {t("admin.servers.pagination.next")}
               </button>
             </div>
           </div>

@@ -1,8 +1,8 @@
 import { prisma } from "../client";
 
 /**
- * Compteurs globaux affichés par `/botinfo` : uniquement des totaux (aucun détail par serveur ni
- * par membre), la commande étant utilisable par tout le monde.
+ * Global counters shown by `/botinfo`: totals only (no per-guild or per-member detail), since
+ * anyone can run the command.
  */
 export interface BotContentStats {
   premiumGuilds: number;
@@ -13,7 +13,7 @@ export async function getBotContentStats(): Promise<BotContentStats> {
   const now = new Date();
 
   const [premiumGuilds, adventurePlayers] = await Promise.all([
-    // Premium Discord encore valide, ou premium offert contre des crédits encore en cours.
+    // Discord premium still valid, or credit-granted premium still running.
     prisma.guild.count({
       where: {
         botPresent: true,
@@ -29,7 +29,7 @@ export async function getBotContentStats(): Promise<BotContentStats> {
   return { premiumGuilds, adventurePlayers };
 }
 
-/** Aller-retour minimal vers Postgres, en millisecondes : latence de la base affichée par `/botinfo`. */
+/** Minimal Postgres round trip in milliseconds, shown as database latency by `/botinfo`. */
 export async function measureDatabaseLatency(): Promise<number> {
   const start = process.hrtime.bigint();
   await prisma.$queryRaw`SELECT 1`;

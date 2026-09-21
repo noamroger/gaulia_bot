@@ -1,7 +1,7 @@
 import { readdirSync, statSync } from "node:fs";
 import { extname, join, sep } from "node:path";
 
-/** Parcourt récursivement un dossier et retourne les fichiers .ts/.js (hors .d.ts). */
+/** Walks a folder recursively and returns its .ts/.js files, skipping .d.ts. */
 export function walk(dir: string): string[] {
   const results: string[] = [];
 
@@ -23,17 +23,17 @@ export function walk(dir: string): string[] {
   return results;
 }
 
-/** Filtre une liste de chemins pour ne garder que ceux situés dans un sous-dossier donné. */
+/** Keeps only the paths sitting inside a given subfolder. */
 export function filterBySubfolder(files: string[], subfolder: string): string[] {
   const marker = `${sep}${subfolder}${sep}`;
   return files.filter((file) => file.includes(marker));
 }
 
 /**
- * Charge l'export par défaut d'un module par chemin de fichier absolu. Utilise `require` plutôt
- * que `import()` dynamique : ce dernier traite toujours son argument comme une URL ESM, ce qui
- * casse sur Windows avec un chemin `E:\...` brut (ERR_UNSUPPORTED_ESM_URL_SCHEME) - `require`
- * gère nativement les chemins absolus de chaque plateforme.
+ * Loads a module's default export from an absolute path. Uses `require` rather than a dynamic
+ * `import()`: the latter always treats its argument as an ESM URL, which breaks on Windows with a
+ * raw `E:\...` path (ERR_UNSUPPORTED_ESM_URL_SCHEME), while `require` handles absolute paths on
+ * every platform.
  */
 export function loadDefaultExport<T>(file: string): T | undefined {
   // eslint-disable-next-line @typescript-eslint/no-require-imports

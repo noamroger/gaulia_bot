@@ -1,7 +1,7 @@
 /**
- * L'équilibrage vit dans `@gaulia/database` : l'API en a besoin pour offrir de l'expérience depuis
- * le panel admin exactement comme le jeu la distribue. Ce fichier ne fait que le ré-exposer sous
- * les noms courts utilisés par le module.
+ * Balancing lives in `@gaulia/database`: the API needs it to grant experience from the admin panel
+ * exactly the way the game hands it out. This file only re-exposes it under the short names the
+ * module uses.
  */
 export {
   ADVENTURE_DUNGEON_COOLDOWN_MS as DUNGEON_COOLDOWN_MS,

@@ -6,7 +6,7 @@ import { PREMIUM_OFFERS } from "../premium/offers";
 
 const HISTORY_LIMIT = 15;
 
-/** Crédits de l'utilisateur connecté (gagnés en votant sur top.gg). */
+/** Credits of the signed-in user, earned by voting on top.gg. */
 export default async function creditsRoutes(app: FastifyInstance): Promise<void> {
   app.get("/me/credits", { preHandler: authenticate }, async (request) => {
     const userId = request.user.userId;

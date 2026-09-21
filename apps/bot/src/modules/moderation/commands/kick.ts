@@ -4,49 +4,44 @@ import { GauliaError } from "../../../core/errors";
 import { canBotModerate, canModerate } from "../../../core/permissions/hierarchy";
 import { PermissionLevel } from "../../../core/permissions/permissionLevel";
 import { successPayload } from "../../../core/ui/containers";
+import { localizeOption, localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
-import { notifyTarget, recordCase } from "../services/moderationService";
+import { auditReason, notifyTarget, recordCase } from "../services/moderationService";
+
+const KEY = "moderation.commands.kick";
 
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   guildOnly: true,
   permissionLevel: PermissionLevel.Moderator,
-  data: new SlashCommandBuilder()
-    .setName("kick")
-    .setDescription("Expulse un membre du serveur")
+
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY)
     .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers)
-    .addUserOption((option) =>
-      option.setName("utilisateur").setDescription("Membre à expulser").setRequired(true),
-    )
-    .addStringOption((option) => option.setName("raison").setDescription("Raison de l'expulsion")),
+    .addUserOption((option) => localizeOption(option, `${KEY}.options.user`).setRequired(true))
+    .addStringOption((option) => localizeOption(option, `${KEY}.options.reason`)),
 
-  help: {
-    details:
-      "Expulse un membre du serveur : il pourra revenir avec une nouvelle invitation. Un cas de modération est créé et le membre est prévenu en message privé si l'option est activée dans les réglages de modération. Le rôle le plus haut du membre doit être inférieur au tien et à celui de Gaulia.",
-    examples: ["kick utilisateur:@Pseudo raison:Comportement toxique"],
-  },
-
-  async execute(interaction) {
+  async execute(interaction, _client, t) {
     const guild = interaction.guild!;
-    const targetUser = interaction.options.getUser("utilisateur", true);
-    const reason = interaction.options.getString("raison") ?? undefined;
+    const targetUser = interaction.options.getUser("user", true);
+    const reason = interaction.options.getString("reason") ?? undefined;
 
     const moderatorMember = await guild.members.fetch(interaction.user.id);
     const targetMember = await guild.members.fetch(targetUser.id).catch(() => null);
 
     if (!targetMember) {
-      throw new GauliaError("Ce membre n'est pas sur le serveur.");
+      throw new GauliaError("moderation.errors.memberNotInGuild");
     }
 
     const modCheck = canModerate(moderatorMember, targetMember);
-    if (!modCheck.allowed) throw new GauliaError(modCheck.reason!);
+    if (!modCheck.allowed) throw new GauliaError(modCheck.reasonKey!);
 
     const botMember = await guild.members.fetchMe();
     const botCheck = canBotModerate(botMember, targetMember);
-    if (!botCheck.allowed) throw new GauliaError(botCheck.reason!);
+    if (!botCheck.allowed) throw new GauliaError(botCheck.reasonKey!);
 
     await notifyTarget(guild, targetUser, "KICK", reason);
-    await targetMember.kick(reason ?? `Modérateur : ${interaction.user.tag}`);
+    await targetMember.kick(await auditReason(guild, reason, interaction.user.tag));
 
     const moderationCase = await recordCase({
       guild,
@@ -59,8 +54,9 @@ const command: ChatInputCommand = {
     await interaction.reply(
       successPayload(
         false,
-        `Membre expulsé (cas #${moderationCase.caseNumber})`,
-        `**${targetUser.tag}** a été expulsé.${reason ? `\n**Raison :** ${reason}` : ""}`,
+        t("moderation.kick.title", { case: moderationCase.caseNumber }),
+        t("moderation.kick.description", { target: targetUser.tag }) +
+          (reason ? `\n${t("moderation.case.reason", { reason })}` : ""),
       ),
     );
   },

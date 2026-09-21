@@ -1,44 +1,37 @@
 import { PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 
-import { PermissionLevel } from "../../../core/permissions/permissionLevel";
-import { canModerate } from "../../../core/permissions/hierarchy";
 import { GauliaError } from "../../../core/errors";
+import { canModerate } from "../../../core/permissions/hierarchy";
+import { PermissionLevel } from "../../../core/permissions/permissionLevel";
 import { successPayload } from "../../../core/ui/containers";
+import { localizeOption, localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
 import { escalationLine, performWarn } from "../services/moderationService";
 
+const KEY = "moderation.commands.warn";
+
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   guildOnly: true,
   permissionLevel: PermissionLevel.Moderator,
-  data: new SlashCommandBuilder()
-    .setName("warn")
-    .setDescription("Avertit un membre")
+
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY)
     .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
-    .addUserOption((option) =>
-      option.setName("utilisateur").setDescription("Membre à avertir").setRequired(true),
-    )
-    .addStringOption((option) =>
-      option.setName("raison").setDescription("Raison de l'avertissement").setRequired(true),
-    ),
+    .addUserOption((option) => localizeOption(option, `${KEY}.options.user`).setRequired(true))
+    .addStringOption((option) => localizeOption(option, `${KEY}.options.reason`).setRequired(true)),
 
-  help: {
-    details:
-      "Ajoute un avertissement au membre, crée un cas de modération et le prévient en message privé si l'option est activée. Si des paliers sont configurés sur le dashboard, une sourdine, une expulsion ou un bannissement est appliqué automatiquement quand le membre atteint le nombre d'avertissements d'un palier.",
-    examples: ["warn utilisateur:@Pseudo raison:Insultes"],
-  },
-
-  async execute(interaction) {
+  async execute(interaction, _client, t) {
     const guild = interaction.guild!;
-    const targetUser = interaction.options.getUser("utilisateur", true);
-    const reason = interaction.options.getString("raison", true);
+    const targetUser = interaction.options.getUser("user", true);
+    const reason = interaction.options.getString("reason", true);
 
     const moderatorMember = await guild.members.fetch(interaction.user.id);
     const targetMember = await guild.members.fetch(targetUser.id).catch(() => null);
 
     if (targetMember) {
       const modCheck = canModerate(moderatorMember, targetMember);
-      if (!modCheck.allowed) throw new GauliaError(modCheck.reason!);
+      if (!modCheck.allowed) throw new GauliaError(modCheck.reasonKey!);
     }
 
     const { moderationCase, escalation } = await performWarn(
@@ -51,8 +44,11 @@ const command: ChatInputCommand = {
     await interaction.reply(
       successPayload(
         false,
-        `Membre averti (cas #${moderationCase.caseNumber})`,
-        `**${targetUser.tag}** a été averti.\n**Raison :** ${reason}${escalationLine(escalation)}`,
+        t("moderation.warn.title", { case: moderationCase.caseNumber }),
+        [
+          t("moderation.warn.description", { target: targetUser.tag }),
+          t("moderation.case.reason", { reason }),
+        ].join("\n") + escalationLine(escalation, t),
       ),
     );
   },

@@ -2,7 +2,7 @@ import { prisma } from "../client";
 
 const DAY_MS = 86_400_000;
 
-/** Durée de conservation des statistiques d'utilisation (annoncée dans la politique de confidentialité). */
+/** Usage statistics retention, as announced in the privacy policy. */
 export const COMMAND_USAGE_RETENTION_DAYS = 90;
 
 function startOfUtcDay(date: Date): Date {
@@ -22,7 +22,7 @@ export async function recordCommandUsage(commandName: string, category: string):
   });
 }
 
-/** Total des commandes utilisées sur les `days` derniers jours (UTC, jour courant inclus). */
+/** Commands used over the last `days` days (UTC, current day included). */
 export async function countCommandUsageSince(days: number): Promise<number> {
   const since = new Date(startOfUtcDay(new Date()).getTime() - (days - 1) * DAY_MS);
   const result = await prisma.commandUsageDaily.aggregate({
@@ -32,7 +32,7 @@ export async function countCommandUsageSince(days: number): Promise<number> {
   return result._sum.count ?? 0;
 }
 
-/** Supprime les compteurs plus anciens que la durée de conservation ; retourne le nombre de lignes supprimées. */
+/** Deletes counters past the retention window; returns the number of rows removed. */
 export async function purgeExpiredCommandUsage(): Promise<number> {
   const cutoff = new Date(
     startOfUtcDay(new Date()).getTime() - (COMMAND_USAGE_RETENTION_DAYS - 1) * DAY_MS,
@@ -44,10 +44,10 @@ export async function purgeExpiredCommandUsage(): Promise<number> {
 export interface CommandUsageSummary {
   totalAllTime: number;
   totalInRange: number;
-  /** Un point par jour de la période, jours sans utilisation inclus (count = 0). */
+  /** One point per day of the range, idle days included (count = 0). */
   daily: { date: string; count: number }[];
   topCommands: { commandName: string; count: number }[];
-  /** Toutes les catégories conservées (même exclues), avec leur total sur la période. */
+  /** Every known category (excluded ones too), with its total over the range. */
   categories: { category: string; count: number }[];
 }
 

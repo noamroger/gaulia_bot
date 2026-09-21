@@ -14,16 +14,13 @@ import {
 import { Colors } from "../../../client/Constants";
 import { GauliaError } from "../../../core/errors";
 import { toV2Payload, type V2MessagePayload } from "../../../core/ui/containers";
+import type { Translator } from "../../../i18n";
 
 export type FunPayload = V2MessagePayload & { allowedMentions: MessageMentionOptions };
 export type FunRow = ActionRowBuilder<MessageActionRowComponentBuilder>;
 export type Difficulty = "easy" | "normal" | "hard";
 
-export const DIFFICULTY_CHOICES = [
-  { name: "Facile", value: "easy" },
-  { name: "Normale", value: "normal" },
-  { name: "Difficile", value: "hard" },
-] as const;
+export const DIFFICULTIES = ["easy", "normal", "hard"] as const;
 
 export const MODAL_INPUT_ID = "answer";
 
@@ -31,11 +28,12 @@ export function parseDifficulty(value: string | null): Difficulty {
   return value === "easy" || value === "hard" ? value : "normal";
 }
 
-export function difficultyLabel(difficulty: Difficulty): string {
-  return DIFFICULTY_CHOICES.find((choice) => choice.value === difficulty)!.name.toLowerCase();
+/** Difficulty as it reads inside a sentence, not as a choice label. */
+export function difficultyLabel(difficulty: Difficulty, t: Translator): string {
+  return t(`fun.difficulty.${difficulty}`);
 }
 
-/** Texte et contrôles dans un même container ; seules les mentions listées notifient. */
+/** Text and controls in a single container; only the listed mentions notify. */
 export function funPayload(
   lines: string[],
   rows: FunRow[] = [],
@@ -69,14 +67,15 @@ export function funRow(...components: MessageActionRowComponentBuilder[]): FunRo
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(components);
 }
 
-export function mention(userId: string | null): string {
-  return userId ? `<@${userId}>` : "Gaulia";
+/** Mention of a player, or the bot name when the seat is taken by the AI. */
+export function mention(userId: string | null, t: Translator): string {
+  return userId ? `<@${userId}>` : t("fun.bot");
 }
 
-/** Découpe un customId `fun:<action>:<partie>[:<valeur>]`. */
+/** Splits a customId shaped `fun:<action>:<game>[:<value>]`. */
 export function parseCustomId(customId: string): { gameId: string; value: string | undefined } {
   const [, , gameId, value] = customId.split(":");
-  if (!gameId) throw new GauliaError("Ce bouton n'est plus valide.");
+  if (!gameId) throw new GauliaError("fun.error.staleButton");
   return { gameId, value };
 }
 

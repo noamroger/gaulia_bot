@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 
+import { useLocale, useTranslation, type Translator } from "@/i18n";
 import { api, ApiError } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import type { GuildDataSummary, UserDataSummary } from "@/lib/types";
@@ -15,86 +16,99 @@ function endpoint(target: Target, id: string): string {
   return `/admin/data/${target === "guild" ? "guilds" : "users"}/${id}`;
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof ApiError && error.status < 500
+function errorMessage(error: unknown, t: Translator): string {
+  return error instanceof ApiError && error.status < 500 && !error.generic
     ? error.message
-    : "Une erreur interne est survenue.";
+    : t("common.state.error");
 }
 
 function GuildSummary({ summary }: { summary: GuildDataSummary }) {
+  const t = useTranslation();
+  const locale = useLocale();
+  const flag = (value: boolean): string => (value ? t("admin.data.yes") : t("admin.data.no"));
+
   return (
     <ul className="data-summary">
       <li>
-        <span>Configuration du serveur</span>
-        <strong>{summary.configured ? (summary.name ?? "Oui") : "Aucune"}</strong>
+        <span>{t("admin.data.guildSummary.configured")}</span>
+        <strong>
+          {summary.configured
+            ? (summary.name ?? t("admin.data.yes"))
+            : t("admin.data.guildSummary.none")}
+        </strong>
       </li>
       <li>
-        <span>Cas de modération</span>
-        <strong>{formatNumber(summary.moderationCases)}</strong>
+        <span>{t("admin.data.guildSummary.moderationCases")}</span>
+        <strong>{formatNumber(summary.moderationCases, locale)}</strong>
       </li>
       <li>
-        <span>Avertissements</span>
-        <strong>{formatNumber(summary.warns)}</strong>
+        <span>{t("admin.data.guildSummary.warns")}</span>
+        <strong>{formatNumber(summary.warns, locale)}</strong>
       </li>
       <li>
-        <span>Configuration automod</span>
-        <strong>{summary.automodConfig ? "Oui" : "Non"}</strong>
+        <span>{t("admin.data.guildSummary.automodConfig")}</span>
+        <strong>{flag(summary.automodConfig)}</strong>
       </li>
       <li>
-        <span>Réglages musique</span>
-        <strong>{summary.musicSettings ? "Oui" : "Non"}</strong>
+        <span>{t("admin.data.guildSummary.musicSettings")}</span>
+        <strong>{flag(summary.musicSettings)}</strong>
       </li>
       <li>
-        <span>Listes de blindtest</span>
-        <strong>{formatNumber(summary.blindtestPlaylists)}</strong>
+        <span>{t("admin.data.guildSummary.blindtestPlaylists")}</span>
+        <strong>{formatNumber(summary.blindtestPlaylists, locale)}</strong>
       </li>
       <li>
-        <span>Réglages de l&apos;aventure</span>
-        <strong>{summary.adventureSettings ? "Oui" : "Non"}</strong>
+        <span>{t("admin.data.guildSummary.adventureSettings")}</span>
+        <strong>{flag(summary.adventureSettings)}</strong>
       </li>
       <li>
-        <span>Droits premium en cache</span>
-        <strong>{formatNumber(summary.premiumEntitlements)}</strong>
+        <span>{t("admin.data.guildSummary.premiumEntitlements")}</span>
+        <strong>{formatNumber(summary.premiumEntitlements, locale)}</strong>
       </li>
     </ul>
   );
 }
 
 function UserSummary({ summary }: { summary: UserDataSummary }) {
+  const t = useTranslation();
+  const locale = useLocale();
+
   return (
     <ul className="data-summary">
       <li>
-        <span>Sanctions reçues (supprimées)</span>
-        <strong>{formatNumber(summary.moderationCasesAsTarget)}</strong>
+        <span>{t("admin.data.userSummary.casesAsTarget")}</span>
+        <strong>{formatNumber(summary.moderationCasesAsTarget, locale)}</strong>
       </li>
       <li>
-        <span>Avertissements reçus (supprimés)</span>
-        <strong>{formatNumber(summary.warnsAsTarget)}</strong>
+        <span>{t("admin.data.userSummary.warnsAsTarget")}</span>
+        <strong>{formatNumber(summary.warnsAsTarget, locale)}</strong>
       </li>
       <li>
-        <span>Sanctions données en tant que modérateur (anonymisées)</span>
-        <strong>{formatNumber(summary.moderationCasesAsModerator)}</strong>
+        <span>{t("admin.data.userSummary.casesAsModerator")}</span>
+        <strong>{formatNumber(summary.moderationCasesAsModerator, locale)}</strong>
       </li>
       <li>
-        <span>Avertissements donnés en tant que modérateur (anonymisés)</span>
-        <strong>{formatNumber(summary.warnsAsModerator)}</strong>
+        <span>{t("admin.data.userSummary.warnsAsModerator")}</span>
+        <strong>{formatNumber(summary.warnsAsModerator, locale)}</strong>
       </li>
       <li>
-        <span>Droits premium en cache (supprimés)</span>
-        <strong>{formatNumber(summary.premiumEntitlements)}</strong>
+        <span>{t("admin.data.userSummary.premiumEntitlements")}</span>
+        <strong>{formatNumber(summary.premiumEntitlements, locale)}</strong>
       </li>
       <li>
-        <span>Crédits (supprimés avec le compte)</span>
-        <strong>{formatNumber(summary.creditBalance)}</strong>
+        <span>{t("admin.data.userSummary.creditBalance")}</span>
+        <strong>{formatNumber(summary.creditBalance, locale)}</strong>
       </li>
       <li>
-        <span>Votes top.gg enregistrés (supprimés)</span>
-        <strong>{formatNumber(summary.topggVotes)}</strong>
+        <span>{t("admin.data.userSummary.topggVotes")}</span>
+        <strong>{formatNumber(summary.topggVotes, locale)}</strong>
       </li>
       <li>
-        <span>Personnage d&apos;aventure (supprimé avec sa progression)</span>
+        <span>{t("admin.data.userSummary.adventureCharacter")}</span>
         <strong>
-          {summary.adventureLevel === null ? "Aucun" : `Niveau ${summary.adventureLevel}`}
+          {summary.adventureLevel === null
+            ? t("admin.data.userSummary.adventureNone")
+            : t("admin.data.userSummary.adventureLevel", { level: summary.adventureLevel })}
         </strong>
       </li>
     </ul>
@@ -107,6 +121,8 @@ export default function AdminDataPage() {
   const [step, setStep] = useState<Step>("idle");
   const [summary, setSummary] = useState<GuildDataSummary | UserDataSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const t = useTranslation();
 
   const trimmedId = id.trim();
   const idIsValid = SNOWFLAKE.test(trimmedId);
@@ -132,7 +148,7 @@ export default function AdminDataPage() {
       setSummary(await api.get<GuildDataSummary | UserDataSummary>(endpoint(target, trimmedId)));
       setStep("found");
     } catch (lookupError) {
-      setError(errorMessage(lookupError));
+      setError(errorMessage(lookupError, t));
       setStep("idle");
     }
   }
@@ -144,30 +160,27 @@ export default function AdminDataPage() {
       await api.delete(endpoint(target, trimmedId));
       setStep("done");
     } catch (eraseError) {
-      setError(errorMessage(eraseError));
+      setError(errorMessage(eraseError, t));
       setStep("found");
     }
   }
 
   const locked = step === "loading" || step === "deleting";
+  const idLabel = target === "guild" ? t("admin.data.guildId") : t("admin.data.userId");
 
   return (
     <section className="card data-erasure">
-      <h2 className="card-title">Suppression de données</h2>
-      <p className="card-subtitle">
-        Pour traiter une demande de suppression : saisis l&apos;identifiant Discord du serveur ou de
-        l&apos;utilisateur, vérifie ce qui sera supprimé, puis confirme. L&apos;opération est
-        définitive.
-      </p>
+      <h2 className="card-title">{t("admin.data.title")}</h2>
+      <p className="card-subtitle">{t("admin.data.description")}</p>
 
-      <div className="segmented" role="group" aria-label="Type d'identifiant">
+      <div className="segmented" role="group" aria-label={t("admin.data.targetLabel")}>
         <button
           type="button"
           aria-pressed={target === "guild"}
           disabled={locked}
           onClick={() => selectTarget("guild")}
         >
-          Serveur
+          {t("admin.data.guild")}
         </button>
         <button
           type="button"
@@ -175,7 +188,7 @@ export default function AdminDataPage() {
           disabled={locked}
           onClick={() => selectTarget("user")}
         >
-          Utilisateur
+          {t("admin.data.user")}
         </button>
       </div>
 
@@ -184,8 +197,8 @@ export default function AdminDataPage() {
           type="text"
           inputMode="numeric"
           className="search-input"
-          placeholder={target === "guild" ? "ID du serveur" : "ID de l'utilisateur"}
-          aria-label={target === "guild" ? "ID du serveur" : "ID de l'utilisateur"}
+          placeholder={idLabel}
+          aria-label={idLabel}
           value={id}
           disabled={locked}
           onChange={(event) => {
@@ -194,12 +207,10 @@ export default function AdminDataPage() {
           }}
         />
         <button type="submit" className="button-primary" disabled={!idIsValid || locked}>
-          {step === "loading" ? "Recherche…" : "Rechercher"}
+          {step === "loading" ? t("admin.data.searching") : t("admin.data.search")}
         </button>
       </form>
-      {trimmedId !== "" && !idIsValid && (
-        <p className="field-hint">Un identifiant Discord contient 17 à 20 chiffres.</p>
-      )}
+      {trimmedId !== "" && !idIsValid && <p className="field-hint">{t("admin.data.invalidId")}</p>}
 
       {error && (
         <p className="notice notice-error" role="alert">
@@ -216,11 +227,8 @@ export default function AdminDataPage() {
           )}
 
           <p className="text-muted" style={{ fontSize: 13 }}>
-            {target === "guild"
-              ? "Toutes les données de ce serveur seront supprimées. Si Gaulia est encore dessus, une configuration vierge sera recréée automatiquement."
-              : "Les sanctions et avertissements reçus seront supprimés ; ceux donnés en tant que modérateur resteront dans l'historique des serveurs, sans son identité."}{" "}
-            Un abonnement premium encore actif chez Discord sera resynchronisé au prochain
-            redémarrage du bot.
+            {target === "guild" ? t("admin.data.guildWarning") : t("admin.data.userWarning")}{" "}
+            {t("admin.data.premiumNote")}
           </p>
 
           {step === "confirming" || step === "deleting" ? (
@@ -231,7 +239,7 @@ export default function AdminDataPage() {
                 disabled={step === "deleting"}
                 onClick={() => void erase()}
               >
-                {step === "deleting" ? "Suppression…" : "Confirmer la suppression définitive"}
+                {step === "deleting" ? t("admin.data.deleting") : t("admin.data.confirmDelete")}
               </button>
               <button
                 type="button"
@@ -239,12 +247,12 @@ export default function AdminDataPage() {
                 disabled={step === "deleting"}
                 onClick={() => setStep("found")}
               >
-                Annuler
+                {t("common.action.cancel")}
               </button>
             </div>
           ) : (
             <button type="button" className="button-danger" onClick={() => setStep("confirming")}>
-              Supprimer ces données
+              {t("admin.data.delete")}
             </button>
           )}
         </div>
@@ -252,7 +260,7 @@ export default function AdminDataPage() {
 
       {step === "done" && (
         <p className="notice notice-success" role="status">
-          Données supprimées pour l&apos;identifiant {trimmedId}.
+          {t("admin.data.done", { id: trimmedId })}
         </p>
       )}
     </section>

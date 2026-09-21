@@ -8,12 +8,12 @@ import { isPremiumGuild } from "../../premium/services/entitlementService";
 import { abortBlindtest, BLINDTEST_PLAYER_FLAG, failBlindtestRound } from "./blindtest";
 import { clearIdleTimer, scheduleIdleDestroy } from "./idleTimers";
 import { deleteNowPlayingCard, postOrUpdateNowPlayingCard } from "./nowPlayingCardService";
+import { guildTranslator } from "./playerUtils";
 
 /**
- * Crée et attache l'instance lavalink-client à ce process de shard. Chaque process de
- * ShardingManager appelle cette fonction une seule fois : voir la note d'architecture dans
- * le plan sur pourquoi une instance par process est correcte (les guildes sont naturellement
- * partitionnées par shard, donc chaque session Lavalink ne gère que ses propres guildes).
+ * Creates and attaches the lavalink-client instance of this shard process. Every ShardingManager
+ * process calls this once: guilds are partitioned by shard, so each Lavalink session only ever
+ * handles its own guilds.
  */
 export function createMusicManager(client: GauliaClient): LavalinkManager {
   const manager = new LavalinkManager({
@@ -35,7 +35,7 @@ export function createMusicManager(client: GauliaClient): LavalinkManager {
     playerOptions: {
       defaultSearchPlatform: "scsearch",
       onDisconnect: { autoReconnect: true, destroyPlayer: false },
-      // Sinon l'objet User discord.js complet est sérialisé dans chaque requête envoyée à Lavalink.
+      // Otherwise the whole discord.js User object is serialized into every Lavalink request.
       requesterTransformer: (requester) => {
         const user = requester as { id?: string; username?: string } | null;
         return user ? { id: user.id, username: user.username } : null;
@@ -48,7 +48,7 @@ export function createMusicManager(client: GauliaClient): LavalinkManager {
 
   manager.on("trackStart", (player, track) => {
     clearIdleTimer(player.guildId);
-    // Pendant un blindtest, la carte révélerait le titre à deviner.
+    // During a blindtest the card would give the track away.
     if (player.get<boolean | undefined>(BLINDTEST_PLAYER_FLAG)) return;
     void postOrUpdateNowPlayingCard(client, player, track ?? undefined);
   });
@@ -61,34 +61,46 @@ export function createMusicManager(client: GauliaClient): LavalinkManager {
     })();
   });
 
-  // autoSkip passe déjà au titre suivant ; on prévient juste le salon pour ne pas rester silencieux.
+  // autoSkip already moves on; the channel is only warned so the silence is not unexplained.
   manager.on("trackError", (player, track, payload) => {
     client.logger.error(
       { guildId: player.guildId, track: track?.info.title, exception: payload.exception },
-      "Erreur de lecture Lavalink",
+      "Lavalink playback error",
     );
     if (player.get<boolean | undefined>(BLINDTEST_PLAYER_FLAG)) {
       void failBlindtestRound(player.guildId);
       return;
     }
-    void notifyTextChannel(
-      client,
-      player.textChannelId,
-      errorPayload(false, "Lecture impossible", "Une erreur interne est survenue."),
-    );
+    void (async () => {
+      const t = await guildTranslator(client, player.guildId);
+      await notifyTextChannel(
+        client,
+        player.textChannelId,
+        errorPayload(false, t("music.player.errorTitle"), t("common.error.internal")),
+      );
+    })();
   });
 
   manager.on("trackStuck", (player, track) => {
-    client.logger.warn({ guildId: player.guildId, track: track?.info.title }, "Titre bloqué");
+    client.logger.warn({ guildId: player.guildId, track: track?.info.title }, "Track stuck");
     if (player.get<boolean | undefined>(BLINDTEST_PLAYER_FLAG)) {
       void failBlindtestRound(player.guildId);
       return;
     }
-    void notifyTextChannel(
-      client,
-      player.textChannelId,
-      warningPayload(false, "Titre bloqué", `**${track?.info.title ?? "Ce titre"}** a été passé.`),
-    );
+    void (async () => {
+      const t = await guildTranslator(client, player.guildId);
+      await notifyTextChannel(
+        client,
+        player.textChannelId,
+        warningPayload(
+          false,
+          t("music.player.stuckTitle"),
+          t("music.player.stuckDescription", {
+            track: track?.info.title ?? t("music.player.unnamedTrack"),
+          }),
+        ),
+      );
+    })();
   });
 
   manager.on("playerDestroy", (player) => {
@@ -98,15 +110,15 @@ export function createMusicManager(client: GauliaClient): LavalinkManager {
   });
 
   manager.nodeManager.on("connect", (node) => {
-    client.logger.info({ nodeId: node.id }, "Node Lavalink connecté");
+    client.logger.info({ nodeId: node.id }, "Lavalink node connected");
   });
 
   manager.nodeManager.on("disconnect", (node, reason) => {
-    client.logger.warn({ nodeId: node.id, reason }, "Node Lavalink déconnecté");
+    client.logger.warn({ nodeId: node.id, reason }, "Lavalink node disconnected");
   });
 
   manager.nodeManager.on("error", (node, error) => {
-    client.logger.error({ nodeId: node.id, err: error }, "Erreur du node Lavalink");
+    client.logger.error({ nodeId: node.id, err: error }, "Lavalink node error");
   });
 
   return manager;

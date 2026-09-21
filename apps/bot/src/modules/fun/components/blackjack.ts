@@ -11,9 +11,9 @@ import { parseCustomId } from "../services/funUi";
 const hitButton: ButtonComponent = {
   type: "button",
   customIdPrefix: "fun:bj-hit:",
-  async execute(interaction) {
+  async execute(interaction, _client, t) {
     const { gameId } = parseCustomId(interaction.customId);
-    await interaction.update(hitBlackjack(gameId, interaction.user.id));
+    await interaction.update(hitBlackjack(gameId, interaction.user.id, t));
     blackjackGames.attach(gameId, interaction);
   },
 };
@@ -21,21 +21,21 @@ const hitButton: ButtonComponent = {
 const standButton: ButtonComponent = {
   type: "button",
   customIdPrefix: "fun:bj-stand:",
-  async execute(interaction) {
+  async execute(interaction, _client, t) {
     const { gameId } = parseCustomId(interaction.customId);
-    await interaction.update(standBlackjack(gameId, interaction.user.id));
+    await interaction.update(standBlackjack(gameId, interaction.user.id, t));
   },
 };
 
 const replayButton: ButtonComponent = {
   type: "button",
   customIdPrefix: "fun:bj-new:",
-  async execute(interaction) {
+  async execute(interaction, _client, t) {
     const { gameId: playerId } = parseCustomId(interaction.customId);
     if (interaction.user.id !== playerId) {
-      throw new GauliaError("Lance ta propre partie avec `/blackjack`.");
+      throw new GauliaError("fun.blackjack.startYourOwn");
     }
-    const { gameId, payload } = startBlackjack(playerId);
+    const { gameId, payload } = startBlackjack(playerId, t);
     await interaction.update(payload);
     blackjackGames.attach(gameId, interaction);
   },

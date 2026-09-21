@@ -3,44 +3,34 @@ import { PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 import { GauliaError } from "../../../core/errors";
 import { PermissionLevel } from "../../../core/permissions/permissionLevel";
 import { successPayload } from "../../../core/ui/containers";
+import { localizeOption, localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
-import { recordCase } from "../services/moderationService";
+import { auditReason, recordCase } from "../services/moderationService";
+
+const KEY = "moderation.commands.unban";
 
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   guildOnly: true,
   permissionLevel: PermissionLevel.Moderator,
-  data: new SlashCommandBuilder()
-    .setName("unban")
-    .setDescription("Débannit un utilisateur")
+
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY)
     .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
-    .addStringOption((option) =>
-      option
-        .setName("id_utilisateur")
-        .setDescription("ID Discord de l'utilisateur")
-        .setRequired(true),
-    )
-    .addStringOption((option) =>
-      option.setName("raison").setDescription("Raison du débannissement"),
-    ),
+    .addStringOption((option) => localizeOption(option, `${KEY}.options.userId`).setRequired(true))
+    .addStringOption((option) => localizeOption(option, `${KEY}.options.reason`)),
 
-  help: {
-    details:
-      "Lève le bannissement d'un utilisateur à partir de son identifiant Discord, visible dans Paramètres du serveur > Bannissements ou avec « Copier l'identifiant » en mode développeur. Un cas de modération est créé.",
-    examples: ["unban id_utilisateur:123456789012345678 raison:Appel accepté"],
-  },
-
-  async execute(interaction) {
+  async execute(interaction, _client, t) {
     const guild = interaction.guild!;
-    const userId = interaction.options.getString("id_utilisateur", true);
-    const reason = interaction.options.getString("raison") ?? undefined;
+    const userId = interaction.options.getString("user_id", true);
+    const reason = interaction.options.getString("reason") ?? undefined;
 
     const ban = await guild.bans.fetch(userId).catch(() => null);
     if (!ban) {
-      throw new GauliaError("Cet utilisateur n'est pas banni sur ce serveur.");
+      throw new GauliaError("moderation.errors.notBanned");
     }
 
-    await guild.bans.remove(userId, reason ?? `Modérateur : ${interaction.user.tag}`);
+    await guild.bans.remove(userId, await auditReason(guild, reason, interaction.user.tag));
 
     const moderationCase = await recordCase({
       guild,
@@ -53,8 +43,8 @@ const command: ChatInputCommand = {
     await interaction.reply(
       successPayload(
         false,
-        `Utilisateur débanni (cas #${moderationCase.caseNumber})`,
-        `**${ban.user.tag}** a été débanni.`,
+        t("moderation.unban.title", { case: moderationCase.caseNumber }),
+        t("moderation.unban.description", { target: ban.user.tag }),
       ),
     );
   },

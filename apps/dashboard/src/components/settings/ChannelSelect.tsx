@@ -1,3 +1,6 @@
+"use client";
+
+import { useTranslation } from "@/i18n";
 import type { GuildChannelOption } from "@/lib/types";
 
 function renderOption(channel: GuildChannelOption) {
@@ -21,6 +24,7 @@ export function ChannelSelect({
   ariaLabel: string;
   onChange: (channelId: string | null) => void;
 }) {
+  const t = useTranslation();
   const uncategorized = channels.filter((channel) => channel.parentName === null);
   const categories = [
     ...new Set(channels.flatMap((channel) => (channel.parentName ? [channel.parentName] : []))),
@@ -35,7 +39,7 @@ export function ChannelSelect({
       onChange={(event) => onChange(event.target.value || null)}
     >
       <option value="">{emptyLabel}</option>
-      {missing && <option value={value ?? ""}>Salon introuvable</option>}
+      {missing && <option value={value ?? ""}>{t("settings.channel.missing")}</option>}
       {uncategorized.map(renderOption)}
       {categories.map((category) => (
         <optgroup key={category} label={category}>

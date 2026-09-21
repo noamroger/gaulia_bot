@@ -13,10 +13,12 @@ import type { Track, UnresolvedTrack } from "lavalink-client";
 
 import { Colors, Emojis } from "../../../client/Constants";
 import { toV2Payload, type V2MessagePayload } from "../../../core/ui/containers";
+import type { Translator } from "../../../i18n";
 
 export type MusicMessagePayload = V2MessagePayload & { allowedMentions: MessageMentionOptions };
 
-export function formatTrackTime(ms: number): string {
+/** Clock position of a track (`m:ss`), which reads the same in every language. */
+export function formatClockTime(ms: number): string {
   const totalSeconds = Math.max(Math.floor(ms / 1000), 0);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60)
@@ -26,10 +28,10 @@ export function formatTrackTime(ms: number): string {
   return hours > 0 ? `${hours}:${minutes}:${seconds}` : `${minutes}:${seconds}`;
 }
 
-function formatTrackDuration(track: Track): string {
+function formatTrackDuration(track: Track, t: Translator): string {
   return Number.isFinite(track.info.duration) && track.info.duration > 0
-    ? formatTrackTime(track.info.duration)
-    : "live";
+    ? formatClockTime(track.info.duration)
+    : t("music.ui.live");
 }
 
 export function trackLink(track: Track | UnresolvedTrack): string {
@@ -37,16 +39,13 @@ export function trackLink(track: Track | UnresolvedTrack): string {
   return track.info.uri ? `[${title}](${track.info.uri})` : `**${title}**`;
 }
 
-export function interventionOf(user: User): string {
-  return `avec l'intervention de <@${user.id}>`;
-}
-
-function requesterName(track: Track): string {
+function requesterName(track: Track, t: Translator): string {
   const requester = track.requester as { username?: string } | undefined;
-  return requester?.username ?? "inconnu";
+  return requester?.username ?? t("music.ui.unknownRequester");
 }
 
 export function buildTrackContainer(
+  t: Translator,
   title: string,
   track: Track,
   extraLines: string[] = [],
@@ -57,10 +56,10 @@ export function buildTrackContainer(
       new TextDisplayBuilder().setContent(
         [
           `### ${Emojis.Music} ${title}`,
-          `Titre : ${trackLink(track)}`,
-          `Source : \`${track.info.sourceName}\``,
-          `Durée : \`${formatTrackDuration(track)}\``,
-          `Ajoutée par \`${requesterName(track)}\``,
+          t("music.ui.trackTitle", { track: trackLink(track) }),
+          t("music.ui.trackSource", { source: track.info.sourceName }),
+          t("music.ui.trackDuration", { duration: formatTrackDuration(track, t) }),
+          t("music.ui.trackRequester", { requester: requesterName(track, t) }),
           ...extraLines,
         ].join("\n"),
       ),
@@ -77,7 +76,7 @@ export function buildTrackContainer(
   return container;
 }
 
-/** Message d'action musique : membre à l'origine de l'action, titre et phrase, sans notifier les mentions. */
+/** Music action message: the member behind it, a title and a sentence, mentions muted. */
 export function musicActionPayload(
   user: User,
   emoji: string,

@@ -27,7 +27,7 @@ export default async function automodRoutes(app: FastifyInstance): Promise<void>
     async (request, reply) => {
       const parsed = updateAutomodSchema.safeParse(request.body);
       if (!parsed.success) {
-        return reply.status(400).send({ error: "Paramètres invalides." });
+        return reply.status(400).send({ error: request.t("errors.validation.settings") });
       }
 
       const { guildId } = request.params;
@@ -35,13 +35,13 @@ export default async function automodRoutes(app: FastifyInstance): Promise<void>
 
       const resources = await getGuildResources(guildId);
       if (!resources) {
-        return reply.status(404).send({ error: "Gaulia n'a pas accès à ce serveur." });
+        return reply.status(404).send({ error: request.t("errors.guild.botMissing") });
       }
       const idsKnown =
         allIdsKnown(body.ignoredChannelIds ?? [], resources.channels) &&
         allIdsKnown(body.ignoredRoleIds ?? [], resources.roles);
       if (!idsKnown) {
-        return reply.status(400).send({ error: "Salon ou rôle introuvable sur ce serveur." });
+        return reply.status(400).send({ error: request.t("errors.guild.unknownChannelOrRole") });
       }
 
       return updateAutomodConfig(guildId, definedOnly(body));

@@ -10,21 +10,23 @@ import { SanctionPicker } from "@/components/settings/SanctionPicker";
 import { SaveBar } from "@/components/settings/SaveBar";
 import { SettingRow, SettingsSection } from "@/components/settings/SettingsSection";
 import { TagInput } from "@/components/settings/TagInput";
-import { domainError, normalizeDomain } from "@/lib/domains";
+import { useTranslation } from "@/i18n";
+import { isValidDomain, normalizeDomain } from "@/lib/domains";
 import type { AutomodRules, AutomodSettings } from "@/lib/types";
 import { useEditableResource } from "@/lib/useEditableResource";
 import { useGuildResources } from "@/lib/useGuildResources";
 
 export default function AutomodPage() {
+  const t = useTranslation();
   const { guildId } = useParams<{ guildId: string }>();
   const { resources, failed } = useGuildResources(guildId);
   const editor = useEditableResource<AutomodSettings>(`/guilds/${guildId}/automod`);
 
   if (failed || editor.loadFailed) {
-    return <div className="empty-state">Impossible de charger l&apos;automod de ce serveur.</div>;
+    return <div className="empty-state">{t("automod.loadError")}</div>;
   }
   if (!resources || !editor.draft) {
-    return <p className="text-muted">Chargement…</p>;
+    return <p className="text-muted">{t("common.state.loading")}</p>;
   }
 
   const { draft, update } = editor;
@@ -32,6 +34,11 @@ export default function AutomodPage() {
 
   function setRule<K extends keyof AutomodRules>(key: K, patch: Partial<AutomodRules[K]>): void {
     update({ rules: { ...rules, [key]: { ...rules[key], ...patch } as AutomodRules[K] } });
+  }
+
+  // The domain check lives in @/lib/domains; only its wording comes from the catalog.
+  function validateDomain(domain: string): string | null {
+    return isValidDomain(domain) ? null : t("automod.links.invalid", { domain });
   }
 
   const channelOptions = resources.channels.map((channel) => ({
@@ -43,100 +50,98 @@ export default function AutomodPage() {
   return (
     <div className="settings-page">
       <p className="text-muted">
-        Chaque règle a sa propre sanction. Elles s&apos;ajoutent aux règles AutoMod natives de
-        Discord, créées avec <code>/automod setup</code>.
+        {t("automod.intro.before")} <code>{t("automod.intro.command")}</code>
+        {t("automod.intro.after")}
       </p>
 
       <SettingsSection
-        title="Exemptions"
-        description="Membres et salons jamais contrôlés par l'automod."
+        title={t("automod.exemptions.title")}
+        description={t("automod.exemptions.description")}
       >
         <SettingRow
-          label="Ignorer l'équipe de modération"
-          hint="Membres ayant la permission « Gérer les messages »."
+          label={t("automod.exemptions.staff.label")}
+          hint={t("automod.exemptions.staff.hint")}
         >
-          <Toggle
-            checked={draft.exemptStaff}
-            onChange={(exemptStaff) => update({ exemptStaff })}
-          />
+          <Toggle checked={draft.exemptStaff} onChange={(exemptStaff) => update({ exemptStaff })} />
         </SettingRow>
-        <SettingRow label="Salons ignorés">
+        <SettingRow label={t("automod.exemptions.channels.label")}>
           <MultiPicker
             values={draft.ignoredChannelIds}
             options={channelOptions}
-            addLabel="Ajouter un salon…"
-            emptyLabel="Aucun salon ignoré"
-            ariaLabel="Ajouter un salon ignoré"
+            addLabel={t("automod.exemptions.channels.add")}
+            emptyLabel={t("automod.exemptions.channels.empty")}
+            ariaLabel={t("automod.exemptions.channels.aria")}
             onChange={(ignoredChannelIds) => update({ ignoredChannelIds })}
           />
         </SettingRow>
-        <SettingRow label="Rôles ignorés">
+        <SettingRow label={t("automod.exemptions.roles.label")}>
           <MultiPicker
             values={draft.ignoredRoleIds}
             options={roleOptions}
-            addLabel="Ajouter un rôle…"
-            emptyLabel="Aucun rôle ignoré"
-            ariaLabel="Ajouter un rôle ignoré"
+            addLabel={t("automod.exemptions.roles.add")}
+            emptyLabel={t("automod.exemptions.roles.empty")}
+            ariaLabel={t("automod.exemptions.roles.aria")}
             onChange={(ignoredRoleIds) => update({ ignoredRoleIds })}
           />
         </SettingRow>
       </SettingsSection>
 
       <RuleCard
-        title="Liens"
-        description="Filtre les liens selon leur nom de domaine."
+        title={t("automod.links.title")}
+        description={t("automod.links.description")}
         enabled={rules.links.enabled}
         onToggle={(enabled) => setRule("links", { enabled })}
       >
-        <div className="segmented" role="group" aria-label="Mode du filtre de liens">
+        <div className="segmented" role="group" aria-label={t("automod.links.modeAria")}>
           <button
             type="button"
             aria-pressed={rules.links.mode === "blocklist"}
             onClick={() => setRule("links", { mode: "blocklist" })}
           >
-            Liste noire
+            {t("automod.links.blocklist")}
           </button>
           <button
             type="button"
             aria-pressed={rules.links.mode === "allowlist"}
             onClick={() => setRule("links", { mode: "allowlist" })}
           >
-            Liste blanche
+            {t("automod.links.allowlist")}
           </button>
         </div>
         <span className="setting-hint">
           {rules.links.mode === "blocklist"
-            ? "Seuls les liens vers ces domaines sont sanctionnés."
+            ? t("automod.links.blocklistHint")
             : rules.links.domains.length === 0
-              ? "Liste vide : tous les liens seront sanctionnés."
-              : "Tous les liens sont sanctionnés, sauf ceux vers ces domaines."}{" "}
-          Les sous-domaines sont inclus.
+              ? t("automod.links.allowlistEmptyHint")
+              : t("automod.links.allowlistHint")}{" "}
+          {t("automod.links.subdomains")}
         </span>
         <TagInput
           values={rules.links.domains}
-          placeholder="exemple.com"
-          ariaLabel="Ajouter un domaine"
+          placeholder={t("automod.links.placeholder")}
+          ariaLabel={t("automod.links.addAria")}
           maxItems={200}
           normalize={normalizeDomain}
-          validate={domainError}
+          validate={validateDomain}
           onChange={(domains) => setRule("links", { domains })}
         />
-        <SanctionPicker value={rules.links.action} onChange={(action) => setRule("links", { action })} />
+        <SanctionPicker
+          value={rules.links.action}
+          onChange={(action) => setRule("links", { action })}
+        />
       </RuleCard>
 
       <RuleCard
-        title="Invitations Discord"
-        description="Sanctionne les invitations vers d'autres serveurs Discord."
+        title={t("automod.invites.title")}
+        description={t("automod.invites.description")}
         enabled={rules.invites.enabled}
         onToggle={(enabled) => setRule("invites", { enabled })}
       >
-        <span className="setting-hint">
-          Codes d&apos;invitation toujours autorisés (par exemple celui de ton serveur).
-        </span>
+        <span className="setting-hint">{t("automod.invites.hint")}</span>
         <TagInput
           values={rules.invites.allowedInvites}
-          placeholder="Code d'invitation (ex : gaulia)"
-          ariaLabel="Ajouter un code d'invitation autorisé"
+          placeholder={t("automod.invites.placeholder")}
+          ariaLabel={t("automod.invites.addAria")}
           maxItems={50}
           onChange={(allowedInvites) => setRule("invites", { allowedInvites })}
         />
@@ -147,15 +152,15 @@ export default function AutomodPage() {
       </RuleCard>
 
       <RuleCard
-        title="Mots interdits"
-        description="Sanctionne les messages contenant un mot interdit (mot entier, sans tenir compte des majuscules)."
+        title={t("automod.badWords.title")}
+        description={t("automod.badWords.description")}
         enabled={rules.badWords.enabled}
         onToggle={(enabled) => setRule("badWords", { enabled })}
       >
         <TagInput
           values={rules.badWords.words}
-          placeholder="Mot ou expression"
-          ariaLabel="Ajouter un mot interdit"
+          placeholder={t("automod.badWords.placeholder")}
+          ariaLabel={t("automod.badWords.addAria")}
           maxItems={500}
           normalize={(value) => value.trim().toLowerCase()}
           onChange={(words) => setRule("badWords", { words })}
@@ -167,19 +172,19 @@ export default function AutomodPage() {
       </RuleCard>
 
       <RuleCard
-        title="Mentions de masse"
-        description="Sanctionne les messages qui mentionnent trop de membres ou de rôles."
+        title={t("automod.mentions.title")}
+        description={t("automod.mentions.description")}
         enabled={rules.mentions.enabled}
         onToggle={(enabled) => setRule("mentions", { enabled })}
       >
         <div className="inline-fields">
           <label className="inline-field">
-            <span>Mentions maximum par message</span>
+            <span>{t("automod.mentions.max")}</span>
             <NumberInput
               value={rules.mentions.maxMentions}
               min={1}
               max={50}
-              ariaLabel="Mentions maximum par message"
+              ariaLabel={t("automod.mentions.max")}
               onChange={(maxMentions) => setRule("mentions", { maxMentions })}
             />
           </label>
@@ -191,50 +196,53 @@ export default function AutomodPage() {
       </RuleCard>
 
       <RuleCard
-        title="Majuscules"
-        description="Sanctionne les messages écrits principalement en majuscules."
+        title={t("automod.caps.title")}
+        description={t("automod.caps.description")}
         enabled={rules.caps.enabled}
         onToggle={(enabled) => setRule("caps", { enabled })}
       >
         <div className="inline-fields">
           <label className="inline-field">
-            <span>Part de majuscules (%)</span>
+            <span>{t("automod.caps.percent")}</span>
             <NumberInput
               value={rules.caps.percent}
               min={50}
               max={100}
-              ariaLabel="Part de majuscules en pourcentage"
+              ariaLabel={t("automod.caps.percentAria")}
               onChange={(percent) => setRule("caps", { percent })}
             />
           </label>
           <label className="inline-field">
-            <span>À partir de (lettres)</span>
+            <span>{t("automod.caps.minLength")}</span>
             <NumberInput
               value={rules.caps.minLength}
               min={5}
               max={200}
-              ariaLabel="Nombre minimum de lettres"
+              ariaLabel={t("automod.caps.minLengthAria")}
               onChange={(minLength) => setRule("caps", { minLength })}
             />
           </label>
         </div>
-        <SanctionPicker value={rules.caps.action} onChange={(action) => setRule("caps", { action })} />
+        <SanctionPicker
+          value={rules.caps.action}
+          onChange={(action) => setRule("caps", { action })}
+        />
       </RuleCard>
 
       <RuleCard
-        title="Messages répétés"
-        description="Sanctionne un membre qui envoie plusieurs fois le même message d'affilée."
+        title={t("automod.duplicates.title")}
+        description={t("automod.duplicates.description")}
         enabled={rules.duplicates.enabled}
         onToggle={(enabled) => setRule("duplicates", { enabled })}
       >
         <div className="inline-fields">
           <label className="inline-field">
-            <span>Répétitions avant sanction</span>
+            <span>{t("automod.duplicates.max")}</span>
             <NumberInput
               value={rules.duplicates.maxRepeats}
               min={2}
               max={10}
-              ariaLabel="Répétitions avant sanction"
+              ariaLabel={t("automod.duplicates.max")}
               onChange={(maxRepeats) => setRule("duplicates", { maxRepeats })}
             />
           </label>
@@ -246,34 +254,37 @@ export default function AutomodPage() {
       </RuleCard>
 
       <RuleCard
-        title="Flood"
-        description="Sanctionne un membre qui envoie trop de messages en peu de temps."
+        title={t("automod.flood.title")}
+        description={t("automod.flood.description")}
         enabled={rules.flood.enabled}
         onToggle={(enabled) => setRule("flood", { enabled })}
       >
         <div className="inline-fields">
           <label className="inline-field">
-            <span>Messages</span>
+            <span>{t("automod.flood.messages")}</span>
             <NumberInput
               value={rules.flood.maxMessages}
               min={2}
               max={30}
-              ariaLabel="Nombre de messages"
+              ariaLabel={t("automod.flood.messagesAria")}
               onChange={(maxMessages) => setRule("flood", { maxMessages })}
             />
           </label>
           <label className="inline-field">
-            <span>En (secondes)</span>
+            <span>{t("automod.flood.seconds")}</span>
             <NumberInput
               value={rules.flood.perSeconds}
               min={2}
               max={60}
-              ariaLabel="Fenêtre en secondes"
+              ariaLabel={t("automod.flood.secondsAria")}
               onChange={(perSeconds) => setRule("flood", { perSeconds })}
             />
           </label>
         </div>
-        <SanctionPicker value={rules.flood.action} onChange={(action) => setRule("flood", { action })} />
+        <SanctionPicker
+          value={rules.flood.action}
+          onChange={(action) => setRule("flood", { action })}
+        />
       </RuleCard>
 
       <SaveBar editor={editor} />

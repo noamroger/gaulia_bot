@@ -58,8 +58,8 @@ function toTrack(item: EmbedTrackItem): BlindtestTrack | null {
 }
 
 /**
- * Lit les titres d'un lien Spotify public via sa page d'intégration (open.spotify.com/embed),
- * sans compte ni clé d'API. Une playlist est limitée aux 100 premiers titres par Spotify.
+ * Reads the tracks of a public Spotify link through its embed page (open.spotify.com/embed), with
+ * no account and no API key. Spotify caps a playlist at its first 100 tracks.
  */
 export async function fetchSpotifyImport(link: SpotifyLink): Promise<SpotifyImport | null> {
   const response = await fetch(`https://open.spotify.com/embed/${link.type}/${link.id}`, {

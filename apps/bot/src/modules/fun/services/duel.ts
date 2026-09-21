@@ -1,6 +1,7 @@
 import { ButtonStyle, type ButtonInteraction, type ChatInputCommandInteraction } from "discord.js";
 
 import { GauliaError } from "../../../core/errors";
+import type { Translator } from "../../../i18n";
 import { connect4Games, startConnect4 } from "./connect4";
 import { funButton, funPayload, funRow, parseDifficulty, type Difficulty } from "./funUi";
 import { GameStore } from "./gameStore";
@@ -8,8 +9,8 @@ import { startTicTacToe, ticTacToeGames } from "./tictactoe";
 
 export type DuelGame = "connect4" | "tictactoe";
 
-const GAME_NAMES: Record<DuelGame, string> = { connect4: "Puissance 4", tictactoe: "Morpion" };
 const INVITATION_TTL_MS = 2 * 60_000;
+const INVITATION_TTL_MINUTES = INVITATION_TTL_MS / 60_000;
 
 interface Invitation {
   game: DuelGame;
@@ -19,10 +20,13 @@ interface Invitation {
 
 const invitations = new GameStore<Invitation>({
   idleMs: INVITATION_TTL_MS,
-  renderExpired: (invitation) =>
+  renderExpired: (invitation, t) =>
     funPayload([
-      `### ${GAME_NAMES[invitation.game]}`,
-      `<@${invitation.opponentId}> n'a pas répondu au défi de <@${invitation.challengerId}>.`,
+      `### ${t(`fun.${invitation.game}.title`)}`,
+      t("fun.duel.noAnswer", {
+        opponent: `<@${invitation.opponentId}>`,
+        challenger: `<@${invitation.challengerId}>`,
+      }),
     ]),
 });
 
@@ -31,10 +35,13 @@ async function launchGame(
   game: DuelGame,
   players: [string, string | null],
   difficulty: Difficulty,
+  t: Translator,
 ): Promise<void> {
   const store = game === "connect4" ? connect4Games : ticTacToeGames;
   const { gameId, payload } =
-    game === "connect4" ? startConnect4(players, difficulty) : startTicTacToe(players, difficulty);
+    game === "connect4"
+      ? startConnect4(players, difficulty, t)
+      : startTicTacToe(players, difficulty, t);
 
   if (interaction.isButton()) {
     await interaction.update(payload);
@@ -44,41 +51,51 @@ async function launchGame(
   store.attach(gameId, interaction);
 }
 
-/** Sans adversaire (ou en visant Gaulia) : partie contre l'IA ; sinon, invitation à accepter. */
+/** Without an opponent (or when aiming at Gaulia): a game against the AI; otherwise an invitation. */
 export async function startDuelCommand(
   interaction: ChatInputCommandInteraction,
   game: DuelGame,
+  t: Translator,
 ): Promise<void> {
-  const opponent = interaction.options.getUser("adversaire");
+  const opponent = interaction.options.getUser("opponent");
 
   if (!opponent || opponent.id === interaction.client.user.id) {
-    const difficulty = parseDifficulty(interaction.options.getString("difficulte"));
-    await launchGame(interaction, game, [interaction.user.id, null], difficulty);
+    const difficulty = parseDifficulty(interaction.options.getString("difficulty"));
+    await launchGame(interaction, game, [interaction.user.id, null], difficulty, t);
     return;
   }
-  if (opponent.id === interaction.user.id) {
-    throw new GauliaError("Tu ne peux pas te défier toi-même.");
-  }
-  if (opponent.bot) throw new GauliaError("Tu ne peux pas défier un bot.");
+  if (opponent.id === interaction.user.id) throw new GauliaError("fun.duel.selfChallenge");
+  if (opponent.bot) throw new GauliaError("fun.duel.botChallenge");
 
   const invitation: Invitation = {
     game,
     challengerId: interaction.user.id,
     opponentId: opponent.id,
   };
-  const invitationId = invitations.create(invitation);
+  const invitationId = invitations.create(invitation, t);
 
   await interaction.reply(
     funPayload(
       [
-        `### ${GAME_NAMES[game]}`,
-        `<@${invitation.challengerId}> défie <@${invitation.opponentId}> !`,
-        "-# L'invitation expire dans 2 minutes.",
+        `### ${t(`fun.${game}.title`)}`,
+        t("fun.duel.challenge", {
+          challenger: `<@${invitation.challengerId}>`,
+          opponent: `<@${invitation.opponentId}>`,
+        }),
+        `-# ${t("fun.duel.expiresIn", { minutes: INVITATION_TTL_MINUTES })}`,
       ],
       [
         funRow(
-          funButton(`fun:duel-accept:${invitationId}`, "Accepter", ButtonStyle.Success),
-          funButton(`fun:duel-decline:${invitationId}`, "Refuser", ButtonStyle.Danger),
+          funButton(
+            `fun:duel-accept:${invitationId}`,
+            t("fun.duel.acceptButton"),
+            ButtonStyle.Success,
+          ),
+          funButton(
+            `fun:duel-decline:${invitationId}`,
+            t("fun.duel.declineButton"),
+            ButtonStyle.Danger,
+          ),
         ),
       ],
       [opponent.id],
@@ -90,10 +107,11 @@ export async function startDuelCommand(
 export async function acceptDuel(
   interaction: ButtonInteraction,
   invitationId: string,
+  t: Translator,
 ): Promise<void> {
   const invitation = invitations.require(invitationId);
   if (interaction.user.id !== invitation.opponentId) {
-    throw new GauliaError("Ce défi ne t'est pas adressé.");
+    throw new GauliaError("fun.duel.notForYou");
   }
   invitations.finish(invitationId);
 
@@ -101,26 +119,30 @@ export async function acceptDuel(
     Math.random() < 0.5
       ? [invitation.challengerId, invitation.opponentId]
       : [invitation.opponentId, invitation.challengerId];
-  await launchGame(interaction, invitation.game, players, "normal");
+  await launchGame(interaction, invitation.game, players, "normal", t);
 }
 
 export async function declineDuel(
   interaction: ButtonInteraction,
   invitationId: string,
+  t: Translator,
 ): Promise<void> {
   const invitation = invitations.require(invitationId);
   const { challengerId, opponentId } = invitation;
   if (interaction.user.id !== opponentId && interaction.user.id !== challengerId) {
-    throw new GauliaError("Ce défi ne te concerne pas.");
+    throw new GauliaError("fun.duel.notInvolved");
   }
   invitations.finish(invitationId);
 
   await interaction.update(
     funPayload([
-      `### ${GAME_NAMES[invitation.game]}`,
+      `### ${t(`fun.${invitation.game}.title`)}`,
       interaction.user.id === opponentId
-        ? `<@${opponentId}> a refusé le défi de <@${challengerId}>.`
-        : `<@${challengerId}> a annulé son défi.`,
+        ? t("fun.duel.declined", {
+            opponent: `<@${opponentId}>`,
+            challenger: `<@${challengerId}>`,
+          })
+        : t("fun.duel.cancelled", { challenger: `<@${challengerId}>` }),
     ]),
   );
 }

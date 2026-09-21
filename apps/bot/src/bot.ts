@@ -10,23 +10,23 @@ import { stopHeartbeat } from "./core/heartbeat/heartbeatService";
 import { createMusicManager } from "./modules/music/services/musicManager";
 
 /**
- * Point d'entrée d'un process de shard unique. Lancé directement en dev (`npm run dev`, un seul
- * process = shard 0/1), ou spawné une fois par shard par le ShardingManager (`src/index.ts`) en
+ * Entry point of a single shard process. Run directly in dev (`npm run dev`, one process means
+ * shard 0/1), or spawned once per shard by the ShardingManager (`src/index.ts`) in
  * production.
  */
 async function main(): Promise<void> {
   const client = new GauliaClient();
 
-  // Attaché avant le login pour que le forwarding des events voix ci-dessous fonctionne dès la
+  // Attached before login so the voice event forwarding below works from the very first
   // connexion.
   client.lavalink = createMusicManager(client);
 
   // lavalink-client a besoin des paquets gateway bruts (VOICE_STATE_UPDATE / VOICE_SERVER_UPDATE)
-  // pour établir les connexions vocales. discord.js n'expose plus "raw" dans son typage public
-  // (ClientEvents) mais continue de l'émettre au runtime - c'est l'intégration recommandée par
-  // lavalink-client lui-même, d'où le cast local ici.
+  // to establish the voice connections. discord.js no longer exposes "raw" in its public typing
+  // (ClientEvents) but still emits it at runtime; this is the integration lavalink-client itself
+  // recommends, hence the local cast.
   client.on("raw", (packet: unknown) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- paquet gateway brut, non typé côté discord.js
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw gateway packet, untyped in discord.js
     void client.lavalink.sendRawData(packet as any);
   });
 
@@ -37,7 +37,7 @@ async function main(): Promise<void> {
   await client.login(env.DISCORD_TOKEN);
 
   const shutdown = (signal: string): void => {
-    client.logger.info(`Signal ${signal} reçu, arrêt en cours…`);
+    client.logger.info(`Signal ${signal} received, shutting down...`);
     stopHeartbeat();
     void client.destroy();
     void disconnectDatabase().finally(() => process.exit(0));
@@ -49,6 +49,6 @@ async function main(): Promise<void> {
 
 main().catch((error: unknown) => {
   // eslint-disable-next-line no-console
-  console.error("Échec du démarrage du bot :", error);
+  console.error("Could not start the bot:", error);
   process.exit(1);
 });

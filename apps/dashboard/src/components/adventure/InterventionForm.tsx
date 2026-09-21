@@ -2,17 +2,13 @@
 
 import { useState, type FormEvent } from "react";
 
+import { useTranslation } from "@/i18n";
 import type { AdventureCatalogue, AdventureIntervention } from "@/lib/types";
 
-const KIND_LABELS: Record<string, string> = {
-  EQUIPEMENT: "Équipement",
-  CONSOMMABLE: "Consommables",
-  MATERIAU: "Matériaux",
-  TRESOR: "Trésors",
-  RELIQUE: "Reliques",
-};
+/** Prisma item kinds, kept as stored; only their labels come from the catalog. */
+const ITEM_KINDS = ["EQUIPEMENT", "CONSOMMABLE", "MATERIAU", "TRESOR", "RELIQUE"] as const;
 
-/** Champ numérique optionnel : vide = pas de modification de cette valeur. */
+/** Optional number field: empty means this value is left alone. */
 function NumberField({
   label,
   hint,
@@ -41,9 +37,8 @@ function NumberField({
 }
 
 /**
- * Interventions du propriétaire dans la partie d'un joueur : expérience, or, fragments, énergie,
- * points de caractéristique, niveau et objets. Tout est optionnel et rien n'est envoyé tant que la
- * modification n'a pas été confirmée.
+ * Owner interventions in a player's game: experience, gold, shards, energy, stat points, level and
+ * items. Everything is optional and nothing is sent until the change has been confirmed.
  */
 export function InterventionForm({
   catalogue,
@@ -54,6 +49,7 @@ export function InterventionForm({
   pending: boolean;
   onSubmit: (intervention: AdventureIntervention) => Promise<void>;
 }) {
+  const t = useTranslation();
   const [xp, setXp] = useState("");
   const [gold, setGold] = useState("");
   const [echoes, setEchoes] = useState("");
@@ -114,49 +110,50 @@ export function InterventionForm({
     setConfirming(false);
   }
 
-  const grouped = Object.entries(KIND_LABELS).map(([kind, label]) => ({
-    label,
+  const grouped = ITEM_KINDS.map((kind) => ({
+    label: t(`adventure.admin.itemKind.${kind}`),
     items: (catalogue?.items ?? []).filter((item) => item.kind === kind),
   }));
 
   return (
     <form className="card intervention-form" onSubmit={(event) => void submit(event)}>
-      <h3 className="card-title">Intervenir dans la partie</h3>
-      <p className="card-subtitle">
-        Laisse un champ vide pour ne pas y toucher. Les valeurs sont des variations (un nombre
-        négatif retire), sauf le niveau, qui est fixé directement. Chaque intervention est inscrite
-        dans le journal du joueur.
-      </p>
+      <h3 className="card-title">{t("adventure.admin.intervention.title")}</h3>
+      <p className="card-subtitle">{t("adventure.admin.intervention.description")}</p>
 
       <div className="inline-fields">
         <NumberField
-          label="Expérience"
-          hint="Ajoutée comme en jeu (les niveaux montent)."
+          label={t("adventure.admin.intervention.xp.label")}
+          hint={t("adventure.admin.intervention.xp.hint")}
           value={xp}
           onChange={setXp}
         />
-        <NumberField label="Pièces" hint="Négatif pour retirer." value={gold} onChange={setGold} />
         <NumberField
-          label="Fragments d'écho"
-          hint="La monnaie du scénario."
+          label={t("adventure.admin.intervention.gold.label")}
+          hint={t("adventure.admin.intervention.gold.hint")}
+          value={gold}
+          onChange={setGold}
+        />
+        <NumberField
+          label={t("adventure.admin.intervention.echoes.label")}
+          hint={t("adventure.admin.intervention.echoes.hint")}
           value={echoes}
           onChange={setEchoes}
         />
         <NumberField
-          label="Énergie"
-          hint={`Plafond : ${catalogue?.maxEnergy ?? 20}.`}
+          label={t("adventure.admin.intervention.energy.label")}
+          hint={t("adventure.admin.intervention.energy.hint", { max: catalogue?.maxEnergy ?? 20 })}
           value={energy}
           onChange={setEnergy}
         />
         <NumberField
-          label="Points de caractéristique"
-          hint="À répartir par le joueur."
+          label={t("adventure.admin.intervention.statPoints.label")}
+          hint={t("adventure.admin.intervention.statPoints.hint")}
           value={statPoints}
           onChange={setStatPoints}
         />
         <NumberField
-          label="Niveau"
-          hint={`Valeur fixée (1 à ${catalogue?.maxLevel ?? 100}).`}
+          label={t("adventure.admin.intervention.level.label")}
+          hint={t("adventure.admin.intervention.level.hint", { max: catalogue?.maxLevel ?? 100 })}
           value={level}
           onChange={setLevel}
         />
@@ -164,20 +161,20 @@ export function InterventionForm({
 
       <div className="inline-fields">
         <label className="field">
-          <span>Objet</span>
+          <span>{t("adventure.admin.intervention.item.label")}</span>
           <select
             className="select"
             value={itemId}
             onChange={(event) => setItemId(event.target.value)}
           >
-            <option value="">Aucun objet</option>
+            <option value="">{t("adventure.admin.intervention.item.none")}</option>
             {grouped.map((group) =>
               group.items.length === 0 ? null : (
                 <optgroup key={group.label} label={group.label}>
                   {group.items.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.emoji} {item.name}
-                      {item.tradable ? "" : " (non échangeable)"}
+                      {item.tradable ? "" : t("adventure.admin.intervention.item.notTradable")}
                     </option>
                   ))}
                 </optgroup>
@@ -186,7 +183,7 @@ export function InterventionForm({
           </select>
         </label>
         <label className="field">
-          <span>Quantité</span>
+          <span>{t("adventure.admin.intervention.quantity.label")}</span>
           <input
             className="input input-number"
             type="number"
@@ -194,36 +191,35 @@ export function InterventionForm({
             value={itemQuantity}
             onChange={(event) => setItemQuantity(event.target.value)}
           />
-          <span className="setting-hint">Négatif pour retirer du sac.</span>
+          <span className="setting-hint">{t("adventure.admin.intervention.quantity.hint")}</span>
         </label>
         <label className="field input-grow">
-          <span>Raison</span>
+          <span>{t("adventure.admin.intervention.reason.label")}</span>
           <input
             className="input"
             type="text"
             maxLength={200}
-            placeholder="Compensation d'un bug, événement…"
+            placeholder={t("adventure.admin.intervention.reason.placeholder")}
             value={reason}
             onChange={(event) => setReason(event.target.value)}
           />
         </label>
       </div>
 
-      {confirming && (
-        <div className="confirm-box">
-          Confirme l&apos;intervention : elle sera appliquée immédiatement et visible dans le
-          journal du joueur.
-        </div>
-      )}
+      {confirming && <div className="confirm-box">{t("adventure.admin.intervention.confirm")}</div>}
 
       <div className="save-bar-actions">
         {confirming && (
           <button type="button" className="button-secondary" onClick={() => setConfirming(false)}>
-            Annuler
+            {t("common.action.cancel")}
           </button>
         )}
         <button type="submit" className="button-primary" disabled={!hasChange || pending}>
-          {pending ? "Application…" : confirming ? "Confirmer" : "Appliquer"}
+          {pending
+            ? t("adventure.admin.intervention.applying")
+            : confirming
+              ? t("common.action.confirm")
+              : t("adventure.admin.intervention.apply")}
         </button>
       </div>
     </form>

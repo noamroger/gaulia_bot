@@ -1,10 +1,11 @@
 import fastifyCookie from "@fastify/cookie";
 import fastifyCors from "@fastify/cors";
 import fastifyJwt from "@fastify/jwt";
-import Fastify from "fastify";
+import Fastify, { type RawServerDefault } from "fastify";
 
 import "./auth/session";
 import { env } from "./config/env";
+import { registerI18n } from "./i18n";
 import { startRetentionJob } from "./jobs/retentionJob";
 import { logger } from "./logger";
 import adminRoutes from "./routes/admin.routes";
@@ -22,7 +23,9 @@ import statsRoutes from "./routes/stats.routes";
 import topggRoutes from "./routes/topgg.routes";
 
 async function main(): Promise<void> {
-  const app = Fastify({ loggerInstance: logger });
+  // Explicit server type so the instance keeps Fastify default generics: plugins such as
+  // `registerI18n` take a plain FastifyInstance.
+  const app = Fastify<RawServerDefault>({ loggerInstance: logger });
 
   await app.register(fastifyCors, {
     origin: env.DASHBOARD_URL,
@@ -37,24 +40,27 @@ async function main(): Promise<void> {
     cookie: { cookieName: "gaulia_session", signed: false },
   });
 
-  // Aucun détail d'erreur ne doit sortir de l'API : message générique au client, trace en console.
+  // Must run before the routes so `request.t` exists everywhere.
+  registerI18n(app);
+
+  // No error detail leaves the API: generic message for the client, stack trace in the logs.
   app.setErrorHandler((error, request, reply) => {
     const rawStatus = (error as { statusCode?: unknown } | null)?.statusCode;
     const statusCode = typeof rawStatus === "number" && rawStatus >= 400 ? rawStatus : 500;
 
     if (statusCode >= 500) {
-      request.log.error({ err: error }, "Erreur interne de l'API");
+      request.log.error({ err: error }, "Internal API error");
     } else {
-      request.log.warn({ err: error }, "Requête rejetée");
+      request.log.warn({ err: error }, "Request rejected");
     }
 
     return reply.status(statusCode).send({
-      error: statusCode >= 500 ? "Une erreur interne est survenue." : "Requête invalide.",
+      error: request.t(statusCode >= 500 ? "errors.common.internal" : "errors.common.badRequest"),
     });
   });
 
-  app.setNotFoundHandler((_request, reply) =>
-    reply.status(404).send({ error: "Ressource introuvable." }),
+  app.setNotFoundHandler((request, reply) =>
+    reply.status(404).send({ error: request.t("errors.common.notFound") }),
   );
 
   app.get("/health", async () => ({ ok: true }));
@@ -79,6 +85,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  logger.error({ err: error }, "Échec du démarrage de l'API");
+  logger.error({ err: error }, "API failed to start");
   process.exit(1);
 });

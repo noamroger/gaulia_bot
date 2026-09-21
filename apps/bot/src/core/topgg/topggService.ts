@@ -4,13 +4,13 @@ import { logger } from "../../client/logger";
 import { env } from "../../config/env";
 
 /**
- * API top.gg v1 : la clé générée dans l'onglet « Integrations & API » de la page du bot s'envoie
- * en `Authorization: Bearer <clé>`, et les métriques du projet se publient sur
- * `PATCH /projects/@me/metrics` (le projet est déduit de la clé, aucun ID à passer).
+ * top.gg API v1: the key from the "Integrations & API" tab of the bot page goes in
+ * `Authorization: Bearer <key>`, and project metrics are published on
+ * `PATCH /projects/@me/metrics`, the project being deduced from the key.
  */
 const TOPGG_API_BASE = "https://top.gg/api/v1";
 
-/** top.gg recommande une publication régulière plutôt qu'à chaque join/leave. */
+/** top.gg recommends publishing on a schedule rather than on every join or leave. */
 const POST_INTERVAL_MS = 30 * 60_000;
 
 /** Laisse aux shards le temps de terminer leur connexion avant le premier envoi. */
@@ -35,14 +35,14 @@ async function postMetrics(serverCount: number, shardCount: number): Promise<voi
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    throw new Error(`top.gg a répondu ${response.status} ${response.statusText} ${body}`.trim());
+    throw new Error(`top.gg answered ${response.status} ${response.statusText} ${body}`.trim());
   }
 }
 
 /**
  * Additionne les serveurs vus par chaque shard. `fetchClientValues` interroge tous les process
- * enfants : c'est la seule façon d'obtenir le total réel, `client.guilds.cache` d'un shard ne
- * connaissant que ses propres serveurs - d'où un envoi piloté par le process parent.
+ * child processes: that is the only way to get the real total, since a shard's
+ * `client.guilds.cache` only knows its own servers, hence a send driven by the parent process.
  */
 async function totalGuildCount(manager: ShardingManager): Promise<number> {
   const counts = (await manager.fetchClientValues("guilds.cache.size")) as (number | undefined)[];
@@ -54,20 +54,20 @@ async function publishStats(manager: ShardingManager): Promise<void> {
     const serverCount = await totalGuildCount(manager);
     const shardCount = manager.shards.size;
     await postMetrics(serverCount, shardCount);
-    logger.info({ serverCount, shardCount }, "Statistiques publiées sur top.gg");
+    logger.info({ serverCount, shardCount }, "Statistics published to top.gg");
   } catch (error) {
-    // Un échec côté top.gg ne doit jamais perturber le bot : on log et on retentera au prochain tour.
-    logger.error({ err: error }, "Échec de la publication des statistiques sur top.gg");
+    // A top.gg failure must never disturb the bot: log it and retry on the next round.
+    logger.error({ err: error }, "Could not publish the statistics to top.gg");
   }
 }
 
 /**
- * Publie périodiquement le nombre de serveurs sur top.gg depuis le process parent (sharding).
- * Sans `TOPGG_API_KEY`, l'intégration reste simplement inactive.
+ * Publishes the server count to top.gg on a schedule, from the parent process. Without
+ * `TOPGG_API_KEY` the integration simply stays off.
  */
 export function startTopggStatsJob(manager: ShardingManager): void {
   if (!isTopggEnabled()) {
-    logger.info("TOPGG_API_KEY absent : publication des statistiques top.gg désactivée");
+    logger.info("TOPGG_API_KEY missing, top.gg statistics publishing disabled");
     return;
   }
 

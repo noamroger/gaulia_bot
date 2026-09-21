@@ -1,14 +1,10 @@
 "use client";
 
+import { useLocale, useTranslation } from "@/i18n";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import type { AdventureCatalogue, AdventurePlayerDetail } from "@/lib/types";
 
-const CLASS_LABELS: Record<string, string> = {
-  GUERRIER: "🛡️ Guerrier",
-  MAGE: "🔮 Mage",
-  RODEUR: "🏹 Rôdeur",
-};
-
+/** Journal entry types, as stored; the emoji is the whole display. */
 const LOG_PREFIX: Record<string, string> = {
   STORY: "📖",
   DUNGEON: "🚪",
@@ -17,7 +13,7 @@ const LOG_PREFIX: Record<string, string> = {
   ADMIN: "🛠️",
 };
 
-/** Fiche complète d'un joueur : progression, caractéristiques, inventaire, quêtes et journal. */
+/** Full sheet of a player: progression, stats, inventory, quests and journal. */
 export function PlayerSheet({
   detail,
   catalogue,
@@ -25,6 +21,8 @@ export function PlayerSheet({
   detail: AdventurePlayerDetail;
   catalogue: AdventureCatalogue | null;
 }) {
+  const t = useTranslation();
+  const locale = useLocale();
   const { character, items, quests, achievements, logs, pendingTrades } = detail;
   const act = catalogue?.acts[character.actIndex];
   const chapter = act?.chapters[character.chapterIndex];
@@ -39,117 +37,138 @@ export function PlayerSheet({
     return item ? `${item.emoji} ${item.name}` : itemId;
   };
 
+  const actTitle =
+    act?.title ?? t("adventure.admin.sheet.actFallback", { number: character.actIndex + 1 });
+  const chapterTitle =
+    chapter?.title ??
+    t("adventure.admin.sheet.chapterFallback", { number: character.chapterIndex + 1 });
+
   return (
     <div className="adventure-sheet">
       <div className="kpi-grid">
         <div className="card stat-tile">
-          <span className="stat-label">Niveau</span>
+          <span className="stat-label">{t("adventure.admin.sheet.level")}</span>
           <span className="stat-value">{character.level}</span>
-          <span className="stat-hint">{formatNumber(character.totalXp)} XP au total</span>
+          <span className="stat-hint">
+            {t("adventure.admin.sheet.totalXp", {
+              value: formatNumber(character.totalXp, locale),
+            })}
+          </span>
         </div>
         <div className="card stat-tile">
-          <span className="stat-label">Scénario</span>
+          <span className="stat-label">{t("adventure.admin.sheet.story")}</span>
           <span className="stat-value">
             {chaptersDone}/{catalogue?.totalChapters ?? "-"}
           </span>
           <span className="stat-hint">
             {character.storyEndedAt
-              ? "Histoire terminée"
-              : `${act?.title ?? `Acte ${character.actIndex + 1}`} - ${chapter?.title ?? `chapitre ${character.chapterIndex + 1}`}`}
+              ? t("adventure.admin.sheet.storyDone")
+              : `${actTitle} - ${chapterTitle}`}
           </span>
         </div>
         <div className="card stat-tile">
-          <span className="stat-label">Bourse</span>
-          <span className="stat-value">{formatNumber(character.gold)}</span>
+          <span className="stat-label">{t("adventure.admin.sheet.purse")}</span>
+          <span className="stat-value">{formatNumber(character.gold, locale)}</span>
           <span className="stat-hint">
-            {formatNumber(character.echoes)} fragment(s) d&apos;écho
+            {t("adventure.admin.sheet.echoes", {
+              count: character.echoes,
+              value: formatNumber(character.echoes, locale),
+            })}
           </span>
         </div>
         <div className="card stat-tile">
-          <span className="stat-label">Énergie</span>
+          <span className="stat-label">{t("adventure.admin.sheet.energy")}</span>
           <span className="stat-value">
             {character.energy}/{catalogue?.maxEnergy ?? "-"}
           </span>
-          <span className="stat-hint">{formatNumber(character.hp)} PV</span>
+          <span className="stat-hint">
+            {t("adventure.admin.sheet.hp", { value: formatNumber(character.hp, locale) })}
+          </span>
         </div>
       </div>
 
       <section className="card">
-        <h3 className="card-title">Caractéristiques</h3>
+        <h3 className="card-title">{t("adventure.admin.sheet.stats.title")}</h3>
         <dl className="shard-metrics">
           <div>
-            <dt>Classe</dt>
-            <dd>{CLASS_LABELS[character.characterClass] ?? character.characterClass}</dd>
+            <dt>{t("adventure.admin.sheet.stats.class")}</dt>
+            <dd>{t(`adventure.admin.class.${character.characterClass}`)}</dd>
           </div>
           <div>
-            <dt>Force / Agilité / Esprit</dt>
+            <dt>{t("adventure.admin.sheet.stats.attributes")}</dt>
             <dd>
               {character.might} / {character.agility} / {character.spirit}
             </dd>
           </div>
           <div>
-            <dt>Points à répartir</dt>
+            <dt>{t("adventure.admin.sheet.stats.statPoints")}</dt>
             <dd>{character.statPoints}</dd>
           </div>
           <div>
-            <dt>Explorations</dt>
-            <dd>{formatNumber(character.explorations)}</dd>
+            <dt>{t("adventure.admin.sheet.stats.explorations")}</dt>
+            <dd>{formatNumber(character.explorations, locale)}</dd>
           </div>
           <div>
-            <dt>Victoires / Défaites</dt>
+            <dt>{t("adventure.admin.sheet.stats.record")}</dt>
             <dd>
-              {formatNumber(character.victories)} / {formatNumber(character.defeats)}
+              {formatNumber(character.victories, locale)} /{" "}
+              {formatNumber(character.defeats, locale)}
             </dd>
           </div>
           <div>
-            <dt>Donjons</dt>
+            <dt>{t("adventure.admin.sheet.stats.dungeons")}</dt>
             <dd>{character.dungeonClears}</dd>
           </div>
           <div>
-            <dt>Série</dt>
+            <dt>{t("adventure.admin.sheet.stats.streak")}</dt>
             <dd>
-              {character.streak} j (record {character.bestStreak})
+              {t("adventure.admin.sheet.stats.streakValue", {
+                count: character.streak,
+                best: character.bestStreak,
+              })}
             </dd>
           </div>
           <div>
-            <dt>Renforcements</dt>
-            <dd>{formatNumber(character.upgrades)}</dd>
+            <dt>{t("adventure.admin.sheet.stats.upgrades")}</dt>
+            <dd>{formatNumber(character.upgrades, locale)}</dd>
           </div>
           <div>
-            <dt>Échanges conclus</dt>
-            <dd>{formatNumber(character.trades)}</dd>
+            <dt>{t("adventure.admin.sheet.stats.trades")}</dt>
+            <dd>{formatNumber(character.trades, locale)}</dd>
           </div>
           <div>
-            <dt>Hauts faits</dt>
+            <dt>{t("adventure.admin.sheet.stats.achievements")}</dt>
             <dd>{achievements.length}</dd>
           </div>
         </dl>
       </section>
 
       <section className="card">
-        <h3 className="card-title">Inventaire ({items.length})</h3>
+        <h3 className="card-title">
+          {t("adventure.admin.sheet.inventory.title", { count: items.length })}
+        </h3>
         {items.length === 0 ? (
-          <p className="text-muted">Sac vide.</p>
+          <p className="text-muted">{t("adventure.admin.sheet.inventory.empty")}</p>
         ) : (
           <div className="table-scroll">
             <table className="table">
               <thead>
                 <tr>
-                  <th>Objet</th>
-                  <th className="numeric">Quantité</th>
-                  <th className="numeric">Renfort</th>
-                  <th>État</th>
+                  <th>{t("adventure.admin.sheet.inventory.columnItem")}</th>
+                  <th className="numeric">{t("adventure.admin.sheet.inventory.columnQuantity")}</th>
+                  <th className="numeric">{t("adventure.admin.sheet.inventory.columnUpgrade")}</th>
+                  <th>{t("adventure.admin.sheet.inventory.columnState")}</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((row) => (
                   <tr key={row.id}>
                     <td>{itemName(row.itemId)}</td>
-                    <td className="numeric">{formatNumber(row.quantity)}</td>
+                    <td className="numeric">{formatNumber(row.quantity, locale)}</td>
                     <td className="numeric">
                       {row.upgradeLevel > 0 ? `+${row.upgradeLevel}` : "-"}
                     </td>
-                    <td>{row.equipped ? "Porté" : "-"}</td>
+                    <td>{row.equipped ? t("adventure.admin.sheet.inventory.equipped") : "-"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -159,19 +178,18 @@ export function PlayerSheet({
       </section>
 
       <section className="card">
-        <h3 className="card-title">Quêtes en cours</h3>
+        <h3 className="card-title">{t("adventure.admin.sheet.quests.title")}</h3>
         {quests.length === 0 ? (
-          <p className="text-muted">Aucun lot de quêtes enregistré.</p>
+          <p className="text-muted">{t("adventure.admin.sheet.quests.empty")}</p>
         ) : (
           <ul className="data-summary">
             {quests.slice(0, 10).map((quest) => (
               <li key={quest.id}>
                 <span>
-                  {quest.kind === "DAILY" ? "Quotidienne" : "Hebdomadaire"} ·{" "}
-                  {quest.label ?? quest.questId}
+                  {t(`adventure.admin.sheet.quests.${quest.kind}`)} · {quest.label ?? quest.questId}
                 </span>
                 <strong>
-                  {formatNumber(quest.progress)} / {formatNumber(quest.target)}
+                  {formatNumber(quest.progress, locale)} / {formatNumber(quest.target, locale)}
                   {quest.claimedAt ? " ✅" : ""}
                 </strong>
               </li>
@@ -181,19 +199,30 @@ export function PlayerSheet({
       </section>
 
       <section className="card">
-        <h3 className="card-title">Échanges en attente ({pendingTrades.length})</h3>
+        <h3 className="card-title">
+          {t("adventure.admin.sheet.trades.title", { count: pendingTrades.length })}
+        </h3>
         {pendingTrades.length === 0 ? (
-          <p className="text-muted">Aucune proposition ouverte.</p>
+          <p className="text-muted">{t("adventure.admin.sheet.trades.empty")}</p>
         ) : (
           <ul className="data-summary">
             {pendingTrades.map((trade) => {
               const side = (
-                items: { itemId: string; quantity: number }[],
+                tradedItems: { itemId: string; quantity: number }[],
                 gold: number,
               ): string => {
-                const parts = items.map((entry) => `${entry.quantity} × ${itemName(entry.itemId)}`);
-                if (gold > 0) parts.push(`${formatNumber(gold)} pièces`);
-                return parts.join(" + ") || "rien";
+                const parts = tradedItems.map(
+                  (entry) => `${entry.quantity} × ${itemName(entry.itemId)}`,
+                );
+                if (gold > 0) {
+                  parts.push(
+                    t("adventure.admin.sheet.trades.gold", {
+                      count: gold,
+                      value: formatNumber(gold, locale),
+                    }),
+                  );
+                }
+                return parts.join(" + ") || t("adventure.admin.sheet.trades.nothing");
               };
               const outgoing = trade.initiatorId === character.userId;
 
@@ -204,10 +233,11 @@ export function PlayerSheet({
                     {outgoing
                       ? (trade.targetName ?? trade.targetId)
                       : (trade.initiatorName ?? trade.initiatorId)}{" "}
-                    · {side(trade.offeredItems, trade.offeredGold)} contre{" "}
+                    · {side(trade.offeredItems, trade.offeredGold)}{" "}
+                    {t("adventure.admin.sheet.trades.versus")}{" "}
                     {side(trade.requestedItems, trade.requestedGold)}
                   </span>
-                  <strong>{formatDateTime(trade.expiresAt)}</strong>
+                  <strong>{formatDateTime(trade.expiresAt, locale)}</strong>
                 </li>
               );
             })}
@@ -216,9 +246,9 @@ export function PlayerSheet({
       </section>
 
       <section className="card">
-        <h3 className="card-title">Journal</h3>
+        <h3 className="card-title">{t("adventure.admin.sheet.logs.title")}</h3>
         {logs.length === 0 ? (
-          <p className="text-muted">Rien à signaler.</p>
+          <p className="text-muted">{t("adventure.admin.sheet.logs.empty")}</p>
         ) : (
           <ul className="data-summary">
             {logs.map((log) => (
@@ -226,7 +256,7 @@ export function PlayerSheet({
                 <span>
                   {LOG_PREFIX[log.type] ?? "•"} {log.message}
                 </span>
-                <strong>{formatDateTime(log.createdAt)}</strong>
+                <strong>{formatDateTime(log.createdAt, locale)}</strong>
               </li>
             ))}
           </ul>

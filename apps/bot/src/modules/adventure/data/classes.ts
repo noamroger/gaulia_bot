@@ -1,30 +1,26 @@
 import type { AdventureClass } from "@gaulia/database";
 
+import type { Translator } from "../../../i18n";
+
+/** Names, descriptions and passive wording live in the catalog, keyed by `id`. */
 export interface ClassDefinition {
   id: AdventureClass;
-  name: string;
   emoji: string;
-  description: string;
-  /** Points de caractéristique de départ. */
+  /** Starting stat points. */
   might: number;
   agility: number;
   spirit: number;
-  /** Effet passif appliqué par le moteur de combat, décrit ici pour l'affichage. */
-  passive: string;
-  /** Objets offerts à la création. */
+  /** Gear handed out at creation. */
   startingItems: { itemId: string; quantity: number }[];
 }
 
 export const CLASSES: readonly ClassDefinition[] = [
   {
     id: "GUERRIER",
-    name: "Guerrier",
     emoji: "🛡️",
-    description: "Encaisse et frappe fort. Le plus simple à jouer, le plus dur à tuer.",
     might: 6,
     agility: 2,
     spirit: 1,
-    passive: "Réduit de 15 % les dégâts subis.",
     startingItems: [
       { itemId: "epee-rouillee", quantity: 1 },
       { itemId: "tunique-cuir", quantity: 1 },
@@ -33,13 +29,10 @@ export const CLASSES: readonly ClassDefinition[] = [
   },
   {
     id: "MAGE",
-    name: "Mage",
     emoji: "🔮",
-    description: "Frappe à l'esprit plutôt qu'à la force : dégâts élevés, défense fragile.",
     might: 1,
     agility: 2,
     spirit: 6,
-    passive: "Inflige 20 % de dégâts supplémentaires, mais encaisse 10 % de plus.",
     startingItems: [
       { itemId: "baton-noueux", quantity: 1 },
       { itemId: "robe-apprenti", quantity: 1 },
@@ -48,13 +41,10 @@ export const CLASSES: readonly ClassDefinition[] = [
   },
   {
     id: "RODEUR",
-    name: "Rôdeur",
     emoji: "🏹",
-    description: "Vif et chanceux : esquive, coups critiques et meilleures trouvailles.",
     might: 3,
     agility: 5,
     spirit: 1,
-    passive: "+10 % de butin et un coup critique plus fréquent.",
     startingItems: [
       { itemId: "arc-chasse", quantity: 1 },
       { itemId: "tunique-cuir", quantity: 1 },
@@ -63,8 +53,23 @@ export const CLASSES: readonly ClassDefinition[] = [
   },
 ] as const;
 
+export const CLASS_IDS = CLASSES.map((entry) => entry.id);
+
 export function classDefinition(id: AdventureClass): ClassDefinition {
   const found = CLASSES.find((entry) => entry.id === id);
-  if (!found) throw new Error(`Classe d'aventure inconnue : ${id}`);
+  if (!found) throw new Error(`Unknown adventure class: ${id}`);
   return found;
+}
+
+export function className(t: Translator, id: AdventureClass): string {
+  return t(`adventure.classes.${id}.name`);
+}
+
+export function classDescription(t: Translator, id: AdventureClass): string {
+  return t(`adventure.classes.${id}.description`);
+}
+
+/** Wording of the passive the combat engine applies, for display only. */
+export function classPassive(t: Translator, id: AdventureClass): string {
+  return t(`adventure.classes.${id}.passive`);
 }

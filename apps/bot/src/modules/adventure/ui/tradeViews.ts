@@ -9,35 +9,57 @@ import {
   toV2Payload,
   type V2MessagePayload,
 } from "../../../core/ui/containers";
-import { itemLabel } from "../data/items";
+import { formatDurationMs } from "../../../core/utils/duration";
+import type { Translator } from "../../../i18n";
+import { itemLabel, itemName } from "../data/items";
 import { tradeSides, type TradeSide } from "../services/economy/tradeService";
-import { formatDuration, formatNumber } from "./format";
+import { formatNumber } from "./format";
 import { navigationRow } from "./navigation";
 
-function sideLines(side: TradeSide): string {
-  const parts = side.items.map((entry) => `${entry.quantity} × ${itemLabel(entry.itemId)}`);
-  if (side.gold > 0) parts.push(`${formatNumber(side.gold)} 🪙`);
-  return parts.join("\n") || "*rien*";
+function sideLines(side: TradeSide, t: Translator): string {
+  const parts = side.items.map((entry) =>
+    t("adventure.views.trade.entry", {
+      quantity: entry.quantity,
+      item: itemLabel(t, entry.itemId),
+    }),
+  );
+  if (side.gold > 0) {
+    parts.push(t("adventure.views.trade.coins", { gold: formatNumber(t, side.gold) }));
+  }
+  return parts.join("\n") || t("adventure.views.trade.nothing");
 }
 
-function tradeBlock(trade: AdventureTradeWithParties): string {
+function tradeBlock(trade: AdventureTradeWithParties, t: Translator): string {
   const { offered, requested } = tradeSides(trade);
+  const unnamed = t("adventure.views.unnamed");
   return [
-    `**${trade.initiator.username ?? "Aventurier"} donne**\n${sideLines(offered)}`,
-    `**${trade.target.username ?? "Aventurier"} donne**\n${sideLines(requested)}`,
+    t("adventure.views.trade.gives", {
+      name: trade.initiator.username ?? unnamed,
+      items: sideLines(offered, t),
+    }),
+    t("adventure.views.trade.gives", {
+      name: trade.target.username ?? unnamed,
+      items: sideLines(requested, t),
+    }),
   ].join("\n\n");
 }
 
-/** Proposition envoyée au destinataire, avec les boutons d'acceptation et de refus. */
+/** Offer sent to the recipient, with the accept and decline buttons. */
 export function tradeOfferView(
   trade: AdventureTradeWithParties,
   warnings: string[],
+  t: Translator,
 ): V2MessagePayload {
   const lines = [
-    "## 🤝 Proposition d'échange",
-    `<@${trade.initiatorId}> propose un échange à <@${trade.targetId}>.`,
-    tradeBlock(trade),
-    `⏳ La proposition expire dans ${formatDuration(trade.expiresAt.getTime() - Date.now())}.`,
+    t("adventure.views.trade.offerTitle"),
+    t("adventure.views.trade.offerIntro", {
+      initiator: trade.initiatorId,
+      target: trade.targetId,
+    }),
+    tradeBlock(trade, t),
+    t("adventure.views.trade.expires", {
+      duration: formatDurationMs(trade.expiresAt.getTime() - Date.now(), t),
+    }),
   ];
   if (warnings.length > 0) lines.push(`⚠️ ${warnings.join("\n⚠️ ")}`);
 
@@ -47,17 +69,17 @@ export function tradeOfferView(
     addActionRow(container, [
       new ButtonBuilder()
         .setCustomId(`adventure:trade:accept:${trade.id}`)
-        .setLabel("Accepter")
+        .setLabel(t("adventure.buttons.accept"))
         .setEmoji("✅")
         .setStyle(ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId(`adventure:trade:decline:${trade.id}`)
-        .setLabel("Refuser")
+        .setLabel(t("adventure.buttons.decline"))
         .setEmoji("✖️")
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId(`adventure:trade:cancel:${trade.id}`)
-        .setLabel("Annuler")
+        .setLabel(t("adventure.buttons.cancel"))
         .setEmoji("🗑️")
         .setStyle(ButtonStyle.Secondary),
     ]);
@@ -70,46 +92,57 @@ export function tradeResultView(
   initiator: AdventureCharacter,
   target: AdventureCharacter,
   lostUpgrades: string[],
+  t: Translator,
 ): V2MessagePayload {
+  const unnamed = t("adventure.views.unnamed");
   const lines = [
-    "## 🤝 Échange conclu",
-    tradeBlock(trade),
-    `Bourses : ${trade.initiator.username ?? "l'un"} ${formatNumber(initiator.gold)} 🪙 · ${trade.target.username ?? "l'autre"} ${formatNumber(target.gold)} 🪙`,
+    t("adventure.views.trade.doneTitle"),
+    tradeBlock(trade, t),
+    t("adventure.views.trade.purses", {
+      initiator: trade.initiator.username ?? unnamed,
+      initiatorGold: formatNumber(t, initiator.gold),
+      target: trade.target.username ?? unnamed,
+      targetGold: formatNumber(t, target.gold),
+    }),
   ];
   if (lostUpgrades.length > 0) lines.push(`⚠️ ${lostUpgrades.join("\n⚠️ ")}`);
 
   const payload = toV2Payload(false, buildContainer(Colors.Success, lines));
-  return navigationRow(payload, trade.targetId, ["sac", "profil"]);
+  return navigationRow(payload, t, trade.targetId, ["bag", "profile"]);
 }
 
 export function tradeClosedView(
   trade: AdventureTradeWithParties,
   action: "DECLINED" | "CANCELLED",
+  t: Translator,
 ): V2MessagePayload {
   return toV2Payload(
     false,
     buildContainer(Colors.Neutral, [
-      action === "DECLINED" ? "## ✖️ Proposition refusée" : "## 🗑️ Proposition annulée",
-      tradeBlock(trade),
+      action === "DECLINED"
+        ? t("adventure.views.trade.declinedTitle")
+        : t("adventure.views.trade.cancelledTitle"),
+      tradeBlock(trade, t),
     ]),
   );
 }
 
-/** Liste des propositions ouvertes d'un joueur, reçues comme envoyées. */
+/** List of a player's open offers, received and sent. */
 export function tradeListView(
   userId: string,
   trades: AdventureTradeWithParties[],
+  t: Translator,
 ): V2MessagePayload {
   if (trades.length === 0) {
     const empty = toV2Payload(
       false,
       buildContainer(Colors.Neutral, [
-        "## 🤝 Échanges",
-        "Aucune proposition en cours.",
-        `Propose un échange avec \`/aventure echange proposer\` (à partir du niveau ${ADVENTURE_TRADE_MIN_LEVEL}).`,
+        t("adventure.views.trade.emptyTitle"),
+        t("adventure.views.trade.empty"),
+        t("adventure.views.trade.emptyHint", { level: ADVENTURE_TRADE_MIN_LEVEL }),
       ]),
     );
-    return navigationRow(empty, userId, ["profil", "sac", "boutique"]);
+    return navigationRow(empty, t, userId, ["profile", "bag", "shop"]);
   }
 
   const rows = trades.map((trade) => {
@@ -120,58 +153,87 @@ export function tradeListView(
     const theirs = received ? offered : requested;
 
     return [
-      `**#${trade.id}** ${received ? "reçue de" : "envoyée à"} **${other.username ?? "Aventurier"}** · expire dans ${formatDuration(trade.expiresAt.getTime() - Date.now())}`,
-      `Tu donnes : ${sideLines(mine).replace(/\n/g, " · ")}`,
-      `Tu reçois : ${sideLines(theirs).replace(/\n/g, " · ")}`,
+      t("adventure.views.trade.row", {
+        id: trade.id,
+        direction: received ? t("adventure.views.trade.received") : t("adventure.views.trade.sent"),
+        name: other.username ?? t("adventure.views.unnamed"),
+        duration: formatDurationMs(trade.expiresAt.getTime() - Date.now(), t),
+      }),
+      t("adventure.views.trade.youGive", { items: sideLines(mine, t).replace(/\n/g, " · ") }),
+      t("adventure.views.trade.youGet", { items: sideLines(theirs, t).replace(/\n/g, " · ") }),
     ].join("\n");
   });
 
   const payload = toV2Payload(
     false,
     buildContainer(Colors.Premium, [
-      "## 🤝 Échanges en cours",
+      t("adventure.views.trade.listTitle"),
       rows.join("\n\n"),
-      "Réponds depuis le message de la proposition, ou avec `/aventure echange repondre`.",
+      t("adventure.views.trade.hint"),
     ]),
   );
-  return navigationRow(payload, userId, ["profil", "sac", "boutique"]);
+  return navigationRow(payload, t, userId, ["profile", "bag", "shop"]);
 }
 
-/** Détail d'un renforcement : coût, effet et ce qui manque éventuellement. */
+/** Detail of an upgrade: cost, effect and what is possibly missing. */
 export function upgradeView(
   character: AdventureCharacter,
   plan: {
-    item: { name: string; emoji: string };
+    item: { id: string; emoji: string };
     row: { upgradeLevel: number };
     nextLevel: number;
     cost: { gold: number; materials: { itemId: string; quantity: number }[] };
     missing: string[];
   },
   applied: boolean,
+  t: Translator,
 ): V2MessagePayload {
   const materials = plan.cost.materials
-    .map((material) => `${material.quantity} × ${itemLabel(material.itemId)}`)
+    .map((material) =>
+      t("adventure.views.upgrade.material", {
+        quantity: material.quantity,
+        item: itemLabel(t, material.itemId),
+      }),
+    )
     .join(" · ");
+  const percent = Math.round(plan.nextLevel * 12);
 
   const lines = applied
     ? [
-        `## ⚒️ ${plan.item.emoji} ${plan.item.name} +${plan.nextLevel}`,
-        `Renforcement réussi : les bonus de la pièce passent à **+${Math.round(plan.nextLevel * 12)} %**.`,
-        `Coût payé : ${formatNumber(plan.cost.gold)} 🪙 · ${materials}`,
-        `Ta bourse : ${formatNumber(character.gold)} 🪙`,
+        t("adventure.views.upgrade.appliedTitle", {
+          emoji: plan.item.emoji,
+          item: itemName(t, plan.item.id),
+          level: plan.nextLevel,
+        }),
+        t("adventure.views.upgrade.applied", { percent }),
+        t("adventure.views.upgrade.paid", {
+          gold: formatNumber(t, plan.cost.gold),
+          materials,
+        }),
+        t("adventure.views.upgrade.purse", { gold: formatNumber(t, character.gold) }),
       ]
     : [
-        `## ⚒️ Renforcer ${plan.item.emoji} ${plan.item.name}`,
-        `Palier actuel : **+${plan.row.upgradeLevel}** → **+${plan.nextLevel}** (bonus de la pièce +${Math.round(plan.nextLevel * 12)} %)`,
-        `Coût : ${formatNumber(plan.cost.gold)} 🪙 · ${materials}`,
+        t("adventure.views.upgrade.planTitle", {
+          emoji: plan.item.emoji,
+          item: itemName(t, plan.item.id),
+        }),
+        t("adventure.views.upgrade.plan", {
+          current: plan.row.upgradeLevel,
+          next: plan.nextLevel,
+          percent,
+        }),
+        t("adventure.views.upgrade.cost", {
+          gold: formatNumber(t, plan.cost.gold),
+          materials,
+        }),
         plan.missing.length > 0
-          ? `❌ Il te manque ${plan.missing.join(", ")}.`
-          : "✅ Tu as tout ce qu'il faut : `/aventure renforcer objet:<pièce>` pour lancer la forge.",
+          ? t("adventure.views.upgrade.missing", { missing: plan.missing.join(", ") })
+          : t("adventure.views.upgrade.ready"),
       ];
 
   const payload = toV2Payload(
     false,
     buildContainer(applied ? Colors.Success : Colors.Primary, lines),
   );
-  return navigationRow(payload, character.userId, ["forge", "sac", "profil"]);
+  return navigationRow(payload, t, character.userId, ["forge", "bag", "profile"]);
 }

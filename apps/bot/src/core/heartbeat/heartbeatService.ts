@@ -14,7 +14,7 @@ async function sendHeartbeat(client: GauliaClient, startedAt: Date): Promise<voi
   const shardId = currentShardId(client);
   const guildCount = client.guilds.cache.size;
   const memberCount = client.guilds.cache.reduce((sum, guild) => sum + guild.memberCount, 0);
-  // -1 tant que la gateway n'a pas encore mesuré de latence.
+  // -1 until the gateway has measured a latency.
   const rawPing = client.ws.ping;
 
   try {
@@ -36,13 +36,13 @@ async function sendHeartbeat(client: GauliaClient, startedAt: Date): Promise<voi
       }),
     ]);
   } catch (error) {
-    client.logger.error({ err: error }, "Échec de l'écriture du heartbeat de shard");
+    client.logger.error({ err: error }, "Could not write the shard heartbeat");
   }
 }
 
 /**
- * Démarre le heartbeat périodique de ce process de shard, lu par l'API pour les stats du
- * dashboard (état actuel des shards et historique). Appelé une fois depuis events/ready.ts.
+ * Starts this shard process's periodic heartbeat, read by the API for the dashboard statistics
+ * (current shard state and history). Called once from events/ready.ts.
  */
 export function startHeartbeat(client: GauliaClient): void {
   const startedAt = new Date();

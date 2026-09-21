@@ -1,24 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 
+import { useLocale, useTranslation, type Translator } from "@/i18n";
 import { api, ApiError } from "@/lib/api";
 import { API_URL, SUPPORT_INVITE } from "@/lib/config";
 import { userAvatarUrl } from "@/lib/discordCdn";
+import { formatNumber } from "@/lib/format";
 import type { ManageableGuild, Session } from "@/lib/types";
 
-const SUBJECTS = [
-  { value: "question", label: "Question générale" },
-  { value: "bug", label: "Signaler un bug" },
-  { value: "premium", label: "Premium et crédits" },
-  { value: "data", label: "Données personnelles (RGPD)" },
-  { value: "other", label: "Autre" },
-];
+const SUBJECTS = ["question", "bug", "premium", "data", "other"];
 
 const MESSAGE_MIN = 20;
 const MESSAGE_MAX = 4000;
-/** La connexion repasse par l'API, qui ramène ici plutôt que sur le tableau de bord. */
+/** Signing in goes through the API, which brings the visitor back here rather than to the dashboard. */
 const LOGIN_URL = `${API_URL}/auth/login?redirect=/contact`;
 
 interface ContactForm {
@@ -29,30 +25,28 @@ interface ContactForm {
 
 const EMPTY_FORM: ContactForm = { subject: "question", guildId: "", message: "" };
 
-/** Invitation à se connecter, affichée tant que l'identité Discord n'est pas disponible. */
-function LoginPrompt({ reason }: { reason: "anonymous" | "no-email" }) {
+/** Fills the {placeholders} of a translated sentence with nodes, so a link can sit inside it. */
+function rich(text: string, nodes: Record<string, ReactNode>): ReactNode[] {
+  return text.split(/(\{\w+\})/).map((part, index) => {
+    const name = /^\{(\w+)\}$/.exec(part)?.[1];
+    return <Fragment key={index}>{name ? (nodes[name] ?? part) : part}</Fragment>;
+  });
+}
+
+function errorMessage(error: unknown, t: Translator): string {
+  return error instanceof ApiError && error.status < 500 && !error.generic
+    ? error.message
+    : t("common.state.error");
+}
+
+/** Sign-in invitation, shown until the Discord identity is available. */
+function LoginPrompt({ reason, t }: { reason: "anonymous" | "noEmail"; t: Translator }) {
   return (
     <div className="card contact-form">
-      <h2 style={{ marginTop: 0 }}>
-        {reason === "anonymous" ? "Connecte-toi pour nous écrire" : "Une autorisation en plus"}
-      </h2>
-      <p className="text-muted">
-        {reason === "anonymous" ? (
-          <>
-            Le formulaire passe par ton compte Discord : ton pseudo, ton identifiant et
-            l&apos;adresse de ton compte accompagnent le message. Tu n&apos;as donc rien à saisir,
-            et la réponse part à la bonne personne.
-          </>
-        ) : (
-          <>
-            Ta session date d&apos;avant que nous demandions l&apos;accès à ton adresse Discord, ou
-            ton compte n&apos;a pas d&apos;adresse vérifiée. Reconnecte-toi pour autoriser son
-            partage : c&apos;est elle qui nous permet de te répondre.
-          </>
-        )}
-      </p>
+      <h2 style={{ marginTop: 0 }}>{t(`account.contact.signIn.${reason}.title`)}</h2>
+      <p className="text-muted">{t(`account.contact.signIn.${reason}.body`)}</p>
       <a className="button-primary" href={LOGIN_URL}>
-        {reason === "anonymous" ? "Se connecter avec Discord" : "Se reconnecter"}
+        {t(`account.contact.signIn.${reason}.action`)}
       </a>
     </div>
   );
@@ -66,12 +60,14 @@ export default function ContactPage() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const t = useTranslation();
+  const locale = useLocale();
 
   useEffect(() => {
     let cancelled = false;
 
-    // Une session absente n'est pas une erreur ici : la page propose simplement de se connecter.
-    // La liste des serveurs suit la session, donc elle échoue aussi sans elle - sans conséquence.
+    // A missing session is not an error here: the page simply offers to sign in. The server list
+    // follows the session, so it fails along with it, without consequence.
     void Promise.allSettled([api.get<Session>("/auth/me"), api.get<ManageableGuild[]>("/guilds")])
       .then(([me, guildList]) => {
         if (cancelled) return;
@@ -96,7 +92,7 @@ export default function ContactPage() {
     event.preventDefault();
 
     if (form.message.trim().length < MESSAGE_MIN) {
-      setError(`Le message doit faire au moins ${MESSAGE_MIN} caractères.`);
+      setError(t("account.contact.message.tooShort", { min: MESSAGE_MIN }));
       return;
     }
 
@@ -111,17 +107,13 @@ export default function ContactPage() {
       setSent(true);
       setForm(EMPTY_FORM);
     } catch (submitError) {
-      setError(
-        submitError instanceof ApiError && submitError.status < 500
-          ? submitError.message
-          : "L'envoi a échoué. Réessaie dans quelques instants.",
-      );
+      setError(errorMessage(submitError, t));
     } finally {
       setPending(false);
     }
   }
 
-  // Les serveurs où Gaulia tourne d'abord : ce sont ceux dont on peut réellement parler.
+  // Servers where Gaulia runs come first: those are the ones we can actually talk about.
   const withBot = guilds.filter((guild) => guild.botPresent);
   const withoutBot = guilds.filter((guild) => !guild.botPresent);
 
@@ -129,30 +121,32 @@ export default function ContactPage() {
     <div className="container">
       <p>
         <Link href="/" className="text-muted">
-          ← Retour à l&apos;accueil
+          ← {t("account.contact.back")}
         </Link>
       </p>
 
-      <h1>Nous contacter</h1>
+      <h1>{t("account.contact.title")}</h1>
       <p className="text-muted contact-intro">
-        Une question, un bug, une demande sur tes données ? Écris ici, la réponse arrivera à
-        l&apos;adresse de ton compte Discord. Pour voir, télécharger ou supprimer tes données
-        toi-même, la page <Link href="/my-data">Mes données</Link> le fait sans attendre de réponse.
+        {rich(t("account.contact.intro"), {
+          myData: <Link href="/my-data">{t("account.contact.myDataLink")}</Link>,
+        })}
         {SUPPORT_INVITE && (
           <>
             {" "}
-            Pour une aide rapide, le{" "}
-            <a href="/support" target="_blank" rel="noopener noreferrer">
-              serveur de support
-            </a>{" "}
-            est souvent plus direct.
+            {rich(t("account.contact.support"), {
+              support: (
+                <a href="/support" target="_blank" rel="noopener noreferrer">
+                  {t("account.contact.supportLink")}
+                </a>
+              ),
+            })}
           </>
         )}
       </p>
 
-      {loading && <p className="text-muted">Chargement…</p>}
-      {!loading && !session && <LoginPrompt reason="anonymous" />}
-      {!loading && session && !session.email && <LoginPrompt reason="no-email" />}
+      {loading && <p className="text-muted">{t("common.state.loading")}</p>}
+      {!loading && !session && <LoginPrompt reason="anonymous" t={t} />}
+      {!loading && session && !session.email && <LoginPrompt reason="noEmail" t={t} />}
 
       {!loading && session?.email && (
         <form className="card contact-form" onSubmit={(event) => void submit(event)} noValidate>
@@ -169,14 +163,11 @@ export default function ContactPage() {
               <p className="text-muted">{session.email}</p>
             </div>
           </div>
-          <p className="field-hint contact-identity-hint">
-            Ton pseudo, ton identifiant Discord et cette adresse accompagnent le message. Ce
-            n&apos;est pas modifiable ici : tout vient de ta session.
-          </p>
+          <p className="field-hint contact-identity-hint">{t("account.contact.identityHint")}</p>
 
           <div className="contact-row">
             <div className="field">
-              <label htmlFor="contact-subject">Sujet</label>
+              <label htmlFor="contact-subject">{t("account.contact.subject.label")}</label>
               <select
                 id="contact-subject"
                 className="select"
@@ -184,24 +175,24 @@ export default function ContactPage() {
                 onChange={(event) => update({ subject: event.target.value })}
               >
                 {SUBJECTS.map((subject) => (
-                  <option key={subject.value} value={subject.value}>
-                    {subject.label}
+                  <option key={subject} value={subject}>
+                    {t(`account.contact.subject.${subject}`)}
                   </option>
                 ))}
               </select>
             </div>
 
             <div className="field">
-              <label htmlFor="contact-guild">Serveur concerné (facultatif)</label>
+              <label htmlFor="contact-guild">{t("account.contact.guild.label")}</label>
               <select
                 id="contact-guild"
                 className="select"
                 value={form.guildId}
                 onChange={(event) => update({ guildId: event.target.value })}
               >
-                <option value="">Aucun en particulier</option>
+                <option value="">{t("account.contact.guild.none")}</option>
                 {withBot.length > 0 && (
-                  <optgroup label="Avec Gaulia">
+                  <optgroup label={t("account.contact.guild.withBot")}>
                     {withBot.map((guild) => (
                       <option key={guild.id} value={guild.id}>
                         {guild.name}
@@ -210,7 +201,7 @@ export default function ContactPage() {
                   </optgroup>
                 )}
                 {withoutBot.length > 0 && (
-                  <optgroup label="Sans Gaulia">
+                  <optgroup label={t("account.contact.guild.withoutBot")}>
                     {withoutBot.map((guild) => (
                       <option key={guild.id} value={guild.id} className="option-muted">
                         {guild.name}
@@ -223,7 +214,7 @@ export default function ContactPage() {
           </div>
 
           <div className="field">
-            <label htmlFor="contact-message">Message</label>
+            <label htmlFor="contact-message">{t("account.contact.message.label")}</label>
             <textarea
               id="contact-message"
               className="input contact-textarea"
@@ -234,17 +225,21 @@ export default function ContactPage() {
               onChange={(event) => update({ message: event.target.value })}
             />
             <p className="field-hint">
-              {form.message.trim().length} / {MESSAGE_MAX} caractères
+              {t("account.contact.message.counter", {
+                length: formatNumber(form.message.trim().length, locale),
+                max: formatNumber(MESSAGE_MAX, locale),
+              })}
             </p>
           </div>
 
           <div className="toolbar" style={{ margin: 0 }}>
             <button type="submit" className="button-primary" disabled={pending}>
-              {pending ? "Envoi…" : "Envoyer le message"}
+              {pending ? t("account.contact.sending") : t("account.contact.submit")}
             </button>
             <span className="text-muted contact-note">
-              Ton adresse ne sert qu&apos;à te répondre.{" "}
-              <Link href="/privacy">Politique de confidentialité</Link>
+              {rich(t("account.contact.note"), {
+                privacy: <Link href="/privacy">{t("account.contact.privacyLink")}</Link>,
+              })}
             </span>
           </div>
 
@@ -255,7 +250,7 @@ export default function ContactPage() {
           )}
           {sent && (
             <p className="notice notice-success" role="status">
-              Message envoyé. Une réponse arrivera à {session.email}.
+              {t("account.contact.sent", { email: session.email })}
             </p>
           )}
         </form>

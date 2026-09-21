@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { useTranslation } from "@/i18n";
+
 import { api, ApiError } from "./api";
 
 const SAVED_NOTICE_MS = 3000;
@@ -18,7 +20,7 @@ export interface EditableResource<T> {
   save: () => Promise<void>;
 }
 
-/** Charge une ressource de l'API, garde un brouillon local modifiable et l'enregistre en PATCH. */
+/** Loads an API resource, keeps an editable local draft and saves it back with PATCH. */
 export function useEditableResource<T extends object>(path: string): EditableResource<T> {
   const [saved, setSaved] = useState<T | null>(null);
   const [draft, setDraft] = useState<T | null>(null);
@@ -26,6 +28,7 @@ export function useEditableResource<T extends object>(path: string): EditableRes
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const t = useTranslation();
 
   useEffect(() => {
     let cancelled = false;
@@ -69,14 +72,14 @@ export function useEditableResource<T extends object>(path: string): EditableRes
       setTimeout(() => setJustSaved(false), SAVED_NOTICE_MS);
     } catch (saveError) {
       setError(
-        saveError instanceof ApiError && saveError.status < 500
+        saveError instanceof ApiError && !saveError.generic && saveError.status < 500
           ? saveError.message
-          : "Une erreur interne est survenue.",
+          : t("common.state.error"),
       );
     } finally {
       setSaving(false);
     }
-  }, [draft, path]);
+  }, [draft, path, t]);
 
   return { draft, loadFailed, dirty, saving, justSaved, error, update, reset, save };
 }

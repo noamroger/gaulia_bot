@@ -1,9 +1,9 @@
 import type { MonsterFamily } from "../../data/monsters";
 
 /**
- * Évènements de jeu produits par les actions du joueur. Ils sont le seul point de contact entre
- * « ce que fait le joueur » et « ce qui progresse » (quêtes, chapitre, hauts faits) : une nouvelle
- * action n'a qu'à émettre les bons évènements, sans rien savoir des quêtes ni du scénario.
+ * Game events produced by the player's actions. They are the only contact point between what the
+ * player does and what progresses (quests, chapter, achievements): a new action only has to emit
+ * the right events, knowing nothing about the quests or the story.
  */
 export type GameEvent =
   | { type: "EXPLORE"; zoneId: string; amount: number }

@@ -9,23 +9,26 @@ import {
 
 import { Colors } from "../../../client/Constants";
 import { buildContainer, toV2Payload, type V2MessagePayload } from "../../../core/ui/containers";
+import type { Translator } from "../../../i18n";
 import {
   findItem,
+  itemDescription,
   itemLabel,
+  itemName,
   RARITY_EMOJIS,
-  SLOT_LABELS,
   shopItems,
+  slotLabel,
   type ItemDefinition,
 } from "../data/items";
 import { recipesForLevel } from "../data/recipes";
 import type { InventoryEntry } from "../services/inventory/inventoryService";
-import { formatNumber, gold } from "./format";
+import { checkbox, formatNumber, gold } from "./format";
 import { appendRow, exploreButton, navigationRow, withSelect } from "./navigation";
 
 const MAX_SELECT_OPTIONS = 25;
 
-function describeBonus(item: ItemDefinition): string {
-  if (!item.bonus) return item.description;
+function describeBonus(item: ItemDefinition, t: Translator): string {
+  if (!item.bonus) return itemDescription(t, item.id);
   const parts = [
     item.bonus.attack ? `⚔️ +${item.bonus.attack}` : null,
     item.bonus.power ? `🔮 +${item.bonus.power}` : null,
@@ -37,16 +40,17 @@ function describeBonus(item: ItemDefinition): string {
   return parts.join(" · ");
 }
 
-/** Inventaire groupé par nature d'objet, avec un menu d'actions sur les objets utilisables. */
+/** Inventory grouped by item nature, with an action menu on the usable items. */
 export function inventoryView(
   character: AdventureCharacter,
   entries: InventoryEntry[],
+  t: Translator,
 ): V2MessagePayload {
   const groups: { title: string; kinds: InventoryEntry["item"]["kind"][] }[] = [
-    { title: "Équipement", kinds: ["EQUIPEMENT"] },
-    { title: "Consommables", kinds: ["CONSOMMABLE"] },
-    { title: "Matériaux", kinds: ["MATERIAU"] },
-    { title: "Trésors & reliques", kinds: ["TRESOR", "RELIQUE"] },
+    { title: t("adventure.views.bag.groups.gear"), kinds: ["EQUIPEMENT"] },
+    { title: t("adventure.views.bag.groups.consumables"), kinds: ["CONSOMMABLE"] },
+    { title: t("adventure.views.bag.groups.materials"), kinds: ["MATERIAU"] },
+    { title: t("adventure.views.bag.groups.treasures"), kinds: ["TRESOR", "RELIQUE"] },
   ];
 
   const sections = groups.flatMap(({ title, kinds }) => {
@@ -54,13 +58,18 @@ export function inventoryView(
     if (rows.length === 0) return [];
 
     const list = rows
-      .map((entry) => {
-        const equipped = entry.row.equipped ? " · **porté**" : "";
-        const slot = entry.item.slot ? ` (${SLOT_LABELS[entry.item.slot]})` : "";
-        const quantity = entry.row.quantity > 1 ? ` ×${entry.row.quantity}` : "";
-        const upgrade = adventureUpgradeSuffix(entry.row.upgradeLevel);
-        return `${RARITY_EMOJIS[entry.item.rarity]} ${itemLabel(entry.item.id)}${upgrade}${quantity}${slot}${equipped}`;
-      })
+      .map((entry) =>
+        t("adventure.views.bag.row", {
+          rarity: RARITY_EMOJIS[entry.item.rarity],
+          item: itemLabel(t, entry.item.id),
+          upgrade: adventureUpgradeSuffix(entry.row.upgradeLevel),
+          quantity: entry.row.quantity > 1 ? ` ×${entry.row.quantity}` : "",
+          slot: entry.item.slot
+            ? t("adventure.views.bag.slot", { slot: slotLabel(t, entry.item.slot) })
+            : "",
+          worn: entry.row.equipped ? t("adventure.views.bag.worn") : "",
+        }),
+      )
       .join("\n");
 
     return [`**${title}**\n${list}`];
@@ -69,15 +78,20 @@ export function inventoryView(
   const payload = toV2Payload(
     false,
     buildContainer(Colors.Primary, [
-      `## 🎒 Sac de ${character.username ?? "l'aventurier"}`,
-      `${gold(character.gold)} · 🔷 ${formatNumber(character.echoes)} fragments d'écho`,
-      ...(sections.length > 0 ? sections : ["Ton sac est vide. Pars explorer !"]),
-      "Équipe ou utilise un objet avec le menu ci-dessous, ou `/aventure equiper` et `/aventure utiliser`.",
+      t("adventure.views.bag.title", {
+        name: character.username ?? t("adventure.views.unnamed"),
+      }),
+      t("adventure.views.bag.purse", {
+        gold: gold(t, character.gold),
+        echoes: formatNumber(t, character.echoes),
+      }),
+      ...(sections.length > 0 ? sections : [t("adventure.views.bag.empty")]),
+      t("adventure.views.bag.hint"),
     ]),
   );
 
-  navigationRow(payload, character.userId, ["profil", "boutique", "forge", "echanges"]);
-  appendRow(payload, [exploreButton(character.userId)]);
+  navigationRow(payload, t, character.userId, ["profile", "shop", "forge", "trades"]);
+  appendRow(payload, [exploreButton(t, character.userId)]);
 
   const usable = entries.filter(
     (entry) => entry.item.slot !== undefined || entry.item.kind === "CONSOMMABLE",
@@ -86,16 +100,16 @@ export function inventoryView(
 
   const select = new StringSelectMenuBuilder()
     .setCustomId(`adventure:item:${character.userId}`)
-    .setPlaceholder("Équiper ou utiliser un objet…")
+    .setPlaceholder(t("adventure.views.bag.select"))
     .addOptions(
       usable.slice(0, MAX_SELECT_OPTIONS).map((entry) => ({
-        label: entry.item.name.slice(0, 100),
+        label: itemName(t, entry.item.id).slice(0, 100),
         value: entry.item.id,
         description: (entry.item.slot
           ? entry.row.equipped
-            ? "Déjà porté - retirer"
-            : `Équiper - ${describeBonus(entry.item)}`
-          : entry.item.description
+            ? t("adventure.views.bag.takeOff")
+            : t("adventure.views.bag.equipOption", { bonus: describeBonus(entry.item, t) })
+          : itemDescription(t, entry.item.id)
         ).slice(0, 100),
         emoji: entry.item.emoji,
       })),
@@ -104,39 +118,50 @@ export function inventoryView(
   return withSelect(payload, select);
 }
 
-export function shopView(character: AdventureCharacter): V2MessagePayload {
+export function shopView(character: AdventureCharacter, t: Translator): V2MessagePayload {
   const available = shopItems().filter((item) => (item.level ?? 1) <= character.level + 5);
 
   const lines = available
     .map((item) => {
-      const locked = (item.level ?? 1) > character.level ? ` · 🔒 niveau ${item.level}` : "";
-      return `${RARITY_EMOJIS[item.rarity]} ${itemLabel(item.id)} - ${gold(item.price ?? 0)}${locked}\n*${describeBonus(item)}*`;
+      const row = t("adventure.views.shop.row", {
+        rarity: RARITY_EMOJIS[item.rarity],
+        item: itemLabel(t, item.id),
+        price: gold(t, item.price ?? 0),
+        locked:
+          (item.level ?? 1) > character.level
+            ? t("adventure.views.shop.locked", { level: item.level ?? 1 })
+            : "",
+      });
+      return `${row}\n*${describeBonus(item, t)}*`;
     })
     .join("\n");
 
   const payload = toV2Payload(
     false,
     buildContainer(Colors.Primary, [
-      "## 🏪 Comptoir des Semailles",
-      `Ta bourse : ${gold(character.gold)}`,
-      lines || "Le marchand n'a rien pour toi aujourd'hui.",
-      "Achète avec le menu, ou `/aventure acheter objet:<nom> quantite:<n>`. Revends avec `/aventure vendre`.",
+      t("adventure.views.shop.title"),
+      t("adventure.views.shop.purse", { gold: gold(t, character.gold) }),
+      lines || t("adventure.views.shop.empty"),
+      t("adventure.views.shop.hint"),
     ]),
   );
 
-  navigationRow(payload, character.userId, ["profil", "sac", "forge"]);
+  navigationRow(payload, t, character.userId, ["profile", "bag", "forge"]);
 
   const buyable = available.filter((item) => (item.level ?? 1) <= character.level);
   if (buyable.length === 0) return payload;
 
   const select = new StringSelectMenuBuilder()
     .setCustomId(`adventure:buy:${character.userId}`)
-    .setPlaceholder("Acheter un objet…")
+    .setPlaceholder(t("adventure.views.shop.select"))
     .addOptions(
       buyable.slice(0, MAX_SELECT_OPTIONS).map((item) => ({
-        label: `${item.name} - ${formatNumber(item.price ?? 0)} pièces`.slice(0, 100),
+        label: t("adventure.views.shop.option", {
+          name: itemName(t, item.id),
+          price: formatNumber(t, item.price ?? 0),
+        }).slice(0, 100),
         value: item.id,
-        description: describeBonus(item).slice(0, 100),
+        description: describeBonus(item, t).slice(0, 100),
         emoji: item.emoji,
       })),
     );
@@ -144,11 +169,12 @@ export function shopView(character: AdventureCharacter): V2MessagePayload {
   return withSelect(payload, select);
 }
 
-/** Menu de renforcement : une ligne par pièce améliorable, avec le coût du prochain palier. */
+/** Upgrade menu: one row per upgradable piece, with the cost of the next tier. */
 function withUpgradeSelect(
   payload: V2MessagePayload,
   character: AdventureCharacter,
   items: AdventureItem[],
+  t: Translator,
 ): V2MessagePayload {
   const options = items.flatMap((row) => {
     const item = findItem(row.itemId);
@@ -159,14 +185,23 @@ function withUpgradeSelect(
 
     return [
       {
-        label: `${item.name} +${row.upgradeLevel} → +${row.upgradeLevel + 1}`.slice(0, 100),
+        label: t("adventure.views.forge.upgradeLabel", {
+          item: itemName(t, item.id),
+          current: row.upgradeLevel,
+          next: row.upgradeLevel + 1,
+        }).slice(0, 100),
         value: item.id,
-        description: `${formatNumber(cost.gold)} pièces · ${cost.materials
-          .map(
-            (material) =>
-              `${material.quantity} × ${findItem(material.itemId)?.name ?? material.itemId}`,
-          )
-          .join(" · ")}`.slice(0, 100),
+        description: t("adventure.views.forge.upgradeOption", {
+          gold: formatNumber(t, cost.gold),
+          materials: cost.materials
+            .map((material) =>
+              t("adventure.views.forge.material", {
+                quantity: material.quantity,
+                item: itemName(t, material.itemId),
+              }),
+            )
+            .join(" · "),
+        }).slice(0, 100),
         emoji: item.emoji,
       },
     ];
@@ -178,13 +213,13 @@ function withUpgradeSelect(
     payload,
     new StringSelectMenuBuilder()
       .setCustomId(`adventure:upgrade:${character.userId}`)
-      .setPlaceholder("Renforcer une pièce d'équipement…")
+      .setPlaceholder(t("adventure.views.forge.upgradeSelect"))
       .addOptions(options.slice(0, MAX_SELECT_OPTIONS)),
   );
 }
 
-/** Rappel des pièces renforçables et du coût du prochain palier, sous les recettes. */
-function upgradeSection(items: AdventureItem[]): string {
+/** Reminder of the upgradable pieces and the cost of the next tier, under the recipes. */
+function upgradeSection(items: AdventureItem[], t: Translator): string {
   const rows = items.flatMap((row) => {
     const item = findItem(row.itemId);
     if (!item?.slot || row.upgradeLevel >= ADVENTURE_MAX_UPGRADE) return [];
@@ -192,24 +227,35 @@ function upgradeSection(items: AdventureItem[]): string {
     const cost = adventureUpgradeCost(item, row.upgradeLevel + 1);
     if (!cost) return [];
 
-    const materials = cost.materials
-      .map((material) => `${material.quantity} × ${itemLabel(material.itemId)}`)
-      .join(" · ");
     return [
-      `${itemLabel(item.id)}${adventureUpgradeSuffix(row.upgradeLevel)} → +${row.upgradeLevel + 1} : ${gold(cost.gold)} · ${materials}`,
+      t("adventure.views.forge.upgradeRow", {
+        item: `${itemLabel(t, item.id)}${adventureUpgradeSuffix(row.upgradeLevel)}`,
+        next: row.upgradeLevel + 1,
+        gold: gold(t, cost.gold),
+        materials: cost.materials
+          .map((material) =>
+            t("adventure.views.forge.material", {
+              quantity: material.quantity,
+              item: itemLabel(t, material.itemId),
+            }),
+          )
+          .join(" · "),
+      }),
     ];
   });
 
   return [
-    "**Renforcement**",
-    rows.length > 0
-      ? rows.slice(0, 5).join("\n")
-      : "Aucune pièce d'équipement à renforcer dans ton sac.",
-    "`/aventure renforcer objet:<pièce>` - le renforcement reste attaché à ton exemplaire et ne suit pas un échange.",
+    t("adventure.views.forge.upgradeTitle"),
+    rows.length > 0 ? rows.slice(0, 5).join("\n") : t("adventure.views.forge.upgradeEmpty"),
+    t("adventure.views.forge.upgradeHint"),
   ].join("\n");
 }
 
-export function forgeView(character: AdventureCharacter, items: AdventureItem[]): V2MessagePayload {
+export function forgeView(
+  character: AdventureCharacter,
+  items: AdventureItem[],
+  t: Translator,
+): V2MessagePayload {
   const recipes = recipesForLevel(character.level);
   const owned = new Map(items.map((row) => [row.itemId, row.quantity]));
 
@@ -218,41 +264,49 @@ export function forgeView(character: AdventureCharacter, items: AdventureItem[])
       const ingredients = recipe.ingredients
         .map((ingredient) => {
           const have = owned.get(ingredient.itemId) ?? 0;
-          const ok = have >= ingredient.quantity ? "✅" : "▫️";
-          return `${ok} ${ingredient.quantity} × ${itemLabel(ingredient.itemId)} (${have})`;
+          return t("adventure.views.forge.ingredient", {
+            check: checkbox(have >= ingredient.quantity),
+            quantity: ingredient.quantity,
+            item: itemLabel(t, ingredient.itemId),
+            owned: have,
+          });
         })
         .join(" · ");
-      return `**${itemLabel(recipe.itemId)}**${recipe.quantity > 1 ? ` ×${recipe.quantity}` : ""} - ${gold(recipe.goldCost)}\n${ingredients}`;
+      const head = t("adventure.views.forge.recipe", {
+        item: itemLabel(t, recipe.itemId),
+        quantity: recipe.quantity > 1 ? ` ×${recipe.quantity}` : "",
+        gold: gold(t, recipe.goldCost),
+      });
+      return `${head}\n${ingredients}`;
     })
     .join("\n");
 
   const payload = toV2Payload(
     false,
     buildContainer(Colors.Primary, [
-      "## ⚒️ Forge",
-      `Ta bourse : ${gold(character.gold)}`,
-      lines || "Aucune recette accessible à ton niveau pour l'instant.",
-      upgradeSection(items),
+      t("adventure.views.forge.title"),
+      t("adventure.views.forge.purse", { gold: gold(t, character.gold) }),
+      lines || t("adventure.views.forge.empty"),
+      upgradeSection(items, t),
     ]),
   );
 
-  navigationRow(payload, character.userId, ["profil", "sac", "boutique"]);
-  withUpgradeSelect(payload, character, items);
+  navigationRow(payload, t, character.userId, ["profile", "bag", "shop"]);
+  withUpgradeSelect(payload, character, items, t);
 
   if (recipes.length === 0) return payload;
 
   const select = new StringSelectMenuBuilder()
     .setCustomId(`adventure:craft:${character.userId}`)
-    .setPlaceholder("Forger un objet…")
+    .setPlaceholder(t("adventure.views.forge.select"))
     .addOptions(
       recipes.slice(0, MAX_SELECT_OPTIONS).map((recipe) => ({
-        label: `${itemLabel(recipe.itemId).replace(/^\S+\s/, "")}`.slice(0, 100),
+        label: itemName(t, recipe.itemId).slice(0, 100),
         value: recipe.id,
-        description:
-          `${formatNumber(recipe.goldCost)} pièces · niveau ${recipe.levelRequirement}`.slice(
-            0,
-            100,
-          ),
+        description: t("adventure.views.forge.option", {
+          gold: formatNumber(t, recipe.goldCost),
+          level: recipe.levelRequirement,
+        }).slice(0, 100),
       })),
     );
 

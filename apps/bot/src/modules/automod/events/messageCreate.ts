@@ -10,7 +10,7 @@ const event: GauliaEvent<typeof Events.MessageCreate> = {
     try {
       await runCustomAutoMod(message);
     } catch (error) {
-      client.logger.error({ err: error }, "Erreur dans la couche automod custom");
+      client.logger.error({ err: error }, "Custom automod layer failed");
     }
   },
 };

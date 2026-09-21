@@ -6,9 +6,8 @@ import { api } from "./api";
 import type { CreditsOverview } from "./types";
 
 /**
- * Solde de crédits partagé entre les composants qui l'affichent (badge de la barre de navigation,
- * carte de la page « Mes serveurs »). Un seul appel réseau est fait pour tous : le résultat est
- * mis en cache au niveau du module et rediffusé aux abonnés.
+ * Credit balance shared by every component that displays it. One network call serves them all:
+ * the result is cached at module level and broadcast to the subscribers.
  */
 let cache: CreditsOverview | null = null;
 let inFlight: Promise<CreditsOverview> | null = null;
@@ -32,19 +31,19 @@ async function load(): Promise<CreditsOverview> {
   return inFlight;
 }
 
-/** Force un rechargement, par exemple après un échange de crédits contre du premium. */
+/** Forces a reload, for instance after credits have been redeemed for premium. */
 export function refreshCredits(): void {
   void load().catch(() => undefined);
 }
 
-/** Met à jour le solde connu sans appel réseau (réponse d'une route qui le renvoie déjà). */
+/** Updates the known balance without a network call, from a route that already returns it. */
 export function setCreditBalance(balance: number): void {
   if (cache) publish({ ...cache, balance });
 }
 
 export interface UseCreditsResult {
   credits: CreditsOverview | null;
-  /** Vrai tant que le premier chargement n'a pas abouti (ou a échoué). */
+  /** True until the first load has finished, successfully or not. */
   loading: boolean;
 }
 

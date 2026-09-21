@@ -2,31 +2,23 @@ import { SlashCommandBuilder } from "discord.js";
 
 import { Emojis } from "../../../client/Constants";
 import { GauliaError } from "../../../core/errors";
+import { localizeOption, localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
-import { interventionOf, musicActionPayload, trackLink } from "../services/musicUi";
+import { musicActionPayload, trackLink } from "../services/musicUi";
 import { getPlayerOrThrow, requireSameVoiceChannel, resolveMember } from "../services/playerUtils";
+
+const KEY = "music.commands.remove";
 
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   guildOnly: true,
-  data: new SlashCommandBuilder()
-    .setName("remove")
-    .setDescription("Retire un titre de la file d'attente")
-    .addIntegerOption((option) =>
-      option
-        .setName("position")
-        .setDescription("Position dans la file (voir /queue)")
-        .setRequired(true)
-        .setMinValue(1),
-    ),
 
-  help: {
-    details:
-      "Retire de la file le titre à la position indiquée par `/queue`. Tu dois être dans le même salon vocal que Gaulia.",
-    examples: ["remove position:3"],
-  },
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY).addIntegerOption((option) =>
+    localizeOption(option, `${KEY}.options.position`).setRequired(true).setMinValue(1),
+  ),
 
-  async execute(interaction, client) {
+  async execute(interaction, client, t) {
     const member = await resolveMember(interaction);
     const player = getPlayerOrThrow(client, interaction.guildId!);
     requireSameVoiceChannel(member, player);
@@ -36,7 +28,7 @@ const command: ChatInputCommand = {
     const track = player.queue.tracks[index];
 
     if (!track) {
-      throw new GauliaError("Aucun titre à cette position.");
+      throw new GauliaError("music.error.noTrackAtPosition");
     }
 
     await player.queue.remove(index);
@@ -44,8 +36,11 @@ const command: ChatInputCommand = {
       musicActionPayload(
         interaction.user,
         Emojis.Music,
-        "Musique retirée",
-        `${trackLink(track)} a été retirée de la file ${interventionOf(interaction.user)}.`,
+        t("music.actions.remove.title"),
+        t("music.actions.remove.removed", {
+          track: trackLink(track),
+          user: interaction.user.id,
+        }),
       ),
     );
   },

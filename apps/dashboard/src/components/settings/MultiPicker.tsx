@@ -1,3 +1,7 @@
+"use client";
+
+import { useTranslation } from "@/i18n";
+
 export interface PickerOption {
   id: string;
   label: string;
@@ -18,7 +22,9 @@ export function MultiPicker({
   ariaLabel: string;
   onChange: (values: string[]) => void;
 }) {
-  const labelFor = (id: string) => options.find((option) => option.id === id)?.label ?? "Introuvable";
+  const t = useTranslation();
+  const labelFor = (id: string) =>
+    options.find((option) => option.id === id)?.label ?? t("settings.picker.unknown");
   const available = options.filter((option) => !values.includes(option.id));
 
   return (
@@ -32,7 +38,7 @@ export function MultiPicker({
               {labelFor(id)}
               <button
                 type="button"
-                aria-label={`Retirer ${labelFor(id)}`}
+                aria-label={t("settings.picker.remove", { label: labelFor(id) })}
                 onClick={() => onChange(values.filter((value) => value !== id))}
               >
                 ×

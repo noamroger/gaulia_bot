@@ -25,11 +25,11 @@ gaulia_bot/
 │     └─ src/{client.ts, repositories/*.repo.ts}
 ├─ apps/
 │  ├─ bot/                   # @gaulia/bot - le bot Discord
-│  │  └─ src/{client,config,core,events,handlers,modules,structures,bot.ts,index.ts}
+│  │  └─ src/{client,config,core,events,handlers,i18n,locales,modules,structures,bot.ts,index.ts}
 │  ├─ api/                   # @gaulia/api - Fastify : OAuth2 Discord, config, stats, webhook top.gg
-│  │  └─ src/{auth,discord,plugins,premium,routes,topgg,index.ts}
+│  │  └─ src/{auth,discord,i18n,locales,plugins,premium,routes,topgg,index.ts}
 │  └─ dashboard/             # @gaulia/dashboard - Next.js, ne parle qu'à l'API (fetch + cookies)
-│     └─ src/{app,lib,components}
+│     └─ src/{app,components,i18n,lib,locales}
 ├─ docker/lavalink/
 ├─ Dockerfile.bot / Dockerfile.api / Dockerfile.dashboard
 └─ docker-compose.yml
@@ -58,6 +58,31 @@ d'où le dossier `handlers/` pour les sous-commandes.
   lu par l'API : totaux publics pour la page d'accueil (`GET /stats`, mis en cache 60 s) et détail
   par shard réservé au panel admin (`GET /admin/stats`). La configuration (logs, automod, warns, statut premium) est un
   CRUD classique sur Postgres, sans dépendre du process du bot.
+
+## Langues
+
+Le bot, le site et l'API sont bilingues anglais / français, l'anglais étant la langue servie quand
+celle du lecteur ne peut pas être déterminée. Les textes ne vivent jamais dans le code : chaque app
+a son arborescence `src/locales/[langue]/[module].ts`, le fichier anglais définit la structure et
+exporte son type, le français l'importe et s'y conforme - une clé manquante est une erreur de
+compilation.
+
+- **Bot** : `apps/bot/src/i18n` charge les catalogues tout seul. Un membre choisit sa langue avec
+  `/language me`, un serveur la sienne avec `/language server` (les deux acceptent `auto`). Ordre
+  de résolution pour une réponse personnelle : choix du membre, langue de son client Discord,
+  choix du serveur, langue du serveur sur Discord, anglais. Un message lu par tout un salon suit
+  la langue du serveur.
+- **Commandes Discord** : le nom canonique est anglais, le français part en `name_localizations`.
+  Un membre francophone voit donc toujours `/aventure`, `/pendu`, `/morpion`, et le code ne lit
+  jamais que le nom canonique.
+- **Site** : bouton de langue dans la barre de navigation et dans le pied de page, mémorisé dans le
+  cookie `gaulia-lang` ; sinon l'en-tête `Accept-Language` du navigateur, sinon l'anglais. La
+  langue est résolue côté serveur, la page arrive donc déjà traduite.
+- **API** : répond dans la langue de l'en-tête `Accept-Language`, que le dashboard renseigne.
+- **Contenu de jeu** (objets, quêtes, scénario, listes de blindtest) : bilingue dans
+  `packages/database/src/data`, puisque le bot, l'API et le panel admin le lisent tous les trois.
+
+Le détail des conventions est dans `CLAUDE.md` à la racine.
 
 ## Prérequis
 
@@ -126,6 +151,7 @@ entre les deux.
 | `npm run dev:bot` / `dev:api` / `dev:dashboard` | Lance une app en dev avec rechargement automatique                                     |
 | `npm run build`                                 | Build `packages/database` → `apps/bot` → `apps/api` → `apps/dashboard`, dans cet ordre |
 | `npm run typecheck` / `lint`                    | Sur tous les workspaces                                                                |
+| `npm run i18n:check`                            | Vérifie les clés de traduction utilisées dans le code                                  |
 | `npm run deploy` / `deploy:guild`               | Déploiement manuel des commandes (global / serveur de dev), inutile avec Docker        |
 | `npm run prisma:migrate`                        | Crée/applique une migration Prisma en dev                                              |
 | `npm run prisma:studio`                         | Ouvre Prisma Studio pour explorer la base                                              |
@@ -482,7 +508,7 @@ serveur particulier.
   l'édition directe de la cellule d'une ligne. Les deux passent par
   `PATCH /admin/credits/:userId` (`delta` ou `balance`), qui journalise systématiquement un
   mouvement `ADMIN_ADJUST` avec l'auteur, jamais une valeur absolue.
-- Onglet **Aventure** (`/admin/aventure`) : liste de tous les aventuriers (classe, niveau, acte et
+- Onglet **Aventure** (`/admin/adventure`) : liste de tous les aventuriers (classe, niveau, acte et
   chapitre atteints, bourse, fragments, dernière partie), fiche complète d'un joueur (progression,
   caractéristiques, inventaire avec le palier de renforcement de chaque pièce, quêtes en cours,
   échanges en attente, journal) et interventions dans sa partie -
@@ -521,6 +547,7 @@ côté ton reverse proxy.
 ```bash
 npm run typecheck
 npm run lint
+npm run i18n:check
 ```
 
 Puis en conditions réelles : `docker compose up -d --build`, et sur ton

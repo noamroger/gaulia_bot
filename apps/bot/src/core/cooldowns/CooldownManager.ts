@@ -1,7 +1,6 @@
 /**
- * Gestionnaire de cooldowns en mémoire, par commande et par utilisateur.
- * Suffisant pour un process shard unique : chaque process a ses propres cooldowns,
- * ce qui est acceptable pour une protection anti-spam (pas une donnée critique à synchroniser).
+ * In memory cooldowns, per command and per user. Each shard process keeps its own, which is
+ * enough for anti spam and not worth synchronising.
  */
 export class CooldownManager {
   private readonly expiryByKey = new Map<string, number>();
@@ -10,7 +9,7 @@ export class CooldownManager {
     return `${commandName}:${userId}`;
   }
 
-  /** Retourne le nombre de secondes restantes si en cooldown, sinon 0 et démarre le cooldown. */
+  /** Seconds left when still on cooldown, otherwise 0 and the cooldown starts. */
   public consume(commandName: string, userId: string, cooldownSeconds: number): number {
     if (cooldownSeconds <= 0) return 0;
 

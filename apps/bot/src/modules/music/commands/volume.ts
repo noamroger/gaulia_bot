@@ -1,47 +1,42 @@
 import { SlashCommandBuilder } from "discord.js";
 
 import { Emojis } from "../../../client/Constants";
+import { localizeOption, localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
-import { interventionOf, musicActionPayload } from "../services/musicUi";
-import { MAX_VOLUME, VOLUME_STEP, setClampedVolume } from "../services/playbackControls";
+import { musicActionPayload } from "../services/musicUi";
+import { MAX_VOLUME, setClampedVolume } from "../services/playbackControls";
 import { getPlayerOrThrow, requireSameVoiceChannel, resolveMember } from "../services/playerUtils";
+
+const KEY = "music.commands.volume";
 
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   guildOnly: true,
-  data: new SlashCommandBuilder()
-    .setName("volume")
-    .setDescription("Règle le volume de lecture")
-    .addIntegerOption((option) =>
-      option
-        .setName("niveau")
-        .setDescription(`Volume entre 0 et ${MAX_VOLUME}`)
-        .setRequired(true)
-        .setMinValue(0)
-        .setMaxValue(MAX_VOLUME),
-    ),
 
-  help: {
-    details: `Règle le volume de la lecture en cours, de 0 à ${MAX_VOLUME} %. Les boutons du lecteur l'ajustent aussi de ${VOLUME_STEP} % en ${VOLUME_STEP} %. Le volume par défaut du serveur se règle sur le dashboard. Tu dois être dans le même salon vocal que Gaulia.`,
-    examples: ["volume niveau:80"],
-  },
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY).addIntegerOption((option) =>
+    localizeOption(option, `${KEY}.options.level`)
+      .setRequired(true)
+      .setMinValue(0)
+      .setMaxValue(MAX_VOLUME),
+  ),
 
-  async execute(interaction, client) {
+  async execute(interaction, client, t) {
     const member = await resolveMember(interaction);
     const player = getPlayerOrThrow(client, interaction.guildId!);
     requireSameVoiceChannel(member, player);
 
     const { from, to } = await setClampedVolume(
       player,
-      interaction.options.getInteger("niveau", true),
+      interaction.options.getInteger("level", true),
     );
 
     await interaction.reply(
       musicActionPayload(
         interaction.user,
         Emojis.VolumeDown,
-        "Volume de la musique",
-        `Le volume est passé de \`${from}%\` à \`${to}%\` ${interventionOf(interaction.user)}.`,
+        t("music.actions.volume.title"),
+        t("music.actions.volume.changed", { from, to, user: interaction.user.id }),
       ),
     );
   },

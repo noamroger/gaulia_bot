@@ -10,14 +10,11 @@ import { computeStats } from "./statsService";
 export interface XpGain {
   character: AdventureCharacter;
   levelsGained: number;
-  /** Niveau atteint après l'application du gain. */
+  /** Level reached once the gain is applied. */
   level: number;
 }
 
-/**
- * Ajoute de l'expérience et enchaîne les passages de niveau. Chaque niveau rend toute la vie et
- * accorde des points de caractéristique à répartir : monter de niveau relance toujours le joueur.
- */
+/** Adds experience and chains level ups. Each level restores full health and grants stat points. */
 export async function grantXp(
   character: AdventureCharacter,
   items: AdventureItem[],
@@ -39,7 +36,7 @@ export async function grantXp(
   };
 }
 
-/** Part de la barre d'expérience du niveau courant, entre 0 et 1. */
+/** Share of the current level's experience bar, between 0 and 1. */
 export function xpRatio(character: AdventureCharacter): number {
   const needed = xpToNextLevel(character.level);
   if (needed === 0) return 1;

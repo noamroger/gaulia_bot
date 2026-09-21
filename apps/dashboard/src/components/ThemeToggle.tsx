@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslation } from "@/i18n";
 import { useTheme } from "@/lib/useTheme";
 
 function SunIcon() {
@@ -39,14 +40,15 @@ function MoonIcon() {
 }
 
 /**
- * Bascule clair / sombre.
- * - `icon` : bouton rond des barres de navigation ;
- * - `menu` : entrée du menu déroulant mobile, avec libellé.
+ * Light / dark switch.
+ * - `icon`: round button of the navigation bars;
+ * - `menu`: entry of the mobile dropdown, with a label.
  */
 export function ThemeToggle({ variant = "icon" }: { variant?: "icon" | "menu" }) {
   const { theme, setTheme } = useTheme();
+  const t = useTranslation();
   const isDark = theme === "dark";
-  const label = isDark ? "Passer en mode clair" : "Passer en mode sombre";
+  const label = isDark ? t("common.theme.switchToLight") : t("common.theme.switchToDark");
 
   return (
     <button
@@ -57,7 +59,9 @@ export function ThemeToggle({ variant = "icon" }: { variant?: "icon" | "menu" })
       title={variant === "menu" ? undefined : label}
     >
       {isDark ? <SunIcon /> : <MoonIcon />}
-      {variant === "menu" && <span>{isDark ? "Mode clair" : "Mode sombre"}</span>}
+      {variant === "menu" && (
+        <span>{isDark ? t("common.theme.light") : t("common.theme.dark")}</span>
+      )}
     </button>
   );
 }

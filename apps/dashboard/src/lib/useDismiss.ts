@@ -2,7 +2,7 @@
 
 import { useEffect, type RefObject } from "react";
 
-/** Ferme un menu ouvert au clic en dehors de `ref` ou à la touche Échap. */
+/** Closes an open menu on a click outside `ref` or on Escape. */
 export function useDismiss(
   open: boolean,
   ref: RefObject<HTMLElement | null>,

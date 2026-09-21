@@ -9,7 +9,7 @@ export function isShuffleEnabled(player: Player): boolean {
   return player.get<boolean | undefined>(SHUFFLE_KEY) === true;
 }
 
-/** La file est mélangée à l'activation, puis après chaque ajout tant que le mode reste actif. */
+/** The queue is shuffled when the mode goes on, then after every addition while it stays on. */
 export async function setShuffleEnabled(player: Player, enabled: boolean): Promise<void> {
   player.set(SHUFFLE_KEY, enabled);
   if (enabled) await player.queue.shuffle();
@@ -19,7 +19,7 @@ export function isLoopEnabled(player: Player): boolean {
   return player.repeatMode !== "off";
 }
 
-/** Le bouton de répétition alterne entre aucune répétition et la répétition de la file. */
+/** The repeat button switches between no repeat and repeating the whole queue. */
 export async function setLoopEnabled(player: Player, enabled: boolean): Promise<void> {
   await player.setRepeatMode(enabled ? "queue" : "off");
 }

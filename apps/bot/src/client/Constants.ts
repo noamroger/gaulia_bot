@@ -14,7 +14,7 @@ export const GAULIA_INTENTS = [
 
 export const GAULIA_PARTIALS = [Partials.Message, Partials.Channel, Partials.GuildMember];
 
-/** Permissions demandées par le lien d'invitation : le strict nécessaire de chaque module. */
+/** Permissions requested by the invite link: the strict minimum each module needs. */
 const INVITE_PERMISSIONS = new PermissionsBitField([
   PermissionFlagsBits.ViewChannel,
   PermissionFlagsBits.SendMessages,
@@ -24,20 +24,20 @@ const INVITE_PERMISSIONS = new PermissionsBitField([
   PermissionFlagsBits.ReadMessageHistory,
   PermissionFlagsBits.AddReactions,
   PermissionFlagsBits.UseExternalEmojis,
-  // Modération : purge, kick, ban, timeout, et automod natif (qui exige « Gérer le serveur »).
+  // Moderation: purge, kick, ban, timeout, and native automod, which requires Manage Server.
   PermissionFlagsBits.ManageMessages,
   PermissionFlagsBits.KickMembers,
   PermissionFlagsBits.BanMembers,
   PermissionFlagsBits.ModerateMembers,
   PermissionFlagsBits.ManageGuild,
-  // Musique.
+  // Music.
   PermissionFlagsBits.Connect,
   PermissionFlagsBits.Speak,
 ]);
 
 /**
- * Lien d'ajout du bot. Les deux scopes sont obligatoires : sans `applications.commands` Discord
- * refuse l'autorisation (« no scope were provided ») et les commandes slash ne sont pas installées.
+ * Bot install link. Both scopes are required: without `applications.commands` Discord refuses the
+ * authorization ("no scope were provided") and the slash commands are never installed.
  */
 export function botInviteUrl(clientId: string): string {
   const params = new URLSearchParams({
@@ -48,10 +48,10 @@ export function botInviteUrl(clientId: string): string {
   return `https://discord.com/oauth2/authorize?${params.toString()}`;
 }
 
-/** Site de l'auteur du bot, affiché dans `/botinfo`. */
+/** Website of the bot's author, shown in `/botinfo`. */
 export const OWNER_WEBSITE_URL = "https://noamroger.fr";
 
-/** Couleurs d'accent utilisées par les containers Components V2. */
+/** Accent colours used by the Components V2 containers. */
 export const Colors = {
   Primary: 0x5865f2,
   Success: 0x57f287,

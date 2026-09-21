@@ -2,41 +2,37 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
 import { hasGuildAccess } from "../auth/session";
+import { translatorFor } from "../i18n";
 import { contactHtml, contactSubject, contactText } from "../mail/contactEmail";
 import { isMailConfigured, sendContactMail } from "../mail/mailer";
 import { authenticate } from "../plugins/authenticate";
 
-/** Sujets proposés par le formulaire ; le libellé part tel quel dans l'objet du mail. */
-const SUBJECTS = {
-  question: "Question générale",
-  bug: "Signalement de bug",
-  premium: "Premium et crédits",
-  data: "Données personnelles (RGPD)",
-  other: "Autre",
-} as const;
-
 const MINUTE_MS = 60_000;
-/** Fenêtre et quota par compte : de quoi écrire plusieurs fois sans ouvrir un robinet à spam. */
+/** Window and quota per account: room to write several times without opening a spam tap. */
 const USER_WINDOW_MS = 15 * MINUTE_MS;
 const USER_LIMIT = 3;
-/** Garde-fou global, tous comptes confondus, sur une heure glissante. */
+/** Global guard rail, all accounts together, over a sliding hour. */
 const GLOBAL_WINDOW_MS = 60 * MINUTE_MS;
 const GLOBAL_LIMIT = 40;
 
+/** Schema messages are translation keys, so a rejected form reads in the caller's language. */
 const contactSchema = z.object({
-  subject: z.enum(["question", "bug", "premium", "data", "other"]),
+  subject: z.enum(["question", "bug", "premium", "data", "other"], {
+    message: "errors.contact.invalidSubject",
+  }),
   guildId: z
     .string()
     .trim()
     .default("")
-    .refine(
-      (value) => value === "" || /^\d{17,20}$/.test(value),
-      "Identifiant de serveur invalide",
-    ),
-  message: z.string().trim().min(20, "Message trop court").max(4000),
+    .refine((value) => value === "" || /^\d{17,20}$/.test(value), "errors.contact.invalidGuildId"),
+  message: z
+    .string()
+    .trim()
+    .min(20, "errors.contact.messageTooShort")
+    .max(4000, "errors.contact.messageTooLong"),
 });
 
-/** Horodatages des envois récents, en mémoire : l'API tourne dans un seul process. */
+/** Timestamps of the recent sends, in memory: the API runs in a single process. */
 const recentByUser = new Map<string, number[]>();
 let recentGlobal: number[] = [];
 
@@ -60,7 +56,7 @@ function isRateLimited(userId: string): boolean {
   recentByUser.set(userId, forUser);
   recentGlobal.push(now);
 
-  // Les comptes inactifs ne restent pas en mémoire indéfiniment.
+  // Idle accounts do not stay in memory forever.
   for (const [key, values] of recentByUser) {
     if (keep(values, USER_WINDOW_MS, now).length === 0) recentByUser.delete(key);
   }
@@ -68,74 +64,74 @@ function isRateLimited(userId: string): boolean {
   return false;
 }
 
+/** A schema message that is not one of our keys (a type error) falls back to the generic one. */
+function issueKey(message: string | undefined): string {
+  return message?.startsWith("errors.") ? message : "errors.contact.invalidForm";
+}
+
 /**
- * Formulaire de contact, réservé aux comptes Discord connectés : l'identité (pseudo, identifiant,
- * avatar) et l'adresse de réponse viennent de la session, jamais de champs saisis. Personne ne
- * peut donc écrire au nom d'un autre, ni laisser une adresse fantaisiste.
+ * Contact form, restricted to signed-in Discord accounts: the identity (name, id, avatar) and the
+ * reply address come from the session, never from typed fields. Nobody can write under someone
+ * else's name, nor leave a made-up address.
  */
 export default async function contactRoutes(app: FastifyInstance): Promise<void> {
   app.post("/contact", { preHandler: authenticate }, async (request, reply) => {
     if (!isMailConfigured()) {
-      return reply.status(503).send({
-        error: "L'envoi de messages est momentanément indisponible.",
-      });
+      return reply.status(503).send({ error: request.t("errors.contact.unavailable") });
     }
 
     const { userId, username, avatar, email } = request.user;
 
-    // Session ouverte avant l'ajout du scope `email`, ou compte sans adresse vérifiée.
+    // Session opened before the `email` scope, or account without a verified address.
     if (!email) {
-      return reply.status(403).send({
-        error:
-          "Ton adresse Discord n'est pas disponible. Reconnecte-toi pour autoriser son partage, ou vérifie l'adresse de ton compte Discord.",
-      });
+      return reply.status(403).send({ error: request.t("errors.contact.missingEmail") });
     }
 
     const parsed = contactSchema.safeParse(request.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        error: parsed.error.issues[0]?.message ?? "Formulaire invalide.",
-      });
+      return reply
+        .status(400)
+        .send({ error: request.t(issueKey(parsed.error.issues[0]?.message)) });
     }
 
-    // Le champ est un menu déroulant côté dashboard, mais rien n'empêche d'envoyer autre chose :
-    // on refuse tout serveur que ce compte ne gère pas, plutôt que de le recopier dans le mail.
+    // The field is a dropdown on the dashboard, but nothing stops a caller from sending something
+    // else: any server this account does not manage is refused rather than copied into the mail.
     if (parsed.data.guildId && !hasGuildAccess(request.user, parsed.data.guildId)) {
-      return reply.status(403).send({
-        error: "Tu ne gères pas ce serveur.",
-      });
+      return reply.status(403).send({ error: request.t("errors.guild.notManaged") });
     }
 
     if (isRateLimited(userId)) {
-      return reply.status(429).send({
-        error: "Trop de messages envoyés. Réessaie dans quelques minutes.",
-      });
+      return reply.status(429).send({ error: request.t("errors.contact.rateLimited") });
     }
 
     const data = parsed.data;
-    // Le nom rend le mail lisible ; il vient de la session, donc du serveur, pas du formulaire.
+    // The name makes the mail readable; it comes from the session, hence from Discord.
     const guild = request.user.manageableGuilds.find((entry) => entry.id === data.guildId);
 
-    const message = {
+    const contactMessage = {
       userId,
       username,
       avatar,
       email,
-      subjectLabel: SUBJECTS[data.subject],
+      subjectId: data.subject,
       guildId: data.guildId,
       guildName: guild?.name ?? "",
       message: data.message,
       receivedAt: new Date(),
     };
 
+    // This mail is read by the team, so it is written in English; anything addressed to the person
+    // who wrote uses `request.t`.
+    const teamTranslator = translatorFor("en");
+
     await sendContactMail({
-      subject: contactSubject(message),
-      text: contactText(message),
-      html: contactHtml(message),
+      subject: contactSubject(teamTranslator, contactMessage),
+      text: contactText(teamTranslator, contactMessage),
+      html: contactHtml(teamTranslator, contactMessage),
       replyTo: email,
     });
 
-    request.log.info({ userId, subject: data.subject }, "Message du formulaire de contact envoyé");
+    request.log.info({ userId, subject: data.subject }, "Contact form message sent");
     return { sent: true };
   });
 }

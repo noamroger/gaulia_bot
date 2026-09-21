@@ -10,6 +10,7 @@ import { PermissionFlagsBits, type Guild, type GuildMember, type Message } from 
 import { Colors, Emojis, InviteRegex } from "../../../client/Constants";
 import { logger } from "../../../client/logger";
 import { buildContainer, toV2Payload } from "../../../core/ui/containers";
+import { guildTranslatorFor, type TranslationVars, type Translator } from "../../../i18n";
 import {
   applyMemberSanction,
   botModerator,
@@ -34,14 +35,16 @@ interface RecentMessage {
 }
 
 interface Violation {
-  title: string;
-  detail: string;
+  /** Entry of `automod.violations` naming the rule that fired. */
+  rule: string;
+  /** Values interpolated into the detail line of that entry. */
+  vars?: TranslationVars;
   action: Sanction;
 }
 
-/** Réglages relus en base au plus toutes les 30 s par serveur : l'automod tourne sur chaque message. */
+/** Settings re-read at most every 30s per guild: the automod runs on every message. */
 const settingsCache = new Map<string, CachedSettings>();
-/** État en mémoire uniquement (jamais persisté) pour les règles anti-doublon et anti-flood. */
+/** In memory only (never persisted), for the duplicate and flood rules. */
 const lastMessageByUser = new Map<string, RecentMessage>();
 const floodTimestampsByUser = new Map<string, number[]>();
 
@@ -60,7 +63,7 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Mot entier, insensible à la casse ("con" ne bloque pas "second"). */
+/** Whole word, case insensitive ("con" does not block "second"). */
 function badWordPattern(word: string): RegExp {
   return new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(word)}(?![\\p{L}\\p{N}])`, "iu");
 }
@@ -92,13 +95,7 @@ function checkInvites(content: string, rule: AutomodRules["invites"]): Violation
   const forbidden = invites.some(
     (invite) => !allowed.some((code) => invite.toLowerCase().includes(code)),
   );
-  return forbidden
-    ? {
-        title: "Invitation Discord interdite",
-        detail: "a posté une invitation non autorisée",
-        action: rule.action,
-      }
-    : null;
+  return forbidden ? { rule: "invites", action: rule.action } : null;
 }
 
 function linkHostnames(content: string): string[] {
@@ -129,11 +126,7 @@ function checkLinks(content: string, rule: AutomodRules["links"]): Violation | n
 
   return blocked
     ? {
-        title: "Lien interdit",
-        detail:
-          rule.mode === "blocklist"
-            ? "a posté un lien vers un domaine bloqué"
-            : "a posté un lien vers un domaine non autorisé",
+        rule: rule.mode === "blocklist" ? "linkBlocked" : "linkNotAllowed",
         action: rule.action,
       }
     : null;
@@ -145,7 +138,7 @@ function checkBadWords(
   patterns: RegExp[],
 ): Violation | null {
   if (!rule.enabled || !patterns.some((pattern) => pattern.test(content))) return null;
-  return { title: "Mot interdit", detail: "a utilisé un mot interdit", action: rule.action };
+  return { rule: "badWords", action: rule.action };
 }
 
 function checkMentions(message: Message, rule: AutomodRules["mentions"]): Violation | null {
@@ -153,11 +146,7 @@ function checkMentions(message: Message, rule: AutomodRules["mentions"]): Violat
   const mentionCount =
     message.mentions.users.size + message.mentions.roles.size + (message.mentions.everyone ? 1 : 0);
   if (mentionCount <= rule.maxMentions) return null;
-  return {
-    title: "Mentions de masse",
-    detail: `a mentionné ${mentionCount} membres ou rôles`,
-    action: rule.action,
-  };
+  return { rule: "mentions", vars: { count: mentionCount }, action: rule.action };
 }
 
 function checkCaps(content: string, rule: AutomodRules["caps"]): Violation | null {
@@ -167,7 +156,7 @@ function checkCaps(content: string, rule: AutomodRules["caps"]): Violation | nul
 
   const uppercase = letters.filter((letter) => letter !== letter.toLowerCase()).length;
   if ((uppercase * 100) / letters.length < rule.percent) return null;
-  return { title: "Abus de majuscules", detail: "a écrit en majuscules", action: rule.action };
+  return { rule: "caps", action: rule.action };
 }
 
 function checkDuplicates(
@@ -183,11 +172,7 @@ function checkDuplicates(
 
   if (count < rule.maxRepeats) return null;
   lastMessageByUser.delete(key);
-  return {
-    title: "Message répété",
-    detail: `a répété le même message ${count} fois`,
-    action: rule.action,
-  };
+  return { rule: "duplicates", vars: { count }, action: rule.action };
 }
 
 function checkFlood(key: string, rule: AutomodRules["flood"]): Violation | null {
@@ -202,8 +187,8 @@ function checkFlood(key: string, rule: AutomodRules["flood"]): Violation | null 
   if (timestamps.length < rule.maxMessages) return null;
   floodTimestampsByUser.delete(key);
   return {
-    title: "Flood",
-    detail: `a envoyé ${timestamps.length} messages en moins de ${rule.perSeconds} s`,
+    rule: "flood",
+    vars: { count: timestamps.length, seconds: rule.perSeconds },
     action: rule.action,
   };
 }
@@ -228,22 +213,26 @@ async function applyAutomodSanction(
   member: GuildMember | null,
   action: Sanction,
   reason: string,
+  t: Translator,
 ): Promise<string> {
-  if (action.type === "delete") return describeSanction(action);
+  if (action.type === "delete") return describeSanction(action, t);
 
   const moderator = botModerator(message.guild);
 
   if (action.type === "warn") {
     const { escalation } = await performWarn(message.guild, message.author, moderator, reason);
-    if (!escalation) return describeSanction(action);
-    const escalated = describeSanction({
-      type: escalation.action,
-      timeoutMinutes: escalation.timeoutMinutes,
+    if (!escalation) return describeSanction(action, t);
+    const escalated = describeSanction(
+      { type: escalation.action, timeoutMinutes: escalation.timeoutMinutes },
+      t,
+    );
+    return t("automod.outcome.escalated", {
+      sanction: escalated.toLowerCase(),
+      warnings: t("moderation.escalation.warnCount", { count: escalation.warnCount }),
     });
-    return `Avertissement, puis ${escalated.toLowerCase()} (${escalation.warnCount} avertissements)`;
   }
 
-  if (!member) return "Message supprimé (membre introuvable)";
+  if (!member) return t("automod.outcome.memberNotFound");
 
   const applied = await applyMemberSanction(
     member,
@@ -251,11 +240,10 @@ async function applyAutomodSanction(
     reason,
     moderator,
   );
-  return applied
-    ? describeSanction(action)
-    : "Message supprimé (rôle du bot trop bas pour sanctionner ce membre)";
+  return applied ? describeSanction(action, t) : t("automod.outcome.botRoleTooLow");
 }
 
+/** Everything the automod posts or stores is read by the guild, so it follows the guild language. */
 async function enforce(
   message: Message<true>,
   member: GuildMember | null,
@@ -263,32 +251,40 @@ async function enforce(
 ): Promise<void> {
   await message.delete().catch(() => undefined);
 
+  const t = await guildTranslatorFor(message.guildId, message.guild.preferredLocale);
+  const title = t(`automod.violations.${violation.rule}.title`);
+
   let outcome: string;
   try {
     outcome = await applyAutomodSanction(
       message,
       member,
       violation.action,
-      `Automod : ${violation.title}`,
+      t("automod.reason", { rule: title }),
+      t,
     );
   } catch (error) {
-    logger.error({ err: error, guildId: message.guildId }, "Échec d'une sanction automod");
-    outcome = "Message supprimé (la sanction n'a pas pu être appliquée)";
+    logger.error({ err: error, guildId: message.guildId }, "Automod sanction failed");
+    outcome = t("automod.outcome.failed");
   }
 
   await postAutomodLog(
     message.guild,
-    violation.title,
+    title,
     [
-      `**${message.author.tag}** ${violation.detail} dans <#${message.channelId}>.`,
-      `**Sanction :** ${outcome}`,
+      t("automod.log.line", {
+        target: message.author.tag,
+        detail: t(`automod.violations.${violation.rule}.detail`, violation.vars),
+        channel: message.channelId,
+      }),
+      t("automod.log.sanction", { outcome }),
     ].join("\n"),
   );
 }
 
 /**
- * Couche automod custom, complémentaire à l'AutoMod natif de Discord. Chaque règle est
- * configurable par serveur (dashboard) avec sa propre sanction. Appelée sur chaque `messageCreate`.
+ * Custom automod layer, on top of Discord's native AutoMod. Each rule is configurable per guild
+ * (dashboard) with its own sanction. Called on every `messageCreate`.
  */
 export async function runCustomAutoMod(message: Message): Promise<void> {
   if (!message.inGuild() || message.author.bot) return;

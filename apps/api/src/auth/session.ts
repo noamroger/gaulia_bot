@@ -8,11 +8,10 @@ export interface SessionPayload {
   userId: string;
   username: string;
   avatar: string | null;
-  /** Adresse Discord vérifiée (scope `email`). Nulle pour une session ouverte avant ce scope. */
+  /** Verified Discord address (`email` scope). Null for a session opened before that scope. */
   email: string | null;
   manageableGuilds: ManageableGuild[];
-  /** Vrai si userId figure dans OWNER_IDS - donne accès au panel admin (/admin) et bypass
-   *  `requireGuildAccess` (un propriétaire du bot peut gérer n'importe quel serveur). */
+  /** True when userId is in OWNER_IDS: unlocks /admin and bypasses `requireGuildAccess`. */
   isOwner: boolean;
 }
 

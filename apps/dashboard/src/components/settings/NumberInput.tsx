@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-/** Champ numérique : chaque valeur valide est transmise pendant la saisie, et clampée en quittant le champ. */
+/** Every valid value is reported while typing; the field is clamped on blur. */
 export function NumberInput({
   value,
   min,

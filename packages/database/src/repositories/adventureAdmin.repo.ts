@@ -36,7 +36,7 @@ export interface AdventurePlayerDetail {
   logs: AdventureLog[];
 }
 
-/** Tous les personnages, du plus avancé au moins avancé : liste du panel admin. */
+/** Every character, most advanced first: the admin panel list. */
 export async function listAdventurePlayers(): Promise<AdventurePlayerSummary[]> {
   return prisma.adventureCharacter.findMany({
     orderBy: [{ actIndex: "desc" }, { chapterIndex: "desc" }, { level: "desc" }],
@@ -59,7 +59,7 @@ export async function listAdventurePlayers(): Promise<AdventurePlayerSummary[]> 
   });
 }
 
-/** Fiche complète d'un joueur pour le panel admin (personnage, inventaire, quêtes, journal). */
+/** Full player record for the admin panel (character, inventory, quests, logs). */
 export async function getAdventurePlayerDetail(
   userId: string,
 ): Promise<AdventurePlayerDetail | null> {

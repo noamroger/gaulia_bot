@@ -1,12 +1,15 @@
 import Link from "next/link";
 
+import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { getTranslator } from "@/i18n/server";
+import type { Translator } from "@/i18n";
 import { APP_VERSION, AUTHOR_NAME, AUTHOR_URL, SUPPORT_INVITE } from "@/lib/config";
 
 interface FooterLink {
   label: string;
   href: string;
-  /** Vrai pour une destination hors du dashboard (redirections /invite, /vote, /app-directory). */
+  /** True for a destination outside the dashboard (the /invite, /vote, /app-directory redirects). */
   external?: boolean;
 }
 
@@ -16,30 +19,32 @@ interface FooterColumn {
 }
 
 /**
- * `/invite`, `/vote` et `/app-directory` sont des redirections du dashboard construites au build à
- * partir de DISCORD_CLIENT_ID (voir next.config.js) : aucun identifiant n'est écrit en dur ici, et
- * les liens restent valides même sans cette variable - la redirection est alors simplement absente.
+ * `/invite`, `/vote` and `/app-directory` are dashboard redirects built at build time from
+ * DISCORD_CLIENT_ID (see next.config.js): no id is hardcoded here, and the links stay valid
+ * without that variable, the redirect simply does not exist then.
  */
-const COLUMNS: FooterColumn[] = [
-  {
-    title: "Le bot",
-    links: [
-      { label: "Ajouter Gaulia", href: "/invite", external: true },
-      { label: "Voter sur top.gg", href: "/vote", external: true },
-      { label: "App Directory Discord", href: "/app-directory", external: true },
-      ...(SUPPORT_INVITE
-        ? [{ label: "Serveur de support", href: "/support", external: true }]
-        : []),
-    ],
-  },
-  {
-    title: "Tableau de bord",
-    links: [
-      { label: "Accueil", href: "/" },
-      { label: "Mes serveurs", href: "/dashboard" },
-    ],
-  },
-];
+function columns(t: Translator): FooterColumn[] {
+  return [
+    {
+      title: t("nav.footer.bot"),
+      links: [
+        { label: t("nav.footer.addBot"), href: "/invite", external: true },
+        { label: t("nav.footer.vote"), href: "/vote", external: true },
+        { label: t("nav.footer.appDirectory"), href: "/app-directory", external: true },
+        ...(SUPPORT_INVITE
+          ? [{ label: t("nav.footer.support"), href: "/support", external: true }]
+          : []),
+      ],
+    },
+    {
+      title: t("nav.footer.dashboard"),
+      links: [
+        { label: t("nav.footer.home"), href: "/" },
+        { label: t("nav.footer.myServers"), href: "/dashboard" },
+      ],
+    },
+  ];
+}
 
 function FooterNav({ column }: { column: FooterColumn }) {
   return (
@@ -62,8 +67,9 @@ function FooterNav({ column }: { column: FooterColumn }) {
   );
 }
 
-/** Pied de page commun à toutes les pages : identité du bot, liens utiles et mentions légales. */
-export function SiteFooter() {
+/** Footer shared by every page: bot identity, useful links and legal notices. */
+export async function SiteFooter() {
+  const t = await getTranslator();
   const year = new Date().getFullYear();
 
   return (
@@ -76,41 +82,41 @@ export function SiteFooter() {
             </span>
             Gaulia
           </Link>
-          <p>
-            Bot Discord français : modération, automod, musique, blindtest, jeux et aventure au long
-            cours, le tout réglable serveur par serveur depuis ce tableau de bord.
-          </p>
+          <p>{t("nav.footer.tagline")}</p>
           <p className="footer-meta">
-            Version {APP_VERSION} · créé et maintenu par{" "}
+            {t("nav.footer.version", { version: APP_VERSION })} · {t("nav.footer.maintainedBy")}{" "}
             <a href={AUTHOR_URL} target="_blank" rel="noopener noreferrer">
               {AUTHOR_NAME}
             </a>
           </p>
         </div>
 
-        {COLUMNS.map((column) => (
+        {columns(t).map((column) => (
           <FooterNav key={column.title} column={column} />
         ))}
 
-        <nav className="footer-column" aria-label="Ressources">
-          <p className="footer-heading">Ressources</p>
+        <nav className="footer-column" aria-label={t("nav.footer.resources")}>
+          <p className="footer-heading">{t("nav.footer.resources")}</p>
           <ul>
             <li>
-              <Link href="/contact">Nous contacter</Link>
+              <Link href="/contact">{t("nav.footer.contact")}</Link>
             </li>
             <li>
-              <Link href="/my-data">Mes données</Link>
+              <Link href="/my-data">{t("nav.footer.myData")}</Link>
             </li>
             <li>
-              <Link href="/privacy">Politique de confidentialité</Link>
+              <Link href="/privacy">{t("nav.footer.privacy")}</Link>
             </li>
           </ul>
         </nav>
       </div>
 
       <div className="site-footer-bottom">
-        <span>© {year} Gaulia · non affilié à Discord Inc.</span>
-        <ThemeToggle />
+        <span>{t("nav.footer.rights", { year })}</span>
+        <div className="site-footer-toggles">
+          <LanguageToggle />
+          <ThemeToggle />
+        </div>
       </div>
     </footer>
   );

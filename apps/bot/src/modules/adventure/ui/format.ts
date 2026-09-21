@@ -1,4 +1,6 @@
-/** Helpers d'affichage partagés par toutes les vues de l'aventure. */
+/** Display helpers shared by every adventure view. */
+
+import type { Translator } from "../../../i18n";
 
 const BAR_LENGTH = 12;
 
@@ -7,31 +9,20 @@ export function progressBar(ratio: number, length = BAR_LENGTH): string {
   return `${"█".repeat(filled)}${"░".repeat(length - filled)}`;
 }
 
-export function formatNumber(value: number): string {
-  return new Intl.NumberFormat("fr-FR").format(Math.round(value));
+/** Grouped number in the reader's own language ("1,000" against "1 000"). */
+export function formatNumber(t: Translator, value: number): string {
+  return new Intl.NumberFormat(t.locale).format(Math.round(value));
 }
 
-export function gold(value: number): string {
-  return `${formatNumber(value)} 🪙`;
+export function gold(t: Translator, value: number): string {
+  return `${formatNumber(t, value)} 🪙`;
 }
 
-/** Durée courte et lisible : « 3 j 4 h », « 12 min ». */
-export function formatDuration(ms: number): string {
-  const totalMinutes = Math.max(1, Math.ceil(ms / 60_000));
-  const days = Math.floor(totalMinutes / 1_440);
-  const hours = Math.floor((totalMinutes % 1_440) / 60);
-  const minutes = totalMinutes % 60;
-
-  if (days > 0) return hours > 0 ? `${days} j ${hours} h` : `${days} j`;
-  if (hours > 0) return minutes > 0 ? `${hours} h ${minutes} min` : `${hours} h`;
-  return `${minutes} min`;
-}
-
-/** Coche d'objectif, utilisée par les quêtes et les chapitres. */
+/** Objective checkbox, used by the quests and the chapters. */
 export function checkbox(done: boolean): string {
   return done ? "✅" : "▫️";
 }
 
-export function counter(progress: number, target: number): string {
-  return `${formatNumber(progress)} / ${formatNumber(target)}`;
+export function counter(t: Translator, progress: number, target: number): string {
+  return `${formatNumber(t, progress)} / ${formatNumber(t, target)}`;
 }

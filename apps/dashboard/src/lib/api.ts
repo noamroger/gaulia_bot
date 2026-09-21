@@ -1,21 +1,37 @@
+import { DEFAULT_LOCALE, LOCALE_COOKIE, matchLocale, type AppLocale } from "@/i18n/locales";
+
 import { API_URL } from "./config";
 
 export class ApiError extends Error {
   public readonly status: number;
+  /** True when the server sent no message, so the caller shows its own generic wording. */
+  public readonly generic: boolean;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, generic = false) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.generic = generic;
   }
+}
+
+/**
+ * The API answers in the reader's language, so every call carries it. This module only ever runs
+ * in the browser (it sends credentials), hence reading the cookie rather than taking a parameter.
+ */
+function currentLocale(): AppLocale {
+  if (typeof document === "undefined") return DEFAULT_LOCALE;
+  const match = new RegExp(`(?:^|; )${LOCALE_COOKIE}=([^;]*)`).exec(document.cookie);
+  return matchLocale(match?.[1] ? decodeURIComponent(match[1]) : null) ?? DEFAULT_LOCALE;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
     credentials: "include",
-    // Fastify rejette un corps vide annoncé en JSON : l'en-tête n'est envoyé qu'avec un corps.
+    // Fastify rejects an empty body announced as JSON, so the header only goes out with one.
     headers: {
+      "Accept-Language": currentLocale(),
       ...(init?.body !== undefined ? { "Content-Type": "application/json" } : {}),
       ...init?.headers,
     },
@@ -23,7 +39,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as { error?: string };
-    throw new ApiError(response.status, body.error ?? `Erreur ${response.status}`);
+    throw new ApiError(response.status, body.error ?? `HTTP ${response.status}`, !body.error);
   }
 
   if (response.status === 204) {
@@ -39,7 +55,7 @@ export const api = {
     request<T>(path, { method: "PATCH", body: JSON.stringify(data) }),
   post: <T>(path: string, data?: unknown): Promise<T> =>
     request<T>(path, { method: "POST", body: data ? JSON.stringify(data) : undefined }),
-  // Un DELETE peut porter un corps : la suppression des données personnelles y met sa confirmation.
+  // A DELETE may carry a body: the personal data erasure puts its confirmation there.
   delete: <T>(path: string, data?: unknown): Promise<T> =>
     request<T>(path, {
       method: "DELETE",

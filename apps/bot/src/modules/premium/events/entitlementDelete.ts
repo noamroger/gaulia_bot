@@ -10,7 +10,7 @@ const event: GauliaEvent<typeof Events.EntitlementDelete> = {
     await handleEntitlementDelete(entitlement);
     client.logger.info(
       { entitlementId: entitlement.id, guildId: entitlement.guildId },
-      "Entitlement premium supprimé",
+      "Premium entitlement removed",
     );
   },
 };

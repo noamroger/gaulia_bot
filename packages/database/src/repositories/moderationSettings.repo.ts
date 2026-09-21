@@ -20,7 +20,7 @@ function toSettings(row: ModerationSettings): GuildModerationSettings {
   };
 }
 
-/** Lecture seule : sans réglages enregistrés, renvoie les valeurs par défaut sans rien écrire. */
+/** Read-only: with no stored settings, returns the defaults without writing anything. */
 export async function getModerationSettings(guildId: string): Promise<GuildModerationSettings> {
   const row = await prisma.moderationSettings.findUnique({ where: { guildId } });
   return row ? toSettings(row) : { guildId, dmOnSanction: true, warnEscalation: [] };

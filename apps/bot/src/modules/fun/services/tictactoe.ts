@@ -1,6 +1,7 @@
 import { ButtonBuilder, ButtonStyle } from "discord.js";
 
 import { GauliaError } from "../../../core/errors";
+import type { Translator } from "../../../i18n";
 import {
   difficultyLabel,
   funButton,
@@ -23,9 +24,10 @@ const LINES = [
   [2, 4, 6],
 ] as const;
 const MARKS = { 1: "❌", 2: "⭕" } as const;
-/** Probabilité que Gaulia joue le meilleur coup plutôt qu'un coup au hasard. */
+/** Odds that Gaulia plays the best move instead of a random one. */
 const OPTIMAL_MOVE_CHANCE: Record<Difficulty, number> = { easy: 0.3, normal: 0.75, hard: 1 };
 const EMPTY_CELL_LABEL = "​";
+const CELL_COUNT = 9;
 
 type Mark = 0 | 1 | 2;
 type Player = 1 | 2;
@@ -33,7 +35,7 @@ type Outcome = { kind: "win" | "forfeit"; player: Player } | { kind: "draw" } | 
 
 export interface TicTacToeGame {
   board: Mark[];
-  /** Croix puis rond ; `null` désigne Gaulia. */
+  /** Cross then circle; `null` stands for Gaulia. */
   players: [string | null, string | null];
   turn: Player;
   difficulty: Difficulty;
@@ -56,7 +58,7 @@ function winnerOf(board: Mark[]): Mark {
 
 function negamax(board: Mark[], player: Player, depth: number): number {
   let best = -Infinity;
-  for (let cell = 0; cell < 9; cell++) {
+  for (let cell = 0; cell < CELL_COUNT; cell++) {
     if (board[cell] !== 0) continue;
     board[cell] = player;
     const score =
@@ -90,7 +92,7 @@ function chooseAiCell(board: Mark[], player: Player, difficulty: Difficulty): nu
 }
 
 function applyMove(game: TicTacToeGame, cell: number): void {
-  if (game.board[cell] !== 0) throw new GauliaError("Cette case est déjà prise.");
+  if (game.board[cell] !== 0) throw new GauliaError("fun.tictactoe.cellTaken");
   game.board[cell] = game.turn;
 
   if (winnerOf(game.board) === game.turn) {
@@ -102,28 +104,41 @@ function applyMove(game: TicTacToeGame, cell: number): void {
   }
 }
 
-function statusLine(game: TicTacToeGame, expired: boolean): string {
+function statusLine(game: TicTacToeGame, expired: boolean, t: Translator): string {
   const { outcome } = game;
   if (outcome?.kind === "win") {
-    return `${mention(playerAt(game, outcome.player))} ${MARKS[outcome.player]} remporte la partie !`;
+    return t("fun.match.win", {
+      player: mention(playerAt(game, outcome.player), t),
+      mark: MARKS[outcome.player],
+    });
   }
   if (outcome?.kind === "forfeit") {
-    return `${mention(playerAt(game, outcome.player))} abandonne, ${mention(playerAt(game, opponentOf(outcome.player)))} remporte la partie.`;
+    return t("fun.match.forfeited", {
+      loser: mention(playerAt(game, outcome.player), t),
+      winner: mention(playerAt(game, opponentOf(outcome.player)), t),
+    });
   }
-  if (outcome?.kind === "draw") return "Match nul !";
-  if (expired) return "Partie expirée après 10 minutes d'inactivité.";
-  return `Au tour de ${mention(playerAt(game, game.turn))} ${MARKS[game.turn]}`;
+  if (outcome?.kind === "draw") return t("fun.tictactoe.draw");
+  if (expired) return t("fun.game.expired");
+  return t("fun.match.turn", {
+    player: mention(playerAt(game, game.turn), t),
+    mark: MARKS[game.turn],
+  });
 }
 
-/** `gameId` null : partie expirée, grille figée. */
-export function renderTicTacToe(game: TicTacToeGame, gameId: string | null): FunPayload {
+/** A null `gameId` means the game expired and its grid is frozen. */
+export function renderTicTacToe(
+  game: TicTacToeGame,
+  gameId: string | null,
+  t: Translator,
+): FunPayload {
   const vsAi = game.players.includes(null);
   const playable = gameId !== null && game.outcome === null;
 
   const cellButton = (cell: number): ButtonBuilder => {
     const mark = game.board[cell] ?? 0;
     const button = new ButtonBuilder()
-      .setCustomId(`fun:ttt:${gameId ?? "fin"}:${cell}`)
+      .setCustomId(`fun:ttt:${gameId ?? "end"}:${cell}`)
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(!playable || mark !== 0);
     return mark === 0 ? button.setLabel(EMPTY_CELL_LABEL) : button.setEmoji(MARKS[mark]);
@@ -133,15 +148,27 @@ export function renderTicTacToe(game: TicTacToeGame, gameId: string | null): Fun
     funRow(...[0, 1, 2].map((step) => cellButton(start + step))),
   );
   if (playable) {
-    rows.push(funRow(funButton(`fun:ttt-quit:${gameId}`, "Abandonner", ButtonStyle.Danger)));
+    rows.push(
+      funRow(funButton(`fun:ttt-quit:${gameId}`, t("fun.game.forfeitButton"), ButtonStyle.Danger)),
+    );
   }
+
+  const players = t("fun.match.players", {
+    firstMark: MARKS[1],
+    first: mention(game.players[0], t),
+    secondMark: MARKS[2],
+    second: mention(game.players[1], t),
+  });
+  const difficulty = vsAi
+    ? ` · ${t("fun.game.difficultyNote", { difficulty: difficultyLabel(game.difficulty, t) })}`
+    : "";
 
   return funPayload(
     [
-      "### Morpion",
-      `${MARKS[1]} ${mention(game.players[0])} contre ${MARKS[2]} ${mention(game.players[1])}${vsAi ? ` · difficulté ${difficultyLabel(game.difficulty)}` : ""}`,
+      `### ${t("fun.tictactoe.title")}`,
+      `${players}${difficulty}`,
       "",
-      statusLine(game, gameId === null),
+      statusLine(game, gameId === null, t),
     ],
     rows,
   );
@@ -149,31 +176,37 @@ export function renderTicTacToe(game: TicTacToeGame, gameId: string | null): Fun
 
 export const ticTacToeGames = new GameStore<TicTacToeGame>({
   idleMs: GAME_IDLE_MS,
-  renderExpired: (game) => renderTicTacToe(game, null),
+  renderExpired: (game, t) => renderTicTacToe(game, null, t),
 });
 
 export function startTicTacToe(
   players: [string | null, string | null],
   difficulty: Difficulty,
+  t: Translator,
 ): { gameId: string; payload: FunPayload } {
   const game: TicTacToeGame = {
-    board: Array<Mark>(9).fill(0),
+    board: Array<Mark>(CELL_COUNT).fill(0),
     players,
     turn: 1,
     difficulty,
     outcome: null,
   };
-  const gameId = ticTacToeGames.create(game);
-  return { gameId, payload: renderTicTacToe(game, gameId) };
+  const gameId = ticTacToeGames.create(game, t);
+  return { gameId, payload: renderTicTacToe(game, gameId, t) };
 }
 
-export function playTicTacToe(gameId: string, userId: string, cell: number): FunPayload {
+export function playTicTacToe(
+  gameId: string,
+  userId: string,
+  cell: number,
+  t: Translator,
+): FunPayload {
   const game = ticTacToeGames.require(gameId);
-  if (!game.players.includes(userId)) {
-    throw new GauliaError("Tu ne participes pas à cette partie.");
+  if (!game.players.includes(userId)) throw new GauliaError("fun.match.notPlaying");
+  if (playerAt(game, game.turn) !== userId) throw new GauliaError("fun.match.notYourTurn");
+  if (!Number.isInteger(cell) || cell < 0 || cell >= CELL_COUNT) {
+    throw new GauliaError("fun.tictactoe.invalidCell");
   }
-  if (playerAt(game, game.turn) !== userId) throw new GauliaError("Ce n'est pas ton tour.");
-  if (!Number.isInteger(cell) || cell < 0 || cell > 8) throw new GauliaError("Case invalide.");
 
   applyMove(game, cell);
   if (!game.outcome && playerAt(game, game.turn) === null) {
@@ -181,15 +214,15 @@ export function playTicTacToe(gameId: string, userId: string, cell: number): Fun
   }
   if (game.outcome) ticTacToeGames.finish(gameId);
 
-  return renderTicTacToe(game, gameId);
+  return renderTicTacToe(game, gameId, t);
 }
 
-export function forfeitTicTacToe(gameId: string, userId: string): FunPayload {
+export function forfeitTicTacToe(gameId: string, userId: string, t: Translator): FunPayload {
   const game = ticTacToeGames.require(gameId);
   const index = game.players.indexOf(userId);
-  if (index === -1) throw new GauliaError("Tu ne participes pas à cette partie.");
+  if (index === -1) throw new GauliaError("fun.match.notPlaying");
 
   game.outcome = { kind: "forfeit", player: index === 0 ? 1 : 2 };
   ticTacToeGames.finish(gameId);
-  return renderTicTacToe(game, gameId);
+  return renderTicTacToe(game, gameId, t);
 }

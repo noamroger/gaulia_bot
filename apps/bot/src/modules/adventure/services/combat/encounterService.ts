@@ -1,11 +1,12 @@
+import type { Translator } from "../../../../i18n";
 import { requireMonster, type MonsterDefinition } from "../../data/monsters";
-import { requireZone, type ZoneDefinition, type ZoneLoot } from "../../data/zones";
+import { requireZone, zoneAmbiance, type ZoneDefinition, type ZoneLoot } from "../../data/zones";
 
-/** Ce que l'exploration a mis sur le chemin du joueur. */
+/** What the exploration put on the player's path. */
 export type Encounter =
   | { kind: "COMBAT"; monster: MonsterDefinition }
-  | { kind: "TROUVAILLE"; loot: { itemId: string; quantity: number } }
-  | { kind: "CALME"; ambiance: string };
+  | { kind: "FIND"; loot: { itemId: string; quantity: number } }
+  | { kind: "CALM"; ambiance: string };
 
 const COMBAT_CHANCE = 0.6;
 const LOOT_CHANCE = 0.28;
@@ -29,8 +30,8 @@ export function randomQuantity(min: number, max: number): number {
   return min + Math.floor(Math.random() * (max - min + 1));
 }
 
-/** Tire une rencontre dans la zone : bagarre le plus souvent, trouvaille sinon, calme parfois. */
-export function drawEncounter(zone: ZoneDefinition): Encounter {
+/** Draws an encounter in the zone: a fight most of the time, a find otherwise, quiet sometimes. */
+export function drawEncounter(zone: ZoneDefinition, t: Translator): Encounter {
   const roll = Math.random();
 
   if (roll < COMBAT_CHANCE) {
@@ -40,15 +41,15 @@ export function drawEncounter(zone: ZoneDefinition): Encounter {
   if (roll < COMBAT_CHANCE + LOOT_CHANCE) {
     const entry = pickWeighted(zone.loot);
     return {
-      kind: "TROUVAILLE",
+      kind: "FIND",
       loot: { itemId: entry.itemId, quantity: randomQuantity(entry.min, entry.max) },
     };
   }
 
-  return { kind: "CALME", ambiance: pick(zone.ambiances) };
+  return { kind: "CALM", ambiance: zoneAmbiance(t, zone) };
 }
 
-/** Butin lâché par un monstre vaincu. */
+/** Loot dropped by a defeated monster. */
 export function rollMonsterLoot(
   monster: MonsterDefinition,
 ): { itemId: string; quantity: number }[] {

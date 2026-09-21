@@ -14,23 +14,27 @@ import {
   setLoopEnabled,
   setShuffleEnabled,
 } from "../services/playbackControls";
-import { requireSameVoiceChannel } from "../services/playerUtils";
+import { guildTranslator, requireSameVoiceChannel } from "../services/playerUtils";
 
-type PlayerAction = (player: Player, interaction: ButtonInteraction) => Promise<void>;
+type PlayerAction = (
+  player: Player,
+  interaction: ButtonInteraction,
+  client: GauliaClient,
+) => Promise<void>;
 
-/** Les vérifications ont lieu avant tout `deferUpdate` : une erreur après remplacerait la card. */
+/** Every check runs before any `deferUpdate`: an error afterwards would replace the card. */
 async function requireControlledPlayer(
   client: GauliaClient,
   interaction: ButtonInteraction,
 ): Promise<Player> {
   const guildId = interaction.customId.split(":")[2];
   if (!guildId || guildId !== interaction.guildId || !interaction.inCachedGuild()) {
-    throw new GauliaError("Ce bouton ne correspond pas à ce serveur.");
+    throw new GauliaError("music.error.staleButton");
   }
 
   const player = client.lavalink.getPlayer(guildId);
   if (!player) {
-    throw new GauliaError("Il n'y a plus de lecture en cours.");
+    throw new GauliaError("music.error.playerGone");
   }
 
   await assertMusicAccess(interaction.member, "control", null);
@@ -38,13 +42,19 @@ async function requireControlledPlayer(
   return player;
 }
 
-async function updateCard(interaction: ButtonInteraction, player: Player): Promise<void> {
+/** The card is read by the whole channel, so it is rendered in the language of the server. */
+async function updateCard(
+  client: GauliaClient,
+  interaction: ButtonInteraction,
+  player: Player,
+): Promise<void> {
   const track = player.queue.current;
-  if (track) {
-    await interaction.update(buildNowPlayingPayload(player, track));
-  } else {
+  if (!track) {
     await interaction.deferUpdate();
+    return;
   }
+  const t = await guildTranslator(client, player.guildId);
+  await interaction.update(buildNowPlayingPayload(player, track, t));
 }
 
 function playerButton(action: string, run: PlayerAction): ButtonComponent {
@@ -53,32 +63,32 @@ function playerButton(action: string, run: PlayerAction): ButtonComponent {
     customIdPrefix: `music:${action}:`,
     async execute(interaction, client) {
       const player = await requireControlledPlayer(client, interaction);
-      await run(player, interaction);
+      await run(player, interaction, client);
     },
   };
 }
 
 export default [
   playerButton("pause", async (player, interaction) => {
-    if (player.paused) throw new GauliaError("La musique est déjà en pause.");
+    if (player.paused) throw new GauliaError("music.error.alreadyPaused");
     await player.pause();
     await interaction.deferUpdate();
   }),
   playerButton("resume", async (player, interaction) => {
-    if (!player.paused) throw new GauliaError("La musique n'est pas en pause.");
+    if (!player.paused) throw new GauliaError("music.error.notPaused");
     await player.resume();
     await interaction.deferUpdate();
   }),
   playerButton("skip", async (player, interaction) => {
     if (player.queue.tracks.length === 0) {
-      throw new GauliaError("Aucune musique suivante dans la file d'attente.");
+      throw new GauliaError("music.error.noNextTrack");
     }
     await player.skip();
     await interaction.deferUpdate();
   }),
   playerButton("previous", async (player, interaction) => {
     const previous = player.queue.previous.at(0);
-    if (!previous) throw new GauliaError("Aucune musique précédente.");
+    if (!previous) throw new GauliaError("music.error.noPreviousTrack");
     await player.play({ track: previous });
     await interaction.deferUpdate();
   }),
@@ -86,13 +96,13 @@ export default [
     await interaction.deferUpdate();
     await player.destroy();
   }),
-  playerButton("shuffle", async (player, interaction) => {
+  playerButton("shuffle", async (player, interaction, client) => {
     await setShuffleEnabled(player, !isShuffleEnabled(player));
-    await updateCard(interaction, player);
+    await updateCard(client, interaction, player);
   }),
-  playerButton("loop", async (player, interaction) => {
+  playerButton("loop", async (player, interaction, client) => {
     await setLoopEnabled(player, !isLoopEnabled(player));
-    await updateCard(interaction, player);
+    await updateCard(client, interaction, player);
   }),
   playerButton("volume-down", async (player, interaction) => {
     await setClampedVolume(player, player.volume - VOLUME_STEP);

@@ -8,7 +8,7 @@ import { isPremiumGuild } from "../../premium/services/entitlementService";
 const ALONE_DISCONNECT_DELAY_MS = 60_000;
 const aloneTimers = new Map<string, NodeJS.Timeout>();
 
-/** Déconnecte le bot s'il se retrouve seul dans un salon vocal, sauf en mode 24/7 premium. */
+/** Disconnects the bot when it is left alone in a voice channel, unless the 24/7 mode is on. */
 const event: GauliaEvent<typeof Events.VoiceStateUpdate> = {
   name: Events.VoiceStateUpdate,
   async execute(client: GauliaClient, _oldState: VoiceState, newState: VoiceState) {

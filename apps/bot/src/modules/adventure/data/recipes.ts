@@ -1,4 +1,4 @@
-/** Recettes de la forge : matériaux + pièces d'or contre un objet, à partir d'un certain niveau. */
+/** Forge recipes: materials plus gold for an item, from a given level on. */
 
 export interface RecipeDefinition {
   id: string;
@@ -11,7 +11,7 @@ export interface RecipeDefinition {
 
 export const RECIPES: readonly RecipeDefinition[] = [
   {
-    id: "r-lingot",
+    id: "iron-ingot",
     itemId: "lingot-fer",
     quantity: 1,
     goldCost: 20,
@@ -19,7 +19,7 @@ export const RECIPES: readonly RecipeDefinition[] = [
     ingredients: [{ itemId: "fer-brut", quantity: 3 }],
   },
   {
-    id: "r-potion-mineure",
+    id: "minor-potion",
     itemId: "potion-mineure",
     quantity: 3,
     goldCost: 40,
@@ -30,7 +30,7 @@ export const RECIPES: readonly RecipeDefinition[] = [
     ],
   },
   {
-    id: "r-epee-fer",
+    id: "iron-sword",
     itemId: "epee-fer",
     quantity: 1,
     goldCost: 150,
@@ -41,7 +41,7 @@ export const RECIPES: readonly RecipeDefinition[] = [
     ],
   },
   {
-    id: "r-arc-if",
+    id: "yew-bow",
     itemId: "arc-if",
     quantity: 1,
     goldCost: 150,
@@ -52,7 +52,7 @@ export const RECIPES: readonly RecipeDefinition[] = [
     ],
   },
   {
-    id: "r-baton-chene",
+    id: "oak-staff",
     itemId: "baton-chene",
     quantity: 1,
     goldCost: 150,
@@ -63,7 +63,7 @@ export const RECIPES: readonly RecipeDefinition[] = [
     ],
   },
   {
-    id: "r-cotte",
+    id: "chain-mail",
     itemId: "cotte-mailles",
     quantity: 1,
     goldCost: 260,
@@ -74,7 +74,7 @@ export const RECIPES: readonly RecipeDefinition[] = [
     ],
   },
   {
-    id: "r-potion-majeure",
+    id: "major-potion",
     itemId: "potion-majeure",
     quantity: 2,
     goldCost: 200,
@@ -85,7 +85,7 @@ export const RECIPES: readonly RecipeDefinition[] = [
     ],
   },
   {
-    id: "r-hache",
+    id: "burning-axe",
     itemId: "hache-ardente",
     quantity: 1,
     goldCost: 900,
@@ -96,7 +96,7 @@ export const RECIPES: readonly RecipeDefinition[] = [
     ],
   },
   {
-    id: "r-plates",
+    id: "plate-armour",
     itemId: "armure-plates",
     quantity: 1,
     goldCost: 2_400,
@@ -107,7 +107,7 @@ export const RECIPES: readonly RecipeDefinition[] = [
     ],
   },
   {
-    id: "r-lame-givre",
+    id: "frost-blade",
     itemId: "lame-givre",
     quantity: 1,
     goldCost: 3_000,
@@ -118,7 +118,7 @@ export const RECIPES: readonly RecipeDefinition[] = [
     ],
   },
   {
-    id: "r-runique",
+    id: "runic-armour",
     itemId: "armure-runique",
     quantity: 1,
     goldCost: 7_000,
@@ -130,7 +130,7 @@ export const RECIPES: readonly RecipeDefinition[] = [
     ],
   },
   {
-    id: "r-elixir",
+    id: "supreme-elixir",
     itemId: "elixir-supreme",
     quantity: 2,
     goldCost: 1_200,
@@ -141,7 +141,7 @@ export const RECIPES: readonly RecipeDefinition[] = [
     ],
   },
   {
-    id: "r-astral",
+    id: "astral-harness",
     itemId: "harnois-astral",
     quantity: 1,
     goldCost: 18_000,
@@ -152,7 +152,7 @@ export const RECIPES: readonly RecipeDefinition[] = [
     ],
   },
   {
-    id: "r-lame-echos",
+    id: "echo-blade",
     itemId: "lame-echos",
     quantity: 1,
     goldCost: 60_000,
@@ -164,7 +164,7 @@ export const RECIPES: readonly RecipeDefinition[] = [
     ],
   },
   {
-    id: "r-sceptre-echos",
+    id: "echo-sceptre",
     itemId: "sceptre-echos",
     quantity: 1,
     goldCost: 60_000,
@@ -176,7 +176,7 @@ export const RECIPES: readonly RecipeDefinition[] = [
     ],
   },
   {
-    id: "r-arc-echos",
+    id: "echo-bow",
     itemId: "arc-echos",
     quantity: 1,
     goldCost: 60_000,
@@ -188,7 +188,7 @@ export const RECIPES: readonly RecipeDefinition[] = [
     ],
   },
   {
-    id: "r-egide",
+    id: "echo-aegis",
     itemId: "egide-echos",
     quantity: 1,
     goldCost: 75_000,

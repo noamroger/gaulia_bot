@@ -24,7 +24,7 @@ function toSettings(row: AutomodConfig): AutomodSettings {
   };
 }
 
-/** Lecture seule : sans configuration enregistrée, renvoie les valeurs par défaut sans rien écrire. */
+/** Read-only: with no stored config, returns the defaults without writing anything. */
 export async function getAutomodConfig(guildId: string): Promise<AutomodSettings> {
   const row = await prisma.automodConfig.findUnique({ where: { guildId } });
   if (row) return toSettings(row);

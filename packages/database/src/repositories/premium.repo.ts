@@ -44,9 +44,9 @@ export async function listActiveEntitlements(): Promise<PremiumEntitlement[]> {
 }
 
 /**
- * Prolonge le premium offert d'un serveur (crédits échangés). La nouvelle échéance repart de
- * l'échéance en cours si elle est encore valide, pour que deux échanges se cumulent au lieu de
- * s'écraser. Indépendant de `Guild.premium`, qui reflète les entitlements Discord.
+ * Extends a guild's granted premium (credits redeemed). The new deadline starts from the running
+ * one while it is still valid, so two redeems add up instead of overwriting each other.
+ * Independent of `Guild.premium`, which reflects Discord entitlements.
  */
 export async function grantGuildPremium(guildId: string, durationMs: number): Promise<Date> {
   const guild = await prisma.guild.upsert({
@@ -64,15 +64,15 @@ export async function grantGuildPremium(guildId: string, durationMs: number): Pr
     where: { id: guildId },
     data: {
       premiumGrantedUntil,
-      // Une fenêtre déjà en cours conserve sa date de début : les échanges successifs forment une
-      // seule période, remboursable d'un bloc au prorata (voir refundUnusedGrantedPremium).
+      // A running window keeps its start date: successive redeems form a single period, refundable
+      // in one block pro rata (see refundUnusedGrantedPremium).
       ...(running && guild.premiumGrantedAt !== null ? {} : { premiumGrantedAt: new Date(now) }),
     },
   });
   return premiumGrantedUntil;
 }
 
-/** Fixe (ou retire, avec `null`) l'échéance du premium offert - panel admin. */
+/** Sets (or clears, with `null`) the granted premium deadline - admin panel. */
 export async function setGuildPremiumGrant(guildId: string, until: Date | null): Promise<Guild> {
   return prisma.guild.upsert({
     where: { id: guildId },
@@ -81,7 +81,7 @@ export async function setGuildPremiumGrant(guildId: string, until: Date | null):
   });
 }
 
-/** Serveurs dont le premium offert court encore, relus périodiquement par le bot. */
+/** Guilds whose granted premium is still running, polled periodically by the bot. */
 export async function listPremiumGrantedGuildIds(): Promise<string[]> {
   const guilds = await prisma.guild.findMany({
     where: { premiumGrantedUntil: { gt: new Date() } },
@@ -94,11 +94,11 @@ export type PremiumSourceKind = "SUBSCRIPTION" | "CREDITS";
 
 export interface PremiumSummary {
   active: boolean;
-  /** Source affichée quand les deux coexistent : l'abonnement payant prime sur les crédits. */
+  /** Source shown when both coexist: the paid subscription wins over credits. */
   source: PremiumSourceKind | null;
-  /** Abonnement Discord payant (entitlement). `renewsAt` est nul pour un abonnement sans échéance connue. */
+  /** Paid Discord subscription (entitlement). `renewsAt` is null when no end date is known. */
   subscription: { active: boolean; renewsAt: Date | null };
-  /** Premium offert contre des crédits. */
+  /** Premium granted against credits. */
   credits: { active: boolean; startedAt: Date | null; expiresAt: Date | null };
 }
 
@@ -107,7 +107,7 @@ type PremiumFields = Pick<
   "premium" | "premiumExpiresAt" | "premiumGrantedUntil" | "premiumGrantedAt"
 >;
 
-/** Détaille le statut premium d'un serveur, source par source : ce que lit le dashboard. */
+/** Premium status of a guild, source by source: what the dashboard reads. */
 export function describePremium(guild: PremiumFields): PremiumSummary {
   const now = Date.now();
   const subscription =
@@ -127,32 +127,28 @@ export function describePremium(guild: PremiumFields): PremiumSummary {
 }
 
 export interface PremiumGrantRefund {
-  /** Total recrédité, tous bénéficiaires confondus. */
+  /** Total credited back, across every recipient. */
   refunded: number;
-  /** Nombre de comptes remboursés. */
+  /** Number of refunded accounts. */
   recipients: number;
-  /** Part non consommée de la fenêtre, entre 0 et 1. */
+  /** Unused share of the window, between 0 and 1. */
   ratio: number;
-  /** Échéance du premium offert qui vient d'être annulée. */
+  /** Granted premium deadline that was just cancelled. */
   grantedUntil: Date;
 }
 
-/** Mouvements de crédits liés au premium offert d'un serveur (débits et remboursements). */
+/** Credit movements tied to a guild's granted premium (debits and refunds). */
 const GRANT_TRANSACTION_TYPES = ["PREMIUM_REDEEM", "PREMIUM_REFUND"] as const;
 
 /**
- * Convertit en crédits le premium offert non consommé d'un serveur, appelé quand il souscrit
- * l'abonnement Discord payant : garder les deux en parallèle brûlerait les crédits pour rien.
+ * Turns a guild's unused granted premium back into credits, called when it subscribes to the paid
+ * Discord plan: keeping both in parallel would burn the credits for nothing.
  *
- * Le remboursement est au prorata du temps restant : il reste la moitié de la fenêtre, la moitié
- * des crédits dépensés revient. Chaque contributeur est remboursé sur ce qu'il a réellement payé
- * (les débits sont nettés de leurs éventuels remboursements), et la fenêtre est refermée dans la
- * même transaction - ce qui rend l'opération naturellement idempotente : un second appel ne
- * trouve plus rien à rembourser.
+ * The refund is pro rata of the remaining time, per contributor and netted against their earlier
+ * refunds. The window is closed in the same transaction, which makes the call idempotent.
  *
- * Retourne `null` s'il n'y a rien à convertir, notamment pour un octroi posé à la main depuis le
- * panel admin (`setGuildPremiumGrant`) : sans date de début ni crédits dépensés, il n'y a aucun
- * prorata à calculer, et la fenêtre est laissée intacte.
+ * Returns `null` when there is nothing to convert, notably a grant set by hand from the admin panel
+ * (`setGuildPremiumGrant`): no start date and no credits spent means no pro rata to compute.
  */
 export async function refundUnusedGrantedPremium(
   guildId: string,
@@ -170,7 +166,7 @@ export async function refundUnusedGrantedPremium(
 
     const ratio = Math.min(1, Math.max(0, (grantedUntil.getTime() - now) / total));
 
-    // Solde net par contributeur : un débit annulé par un remboursement ne compte pas deux fois.
+    // Net balance per contributor: a debit already offset by a refund is not counted twice.
     const movements = await tx.creditTransaction.groupBy({
       by: ["userId"],
       where: {
@@ -186,15 +182,15 @@ export async function refundUnusedGrantedPremium(
 
     for (const movement of movements) {
       const spent = -(movement._sum?.amount ?? 0);
-      // Arrondi plutôt que troncature : souscrire à l'instant même d'un échange rend bien la
-      // totalité, et le ratio étant borné à 1, on ne rembourse jamais plus que la mise.
+      // Rounded rather than truncated: subscribing right after a redeem gives everything back,
+      // and the ratio being capped at 1, we never refund more than what was spent.
       const amount = Math.round(spent * ratio);
       if (amount <= 0) continue;
 
       const account = await tx.creditAccount.findUnique({ where: { userId: movement.userId } });
       if (!account) continue;
 
-      // Le solde reste borné : un compte déjà au plafond ne le dépasse pas.
+      // The balance stays capped: an account already at the ceiling does not exceed it.
       const granted = Math.min(amount, MAX_CREDIT_BALANCE - account.balance);
       if (granted <= 0) continue;
 
@@ -210,7 +206,7 @@ export async function refundUnusedGrantedPremium(
           amount: granted,
           balanceAfter: updated.balance,
           guildId,
-          reason: `Remboursement du premium offert non consommé (${Math.round(ratio * 100)} %)`,
+          reason: `Refund of unused granted premium (${Math.round(ratio * 100)}%)`,
         },
       });
 

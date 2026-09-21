@@ -1,5 +1,10 @@
 import { ButtonBuilder, ButtonStyle } from "discord.js";
-import type { AdventureCharacter, AdventureLog } from "@gaulia/database";
+import {
+  ADVENTURE_ECHOES_PER_DAILY_SET,
+  ADVENTURE_ECHOES_PER_WEEKLY_SET,
+  type AdventureCharacter,
+  type AdventureLog,
+} from "@gaulia/database";
 
 import { Colors } from "../../../client/Constants";
 import {
@@ -8,87 +13,140 @@ import {
   toV2Payload,
   type V2MessagePayload,
 } from "../../../core/ui/containers";
-import { TOTAL_CHAPTERS } from "../data/story";
+import type { Translator } from "../../../i18n";
+import { chapterNarration, chapterTitle, TOTAL_CHAPTERS } from "../data/story";
 import type { QuestSets } from "../services/progress/questService";
 import type { ChapterStatus, SealResult } from "../services/progress/storyService";
 import { checkbox, counter, formatNumber, progressBar } from "./format";
 import { appendRow, exploreButton, navigationRow, viewButton } from "./navigation";
 
-function questLines(title: string, views: QuestSets["daily"], resetLabel: string): string {
+function questLines(
+  title: string,
+  views: QuestSets["daily"],
+  reset: string,
+  t: Translator,
+): string {
   const rows = views
-    .map((view) => {
-      const done = view.row.claimedAt !== null;
-      return `${checkbox(done)} ${view.label} - ${counter(Math.min(view.row.progress, view.row.target), view.row.target)} · +${formatNumber(view.reward.xp)} XP · +${formatNumber(view.reward.gold)} 🪙`;
-    })
+    .map((view) =>
+      t("adventure.views.quests.row", {
+        check: checkbox(view.row.claimedAt !== null),
+        label: view.label,
+        progress: counter(t, Math.min(view.row.progress, view.row.target), view.row.target),
+        xp: formatNumber(t, view.reward.xp),
+        gold: formatNumber(t, view.reward.gold),
+      }),
+    )
     .join("\n");
-  return `**${title}** *(${resetLabel})*\n${rows}`;
+  return `${t("adventure.views.quests.group", { title, reset })}\n${rows}`;
 }
 
-export function questsView(character: AdventureCharacter, sets: QuestSets): V2MessagePayload {
+export function questsView(
+  character: AdventureCharacter,
+  sets: QuestSets,
+  t: Translator,
+): V2MessagePayload {
   const dailyDone = sets.daily.every((view) => view.row.claimedAt !== null);
   const weeklyDone = sets.weekly.every((view) => view.row.claimedAt !== null);
 
   const payload = toV2Payload(
     false,
     buildContainer(Colors.Primary, [
-      "## 📜 Carnet de quêtes",
-      questLines("Quotidiennes", sets.daily, "renouvelées chaque jour à minuit UTC"),
-      questLines("Hebdomadaires", sets.weekly, "renouvelées chaque lundi"),
+      t("adventure.views.quests.title"),
+      questLines(
+        t("adventure.views.quests.daily"),
+        sets.daily,
+        t("adventure.views.quests.dailyReset"),
+        t,
+      ),
+      questLines(
+        t("adventure.views.quests.weekly"),
+        sets.weekly,
+        t("adventure.views.quests.weeklyReset"),
+        t,
+      ),
       [
-        `Lot du jour : ${dailyDone ? "✅ complété (+1 🔷)" : "en cours"}`,
-        `Lot de la semaine : ${weeklyDone ? "✅ complété (+2 🔷)" : "en cours"}`,
-        `Tu possèdes **${formatNumber(character.echoes)}** fragments d'écho.`,
+        t("adventure.views.quests.dailySet", {
+          state: dailyDone
+            ? t("adventure.views.quests.setDone", { echoes: ADVENTURE_ECHOES_PER_DAILY_SET })
+            : t("adventure.views.quests.setPending"),
+        }),
+        t("adventure.views.quests.weeklySet", {
+          state: weeklyDone
+            ? t("adventure.views.quests.setDone", { echoes: ADVENTURE_ECHOES_PER_WEEKLY_SET })
+            : t("adventure.views.quests.setPending"),
+        }),
+        t("adventure.views.quests.echoes", { count: formatNumber(t, character.echoes) }),
       ].join("\n"),
-      "Les quêtes se valident toutes seules : joue, elles se cochent.",
+      t("adventure.views.quests.hint"),
     ]),
   );
 
   appendRow(payload, [
-    exploreButton(character.userId),
-    viewButton(character.userId, "donjon"),
-    viewButton(character.userId, "histoire"),
+    exploreButton(t, character.userId),
+    viewButton(t, character.userId, "dungeon"),
+    viewButton(t, character.userId, "story"),
   ]);
-  return navigationRow(payload, character.userId, ["profil", "sac", "carte"]);
+  return navigationRow(payload, t, character.userId, ["profile", "bag", "map"]);
 }
 
 export function storyView(
   character: AdventureCharacter,
   status: ChapterStatus | null,
+  t: Translator,
 ): V2MessagePayload {
   if (!status) {
     const ending = toV2Payload(
       false,
       buildContainer(Colors.Premium, [
-        "## 🏆 Ton histoire est écrite",
-        "Tu as entendu la dernière voix des Terres. Les gardiens restent affrontables, et les Terres se souviendront de ton nom.",
+        t("adventure.views.story.doneTitle"),
+        t("adventure.views.story.doneBody"),
       ]),
     );
-    return navigationRow(ending, character.userId, ["profil", "donjon", "classement"]);
+    return navigationRow(ending, t, character.userId, ["profile", "dungeon", "leaderboard"]);
   }
 
   const objectives = status.objectives
-    .map(
-      (entry) =>
-        `${checkbox(entry.done)} ${entry.label} - ${counter(entry.progress, entry.objective.target)}`,
+    .map((entry) =>
+      t("adventure.views.story.objectiveRow", {
+        check: checkbox(entry.done),
+        label: entry.label,
+        progress: counter(t, entry.progress, entry.objective.target),
+      }),
     )
     .join("\n");
 
   const requirements = [
-    `${checkbox(status.levelReached)} Niveau ${status.chapter.levelRequirement} requis (tu es niveau ${character.level})`,
-    `${checkbox(status.echoesReached)} ${status.chapter.echoCost} fragments d'écho (tu en as ${formatNumber(character.echoes)})`,
+    t("adventure.views.story.levelRequirement", {
+      check: checkbox(status.levelReached),
+      required: status.chapter.levelRequirement,
+      current: character.level,
+    }),
+    t("adventure.views.story.echoRequirement", {
+      check: checkbox(status.echoesReached),
+      required: status.chapter.echoCost,
+      current: formatNumber(t, character.echoes),
+    }),
   ].join("\n");
+
+  const ratio = (status.overallIndex - 1) / TOTAL_CHAPTERS;
 
   const payload = toV2Payload(
     false,
     buildContainer(Colors.Premium, [
-      `## ${status.actEmoji} ${status.actTitle}`,
-      `**Chapitre ${status.overallIndex}/${TOTAL_CHAPTERS} - ${status.chapter.title}**\n*${status.chapter.narration}*`,
-      `**Objectifs**\n${objectives}`,
-      `**Pour sceller le chapitre**\n${requirements}`,
-      `Avancement du scénario ${progressBar((status.overallIndex - 1) / TOTAL_CHAPTERS)} ${Math.round(((status.overallIndex - 1) / TOTAL_CHAPTERS) * 100)} %`,
-      status.ready
-        ? "Tout est prêt : scelle le chapitre pour ouvrir la suite."
-        : "Continue d'explorer : les objectifs se remplissent en jouant.",
+      t("adventure.views.story.act", { emoji: status.actEmoji, act: status.actTitle }),
+      t("adventure.views.story.chapter", {
+        index: status.overallIndex,
+        total: TOTAL_CHAPTERS,
+        title: chapterTitle(t, status.chapter),
+        narration: chapterNarration(t, status.chapter),
+      }),
+      t("adventure.views.story.objectives", { list: objectives }),
+      t("adventure.views.story.requirements", { list: requirements }),
+      t("adventure.views.story.progress", {
+        bar: progressBar(ratio),
+        percent: Math.round(ratio * 100),
+      }),
+      status.ready ? t("adventure.views.story.ready") : t("adventure.views.story.keepGoing"),
     ]),
   );
 
@@ -97,61 +155,75 @@ export function storyView(
     addActionRow(container, [
       new ButtonBuilder()
         .setCustomId(`adventure:seal:${character.userId}`)
-        .setLabel("Sceller le chapitre")
+        .setLabel(t("adventure.buttons.sealChapter"))
         .setEmoji("🔷")
         .setStyle(ButtonStyle.Success),
     ]);
   }
 
   appendRow(payload, [
-    exploreButton(character.userId),
-    viewButton(character.userId, "carte"),
-    viewButton(character.userId, "donjon"),
-    viewButton(character.userId, "quetes"),
+    exploreButton(t, character.userId),
+    viewButton(t, character.userId, "map"),
+    viewButton(t, character.userId, "dungeon"),
+    viewButton(t, character.userId, "quests"),
   ]);
   return payload;
 }
 
-export function sealView(result: SealResult): V2MessagePayload {
+export function sealView(result: SealResult, t: Translator): V2MessagePayload {
   const lines = [
-    `## 🔷 ${result.chapter.title} - chapitre scellé`,
-    `*${result.chapter.narration}*`,
-    `✨ +${formatNumber(result.chapter.reward.xp)} XP · 🪙 +${formatNumber(result.chapter.reward.gold)}`,
+    t("adventure.views.seal.title", { title: chapterTitle(t, result.chapter) }),
+    t("adventure.views.seal.narration", { narration: chapterNarration(t, result.chapter) }),
+    t("adventure.views.seal.reward", {
+      xp: formatNumber(t, result.chapter.reward.xp),
+      gold: formatNumber(t, result.chapter.reward.gold),
+    }),
   ];
 
   if (result.notices.length > 0) lines.push(result.notices.join("\n"));
   if (result.next) {
-    lines.push(`**Suite : ${result.next.chapter.title}**\n*${result.next.chapter.narration}*`);
+    lines.push(
+      t("adventure.views.seal.next", {
+        title: chapterTitle(t, result.next.chapter),
+        narration: chapterNarration(t, result.next.chapter),
+      }),
+    );
   }
 
   return toV2Payload(false, buildContainer(Colors.Premium, lines));
 }
 
-export function journalView(character: AdventureCharacter, logs: AdventureLog[]): V2MessagePayload {
+export function journalView(
+  character: AdventureCharacter,
+  logs: AdventureLog[],
+  t: Translator,
+): V2MessagePayload {
   const rows = logs
     .map((log) => {
-      const date = log.createdAt.toLocaleDateString("fr-FR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "2-digit",
-      });
-      const prefix = log.actorId
+      const icon = log.actorId
         ? "🛠️"
         : log.type === "STORY"
           ? "📖"
           : log.type === "DUNGEON"
             ? "🚪"
             : "🏅";
-      return `\`${date}\` ${prefix} ${log.message}`;
+      // Discord renders the timestamp in the reader's own locale and time zone.
+      return t("adventure.views.journal.row", {
+        timestamp: Math.floor(log.createdAt.getTime() / 1000),
+        icon,
+        message: log.message,
+      });
     })
     .join("\n");
 
   const payload = toV2Payload(
     false,
     buildContainer(Colors.Neutral, [
-      `## 📓 Journal de ${character.username ?? "l'aventurier"}`,
-      rows || "Ton journal est encore vierge.",
+      t("adventure.views.journal.title", {
+        name: character.username ?? t("adventure.views.unnamed"),
+      }),
+      rows || t("adventure.views.journal.empty"),
     ]),
   );
-  return navigationRow(payload, character.userId, ["profil", "histoire", "hauts-faits"]);
+  return navigationRow(payload, t, character.userId, ["profile", "story", "achievements"]);
 }

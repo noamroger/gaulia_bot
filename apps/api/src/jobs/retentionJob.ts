@@ -8,7 +8,7 @@ import {
 import { logger } from "../logger";
 
 const RETENTION_JOB_INTERVAL_MS = 6 * 60 * 60_000;
-/** Quêtes passées et échanges clos ne servent qu'à l'historique récent : 30 jours suffisent. */
+/** Past quests and closed trades only serve the recent history: 30 days is enough. */
 const ADVENTURE_RETENTION_DAYS = 30;
 
 async function runRetentionPurge(): Promise<void> {
@@ -23,15 +23,15 @@ async function runRetentionPurge(): Promise<void> {
     if (commandUsage > 0 || shardMetrics > 0 || adventureQuests > 0 || adventureTrades > 0) {
       logger.info(
         { commandUsage, shardMetrics, adventureQuests, adventureTrades },
-        "Données expirées supprimées",
+        "Expired data deleted",
       );
     }
   } catch (error) {
-    logger.error({ err: error }, "Échec de la purge des données expirées");
+    logger.error({ err: error }, "Expired data purge failed");
   }
 }
 
-/** Applique les durées de conservation (statistiques, quêtes) : au démarrage, puis toutes les 6 h. */
+/** Enforces the retention windows (statistics, quests): at startup, then every 6 hours. */
 export function startRetentionJob(): void {
   void runRetentionPurge();
   setInterval(() => void runRetentionPurge(), RETENTION_JOB_INTERVAL_MS).unref();

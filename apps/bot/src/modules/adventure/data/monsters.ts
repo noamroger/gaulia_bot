@@ -1,47 +1,39 @@
-/** Bestiaire. Les gardiens (`boss: true`) ne se rencontrent qu'en donjon, un par acte. */
+/** Bestiary. Guardians (`boss: true`) are only met in a dungeon, one per act. */
 
 import type { AdventureMonsterFamily } from "@gaulia/database";
 
-/** Les familles sont définies avec le scénario, qui s'en sert pour ses objectifs. */
+import type { Translator } from "../../../i18n";
+
+/** Families are defined with the story, which uses them for its objectives. */
 export type MonsterFamily = AdventureMonsterFamily;
 
 export interface MonsterLoot {
   itemId: string;
-  /** Probabilité de tomber, entre 0 et 1. */
+  /** Drop chance, between 0 and 1. */
   chance: number;
   min: number;
   max: number;
 }
 
+/** Names live in the catalog, keyed by `id`. */
 export interface MonsterDefinition {
   id: string;
-  name: string;
   emoji: string;
   family: MonsterFamily;
   level: number;
   hp: number;
   attack: number;
   defense: number;
-  /** Multiplicateurs appliqués aux gains de base de l'exploration. */
+  /** Multipliers applied to the base exploration rewards. */
   xpFactor: number;
   goldFactor: number;
   loot: MonsterLoot[];
   boss?: boolean;
 }
 
-export const MONSTER_FAMILY_LABELS: Readonly<Record<MonsterFamily, string>> = {
-  bete: "bêtes",
-  brigand: "brigands",
-  "mort-vivant": "morts-vivants",
-  elementaire: "élémentaires",
-  drake: "drakes",
-  echo: "échos",
-};
-
 export const MONSTERS: readonly MonsterDefinition[] = [
   {
     id: "lapin-hargneux",
-    name: "Lapin hargneux",
     emoji: "🐇",
     family: "bete",
     level: 1,
@@ -54,7 +46,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "loup-gris",
-    name: "Loup gris",
     emoji: "🐺",
     family: "bete",
     level: 4,
@@ -67,7 +58,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "sanglier-furieux",
-    name: "Sanglier furieux",
     emoji: "🐗",
     family: "bete",
     level: 7,
@@ -80,7 +70,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "detrousseur",
-    name: "Détrousseur",
     emoji: "🥷",
     family: "brigand",
     level: 10,
@@ -93,7 +82,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "araignee-sylve",
-    name: "Araignée de sylve",
     emoji: "🕷️",
     family: "bete",
     level: 13,
@@ -106,7 +94,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "ours-bois-bas",
-    name: "Ours des Bois-Bas",
     emoji: "🐻",
     family: "bete",
     level: 16,
@@ -119,7 +106,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "goule-affamee",
-    name: "Goule affamée",
     emoji: "🧟",
     family: "mort-vivant",
     level: 20,
@@ -132,7 +118,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "spectre-plaintif",
-    name: "Spectre plaintif",
     emoji: "👻",
     family: "mort-vivant",
     level: 24,
@@ -145,7 +130,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "chevalier-tombe",
-    name: "Chevalier tombé",
     emoji: "⚰️",
     family: "mort-vivant",
     level: 28,
@@ -161,7 +145,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "forgeron-cendre",
-    name: "Forgeron de cendre",
     emoji: "🔨",
     family: "elementaire",
     level: 32,
@@ -174,7 +157,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "golem-scories",
-    name: "Golem de scories",
     emoji: "🗿",
     family: "elementaire",
     level: 36,
@@ -187,7 +169,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "salamandre-forge",
-    name: "Salamandre des forges",
     emoji: "🦎",
     family: "elementaire",
     level: 40,
@@ -200,7 +181,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "veneur-givre",
-    name: "Veneur de givre",
     emoji: "🧊",
     family: "brigand",
     level: 45,
@@ -213,7 +193,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "drake-blanc",
-    name: "Drake blanc",
     emoji: "🐉",
     family: "drake",
     level: 50,
@@ -226,7 +205,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "colosse-gel",
-    name: "Colosse de gel",
     emoji: "☃️",
     family: "elementaire",
     level: 54,
@@ -239,7 +217,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "corsaire-tempete",
-    name: "Corsaire des tempêtes",
     emoji: "🏴‍☠️",
     family: "brigand",
     level: 58,
@@ -252,7 +229,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "noye-rancunier",
-    name: "Noyé rancunier",
     emoji: "🌊",
     family: "mort-vivant",
     level: 62,
@@ -265,7 +241,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "drake-orage",
-    name: "Drake d'orage",
     emoji: "🐲",
     family: "drake",
     level: 66,
@@ -278,7 +253,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "veilleur-astral",
-    name: "Veilleur astral",
     emoji: "👁️",
     family: "echo",
     level: 70,
@@ -291,7 +265,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "marcheur-vide",
-    name: "Marcheur du vide",
     emoji: "🕳️",
     family: "echo",
     level: 75,
@@ -304,7 +277,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "choeur-brise",
-    name: "Chœur brisé",
     emoji: "🎭",
     family: "echo",
     level: 80,
@@ -317,7 +289,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "reflet-soi",
-    name: "Reflet de soi",
     emoji: "🪞",
     family: "echo",
     level: 88,
@@ -330,7 +301,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "silence-ancien",
-    name: "Silence ancien",
     emoji: "🌑",
     family: "echo",
     level: 95,
@@ -345,10 +315,9 @@ export const MONSTERS: readonly MonsterDefinition[] = [
     ],
   },
 
-  // ─── Gardiens d'acte : uniquement en donjon, une fois par semaine ────────
+  // Act guardians: dungeon only, once a week.
   {
     id: "gardien-brume",
-    name: "Gardien de la brume",
     emoji: "🌫️",
     family: "echo",
     level: 12,
@@ -362,7 +331,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "gardien-tombes",
-    name: "Gardien des tombes",
     emoji: "💀",
     family: "mort-vivant",
     level: 26,
@@ -376,7 +344,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "gardien-forges",
-    name: "Gardien des forges",
     emoji: "⚒️",
     family: "elementaire",
     level: 40,
@@ -390,7 +357,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "gardien-givre",
-    name: "Gardien du givre",
     emoji: "❄️",
     family: "elementaire",
     level: 54,
@@ -404,7 +370,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "gardien-tempetes",
-    name: "Gardien des tempêtes",
     emoji: "⛈️",
     family: "drake",
     level: 68,
@@ -418,7 +383,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "gardien-voute",
-    name: "Gardien de la voûte",
     emoji: "🌌",
     family: "echo",
     level: 82,
@@ -432,7 +396,6 @@ export const MONSTERS: readonly MonsterDefinition[] = [
   },
   {
     id: "echo-premier",
-    name: "Écho premier",
     emoji: "✨",
     family: "echo",
     level: 98,
@@ -450,6 +413,15 @@ const BY_ID = new Map(MONSTERS.map((monster) => [monster.id, monster]));
 
 export function requireMonster(monsterId: string): MonsterDefinition {
   const monster = BY_ID.get(monsterId);
-  if (!monster) throw new Error(`Monstre d'aventure inconnu : ${monsterId}`);
+  if (!monster) throw new Error(`Unknown adventure monster: ${monsterId}`);
   return monster;
+}
+
+export function monsterName(t: Translator, monster: MonsterDefinition): string {
+  return t(`adventure.monsters.${monster.id}`);
+}
+
+/** Plural family name ("beasts"), used by the story objectives. */
+export function familyLabel(t: Translator, family: MonsterFamily): string {
+  return t(`adventure.families.${family}`);
 }

@@ -4,16 +4,16 @@ import { adventureUpgradeMultiplier } from "@gaulia/database";
 
 import { findItem, type ItemBonus, type ItemSlot } from "../../data/items";
 
-/** Caractéristiques effectives, équipement compris : tout le jeu passe par ces valeurs. */
+/** Effective stats, gear included: the whole game reads these values. */
 export interface DerivedStats {
   maxHp: number;
   attack: number;
   power: number;
   defense: number;
-  /** Pourcentages, déjà plafonnés. */
+  /** Percentages, already capped. */
   crit: number;
   dodge: number;
-  /** Valeur offensive réellement utilisée par la classe (force ou esprit). */
+  /** Offensive value the class actually uses (might or spirit). */
   offense: number;
 }
 
@@ -35,7 +35,7 @@ function sumBonuses(items: AdventureItem[]): ItemBonus {
     const bonus = findItem(row.itemId)?.bonus;
     if (!bonus) continue;
 
-    // Le renforcement multiplie les bonus de la pièce, jamais les caractéristiques de base.
+    // The upgrade multiplies the bonuses of the piece, never the base stats.
     const factor = adventureUpgradeMultiplier(row.upgradeLevel);
     total.attack += Math.round((bonus.attack ?? 0) * factor);
     total.defense += Math.round((bonus.defense ?? 0) * factor);
@@ -75,7 +75,7 @@ export function computeStats(character: AdventureCharacter, items: AdventureItem
   };
 }
 
-/** Pièce équipée dans un emplacement, si le personnage en porte une. */
+/** Piece worn in a slot, when the character wears one. */
 export function equippedIn(items: AdventureItem[], slot: ItemSlot): AdventureItem | undefined {
   return items.find((row) => row.equipped && findItem(row.itemId)?.slot === slot);
 }

@@ -1,7 +1,7 @@
-/* Thème sombre par défaut. Le thème clair s'obtient via data-theme="light" sur <html> (posé par
-   le script de layout.tsx puis par ThemeToggle) : seuls les tokens ci-dessous changent, aucune
-   règle plus bas ne code une couleur en dur. La palette de marque (indigo → violet) est celle de
-   la page d'accueil, reprise sur tout le dashboard. */
+/* Dark theme by default. The light theme comes from data-theme="light" on <html> (set by the
+   layout.tsx script, then by ThemeToggle): only the tokens below change, no rule further down
+   hardcodes a color. The brand palette (indigo to violet) is the landing page's, reused across
+   the whole dashboard. */
 :root {
   color-scheme: dark;
 
@@ -118,9 +118,9 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-/* Halo de marque des pages du dashboard (la page d'accueil a le sien, .landing-backdrop).
-   Fixé au viewport : la teinte accompagne le scroll au lieu de laisser la page redevenir noire
-   sous la première hauteur d'écran. */
+/* Brand halo of the dashboard pages (the landing page has its own, .landing-backdrop).
+   Fixed to the viewport: the tint follows the scroll instead of letting the page turn black
+   again below the first screen height. */
 .app-shell {
   position: relative;
   isolation: isolate;
@@ -155,7 +155,7 @@ button {
   padding: 24px 20px 80px;
 }
 
-/* Titres de page en dégradé de marque (dashboard, admin, page légale, carte de connexion). */
+/* Page titles in the brand gradient (dashboard, admin, legal page, sign-in card). */
 .container > h1,
 .legal > h1,
 .card > h1 {
@@ -168,7 +168,7 @@ button {
   letter-spacing: -0.02em;
 }
 
-/* `width: fit-content` (pour que le dégradé épouse le texte) sort le titre du centrage de la carte. */
+/* `width: fit-content` (so the gradient hugs the text) takes the title out of the card's centering. */
 .card > h1 {
   margin-inline: auto;
 }
@@ -740,6 +740,12 @@ button {
   font-size: 12px;
 }
 
+.site-footer-toggles {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 @media (max-width: 860px) {
   .site-footer-inner {
     grid-template-columns: 1fr 1fr;
@@ -757,7 +763,7 @@ button {
   }
 }
 
-/* ─── Bascule clair / sombre ─────────────────────────────────────────────── */
+/* ─── Light / dark switch ────────────────────────────────────────────────── */
 
 .theme-toggle {
   display: inline-grid;
@@ -786,8 +792,46 @@ button {
   outline-offset: 2px;
 }
 
-/* `.menu-item` est déclaré plus bas en display:block : on renforce la spécificité pour l'emporter. */
+/* `.menu-item` is declared display:block further down, so specificity is raised to win. */
 .menu-item.theme-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ─── Language switch ────────────────────────────────────────────────────── */
+
+.language-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.language-toggle:hover {
+  color: var(--text);
+  border-color: var(--accent-border);
+}
+
+.language-toggle:focus-visible,
+.language-menu-item:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.menu-item.language-menu-item {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -954,7 +998,7 @@ button {
   box-shadow: 0 8px 24px var(--brand-glow);
 }
 
-/* L'aperçu reproduit un salon Discord : il reste sombre en thème clair, comme une capture. */
+/* The preview imitates a Discord channel: it stays dark in the light theme, like a screenshot. */
 .landing-preview {
   --preview-bg: #0e0f13;
   --preview-elevated: #17191f;
@@ -1400,8 +1444,8 @@ button {
   transform: translateY(-2px);
 }
 
-/* Serveurs gérables où le bot n'est pas encore présent : rendu en noir et blanc, cliquable pour
-   ouvrir le popup d'invitation Discord (voir dashboard/page.tsx). */
+/* Manageable servers the bot has not joined yet: shown in black and white, clickable to open
+   the Discord invite popup (see dashboard/page.tsx). */
 .guild-card-invitable {
   font: inherit;
   color: inherit;
@@ -1708,7 +1752,7 @@ button {
   color: var(--text-muted);
 }
 
-/** Source du premium (abonnement Discord ou crédits), affichée à côté du statut. */
+/** Where the premium comes from (Discord subscription or credits), shown next to the status. */
 .badge-accent {
   background: var(--accent-soft);
   color: var(--accent-text);
@@ -1882,7 +1926,7 @@ button {
   color: var(--danger);
 }
 
-/* ─── Formulaire de contact ──────────────────────────────────────────────── */
+/* ─── Contact form ───────────────────────────────────────────────────────── */
 
 .contact-intro {
   max-width: 70ch;
@@ -1918,7 +1962,7 @@ button {
   font-size: 13px;
 }
 
-/* Identité reprise de la session Discord, affichée en tête du formulaire. */
+/* Identity taken from the Discord session, shown at the top of the form. */
 .contact-identity {
   display: flex;
   align-items: center;
@@ -1943,8 +1987,8 @@ button {
   margin: 8px 0 20px;
 }
 
-/* Serveurs sans Gaulia : en retrait dans la liste. Les navigateurs qui ignorent la couleur d'une
-   option gardent les intitulés de groupe, qui suffisent à distinguer les deux listes. */
+/* Servers without Gaulia: set back in the list. Browsers that ignore an option's color still
+   show the group labels, which is enough to tell the two lists apart. */
 .option-muted {
   color: var(--text-muted);
 }
@@ -2306,7 +2350,7 @@ button {
   }
 }
 
-/* ─── Crédits (top.gg) ──────────────────────────────────────────────────── */
+/* ─── Credits (top.gg) ───────────────────────────────────────────────────── */
 
 .credits-card {
   margin: 20px 0 32px;
@@ -2405,8 +2449,8 @@ button {
   width: 120px;
 }
 
-/* `.field` posé sur le <label> lui-même (et non sur un conteneur) : le libellé est alors un
-   <span> enfant, que `.field label` ne couvre pas. */
+/* `.field` sits on the <label> itself rather than on a wrapper, so the caption is a child
+   <span>, which `.field label` does not cover. */
 .credit-dialog-form .field > span {
   font-size: 13px;
   font-weight: 600;
@@ -2438,7 +2482,7 @@ button {
   padding-top: 0;
 }
 
-/* ─── Panel admin : aventure ─────────────────────────────────────────────── */
+/* ─── Admin panel: adventure ─────────────────────────────────────────────── */
 
 .adventure-sheet {
   display: flex;
@@ -2477,7 +2521,7 @@ button {
   justify-content: flex-end;
 }
 
-/* ─── Mes données personnelles ───────────────────────────────────────────── */
+/* ─── My personal data ───────────────────────────────────────────────────── */
 
 .my-data-intro {
   max-width: 70ch;
@@ -2489,8 +2533,8 @@ button {
   margin-bottom: 24px;
 }
 
-/* Chaque catégorie de données est repliée : la page s'ouvre sur un inventaire lisible d'un coup
-   d'œil, et le détail ne se déplie que si on le demande. */
+/* Every data category is collapsed, so the page opens on an inventory readable at a glance
+   and the detail unfolds only on request. */
 .my-data-section {
   border-bottom: 1px solid var(--border);
 }
@@ -2514,7 +2558,7 @@ button {
   display: none;
 }
 
-/* Chevron maison : le marqueur natif ne se place pas de la même façon d'un navigateur à l'autre. */
+/* Hand-rolled chevron: the native marker sits differently from one browser to the next. */
 .my-data-section > summary span::before {
   content: "▸";
   display: inline-block;
@@ -2558,7 +2602,7 @@ button {
   color: var(--text-muted);
 }
 
-/* ─── Panel admin : filtres, tri et pagination de la liste des serveurs ───── */
+/* ─── Admin panel: server list filters, sorting and paging ───────────────── */
 
 .filter-panel {
   display: grid;
@@ -2595,7 +2639,7 @@ button {
   min-width: 0;
 }
 
-/* Étiquette et menu déroulant sur une seule ligne, pour la barre d'outils. */
+/* Label and dropdown on a single line, for the toolbar. */
 .filter-inline {
   display: inline-flex;
   align-items: center;
@@ -2609,7 +2653,7 @@ button {
   min-width: 0;
 }
 
-/* En-tête de colonne cliquable : garde l'apparence d'un en-tête, pas d'un bouton. */
+/* Clickable column header: keeps the look of a header, not of a button. */
 .sort-header {
   display: inline-flex;
   align-items: center;
@@ -2662,12 +2706,12 @@ button {
   margin-top: 16px;
 }
 
-/* Le tableau s'estompe pendant le chargement de la page suivante, sans disparaître. */
+/* The table fades while the next page loads, without disappearing. */
 .table-scroll[aria-busy="true"] {
   opacity: 0.6;
 }
 
-/* Pastille resserrée : un tableau dense en affiche plusieurs par ligne. */
+/* Tighter badge: a dense table shows several of them per row. */
 .badge-compact {
   padding: 1px 7px;
   font-size: 11px;
@@ -2677,8 +2721,8 @@ button {
   white-space: nowrap;
 }
 
-/* Tableau des serveurs : douze colonnes, donc chaque pixel compte pour que les boutons
-   d'action restent visibles sans faire défiler le tableau horizontalement. */
+/* Server table: twelve columns, so every pixel counts to keep the action buttons visible
+   without scrolling the table sideways. */
 .server-table th,
 .server-table td {
   padding: 8px 6px;
@@ -2688,14 +2732,14 @@ button {
   font-size: 12px;
 }
 
-/* Largeur fixe : deux pastilles par ligne, plutôt qu'une colonne étroite qui les empile. */
+/* Fixed width: two badges per row, rather than a narrow column stacking them. */
 .server-table .module-badges {
   width: 116px;
   max-width: none;
 }
 
-/* Les deux actions restent sur une seule ligne : empilées, elles doublaient la hauteur de chaque
-   ligne du tableau pour rien. */
+/* Both actions stay on one line: stacked, they doubled the height of every table row for
+   nothing. */
 .server-table .table-actions {
   flex-wrap: nowrap;
 }

@@ -15,7 +15,7 @@ import { authenticate } from "../plugins/authenticate";
 
 const STATE_COOKIE = "gaulia_oauth_state";
 const RETURN_COOKIE = "gaulia_oauth_return";
-/** Cookie de session, aussi effacé par la suppression des données (voir personalData.routes.ts). */
+/** Session cookie, also cleared by the data erasure route (see personalData.routes.ts). */
 export const SESSION_COOKIE = "gaulia_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 12;
 
@@ -30,8 +30,8 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Querystring: { redirect?: string } }>("/auth/login", async (request, reply) => {
     const state = randomBytes(16).toString("hex");
 
-    // Page de retour après connexion (ex: /contact). Seul un chemin interne est accepté : un `//`
-    // ou une URL absolue ferait du dashboard un tremplin de redirection vers n'importe quel site.
+    // Where to land after sign-in (e.g. /contact). Only an internal path is accepted: a `//` or an
+    // absolute URL would turn the dashboard into an open redirect.
     const requested = request.query.redirect ?? "";
     const returnPath = /^\/(?!\/)[\w\-/]*$/.test(requested) ? requested : "";
 
@@ -73,8 +73,8 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
             userId: user.id,
             username: user.username,
             avatar: user.avatar,
-            // Discord ne renvoie l'adresse qu'avec le scope `email`, et seulement si elle est
-            // vérifiée : sans elle, le formulaire de contact demandera une reconnexion.
+            // Discord only returns the address with the `email` scope, and only when verified:
+            // without it, the contact form asks for a new sign-in.
             email: user.verified ? (user.email ?? null) : null,
             manageableGuilds,
             isOwner: env.OWNER_IDS.includes(user.id),
@@ -89,7 +89,7 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
           })
           .redirect(`${env.DASHBOARD_URL}${returnPath || "/dashboard"}`);
       } catch (error) {
-        logger.error({ err: error }, "Échec du callback OAuth2 Discord");
+        logger.error({ err: error }, "Discord OAuth2 callback failed");
         return reply.redirect(`${env.DASHBOARD_URL}/login?error=oauth_failed`);
       }
     },

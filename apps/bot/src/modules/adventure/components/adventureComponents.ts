@@ -2,18 +2,23 @@ import { getAdventureCharacter, listAdventureItems, type AdventureClass } from "
 import type { ButtonInteraction, StringSelectMenuInteraction } from "discord.js";
 
 import { successPayload } from "../../../core/ui/containers";
+import type { Translator } from "../../../i18n";
 import type { ButtonComponent, StringSelectComponent } from "../../../structures/Component";
 import { classDefinition } from "../data/classes";
 import { findItem, itemLabel } from "../data/items";
 import { findTutorialPage } from "../data/tutorial";
 import { assertAdventureAccess } from "../services/access/adventureAccess";
 import { requireCharacter, startAdventure } from "../services/character/characterService";
-import { computeStats } from "../services/character/statsService";
 import { grantXp } from "../services/character/progressionService";
+import { computeStats } from "../services/character/statsService";
+import { runDungeon } from "../services/dungeon/dungeonService";
 import { craft } from "../services/economy/craftService";
 import { buyItem } from "../services/economy/shopService";
+import { acceptTrade, closeTrade } from "../services/economy/tradeService";
+import { upgradeItem } from "../services/economy/upgradeService";
 import { dispatchGameEvents } from "../services/events/eventDispatcher";
 import { explore } from "../services/exploration/exploreService";
+import { travelTo } from "../services/exploration/travelService";
 import {
   bestHealingItem,
   consumeItem,
@@ -21,42 +26,38 @@ import {
   equipItem,
   unequipItem,
 } from "../services/inventory/inventoryService";
-import { runDungeon } from "../services/dungeon/dungeonService";
-import { acceptTrade, closeTrade } from "../services/economy/tradeService";
-import { upgradeItem } from "../services/economy/upgradeService";
-import { travelTo } from "../services/exploration/travelService";
 import { checkAchievements } from "../services/progress/achievementService";
 import { chapterStatus, sealChapter } from "../services/progress/storyService";
 import { forgeView, inventoryView, shopView } from "../ui/economyViews";
 import { dungeonResultView, exploreView, travelView } from "../ui/exploreViews";
-import type { AdventureView } from "../ui/navigation";
-import { renderAdventureView } from "../ui/renderView";
-import { tutorialView } from "../ui/tutorialViews";
 import { gold } from "../ui/format";
+import type { AdventureView } from "../ui/navigation";
 import { sealView, storyView } from "../ui/progressViews";
-import { upgradeView } from "../ui/tradeViews";
-import { tradeClosedView, tradeResultView } from "../ui/tradeViews";
+import { renderAdventureView } from "../ui/renderView";
+import { tradeClosedView, tradeResultView, upgradeView } from "../ui/tradeViews";
+import { tutorialView } from "../ui/tutorialViews";
 
-/** L'identifiant porte son propriétaire : `adventure:<action>:<userId>`. */
+/** The id carries its owner: `adventure:<action>:<userId>`. */
 function ownerOf(customId: string): string {
   return customId.split(":")[2] ?? "";
 }
 
 /**
- * Les boutons d'échange portent un numéro de proposition, pas un propriétaire
- * (`adventure:trade:<action>:<tradeId>`) : c'est le service qui vérifie que celui qui clique est
- * bien concerné, puisque les deux joueurs voient le même message.
+ * Trade buttons carry an offer number rather than an owner (`adventure:trade:<action>:<tradeId>`):
+ * the service is the one checking that whoever clicks is actually involved, since both players see
+ * the same message.
  */
 function tradeIdOf(customId: string): number {
   return Number(customId.split(":")[3] ?? "");
 }
 
 /**
- * Garde commune aux composants : mêmes règles de salon que les commandes, et seul le propriétaire
- * du message peut agir dessus (sinon la réponse est un simple message éphémère, pas une erreur).
+ * Guard shared by every component: same channel rules as the commands, and only the owner of the
+ * message may act on it (the answer is then a plain ephemeral message, not an error).
  */
 async function guard(
   interaction: ButtonInteraction | StringSelectMenuInteraction,
+  t: Translator,
 ): Promise<boolean> {
   await assertAdventureAccess(interaction);
 
@@ -64,8 +65,8 @@ async function guard(
     await interaction.reply(
       successPayload(
         true,
-        "Ce n'est pas ton aventure",
-        "Ce message appartient à un autre aventurier. Lance la tienne avec `/aventure commencer`.",
+        t("adventure.replies.notYoursTitle"),
+        t("adventure.replies.notYoursBody"),
       ),
     );
     return false;
@@ -76,35 +77,35 @@ async function guard(
 const exploreButton: ButtonComponent = {
   type: "button",
   customIdPrefix: "adventure:explore",
-  async execute(interaction) {
-    if (!(await guard(interaction))) return;
+  async execute(interaction, _client, t) {
+    if (!(await guard(interaction, t))) return;
 
     await interaction.deferUpdate();
     const { character, items } = await requireCharacter(interaction.user.id);
-    await interaction.editReply(exploreView(await explore(character, items)));
+    await interaction.editReply(exploreView(await explore(character, items, t), t));
   },
 };
 
 const sealButton: ButtonComponent = {
   type: "button",
   customIdPrefix: "adventure:seal",
-  async execute(interaction) {
-    if (!(await guard(interaction))) return;
+  async execute(interaction, _client, t) {
+    if (!(await guard(interaction, t))) return;
 
     await interaction.deferUpdate();
     const { character, items } = await requireCharacter(interaction.user.id);
-    const result = await sealChapter(character, items);
+    const result = await sealChapter(character, items, t);
 
-    await interaction.editReply(storyView(result.character, chapterStatus(result.character)));
-    await interaction.followUp(sealView(result));
+    await interaction.editReply(storyView(result.character, chapterStatus(result.character, t), t));
+    await interaction.followUp(sealView(result, t));
   },
 };
 
 const itemSelect: StringSelectComponent = {
   type: "stringSelect",
   customIdPrefix: "adventure:item",
-  async execute(interaction) {
-    if (!(await guard(interaction))) return;
+  async execute(interaction, _client, t) {
+    if (!(await guard(interaction, t))) return;
 
     await interaction.deferUpdate();
     const itemId = interaction.values[0] ?? "";
@@ -115,33 +116,36 @@ const itemSelect: StringSelectComponent = {
       const worn = items.some((row) => row.itemId === itemId && row.equipped);
       const updated = worn
         ? await unequipItem(character.userId, itemId)
-        : await equipItem(character, items, itemId);
+        : await equipItem(character, items, itemId, t);
 
-      await interaction.editReply(inventoryView(character, describeInventory(updated)));
+      await interaction.editReply(inventoryView(character, describeInventory(updated), t));
       return;
     }
 
-    const result = await consumeItem(character, items, itemId);
+    const result = await consumeItem(character, items, itemId, t);
     let current = result.character;
     if (result.xp > 0) current = (await grantXp(current, result.items, result.xp)).character;
-    const dispatched = await dispatchGameEvents(current, result.items, [
-      { type: "POTION", amount: 1 },
-    ]);
+    const dispatched = await dispatchGameEvents(
+      current,
+      result.items,
+      [{ type: "POTION", amount: 1 }],
+      t,
+    );
 
     await interaction.editReply(
-      inventoryView(dispatched.character, describeInventory(result.items)),
+      inventoryView(dispatched.character, describeInventory(result.items), t),
     );
     await interaction.followUp(
       successPayload(
         true,
-        `${itemLabel(itemId)} utilisé`,
+        t("adventure.replies.usedTitle", { item: itemLabel(t, itemId) }),
         [
-          result.healed > 0 ? `❤️ +${result.healed} PV` : null,
-          result.energy > 0 ? `⚡ +${result.energy} énergie` : null,
-          result.xp > 0 ? `✨ +${result.xp} XP` : null,
+          result.healed > 0 ? t("adventure.replies.usedHp", { amount: result.healed }) : null,
+          result.energy > 0 ? t("adventure.replies.usedEnergy", { amount: result.energy }) : null,
+          result.xp > 0 ? t("adventure.replies.usedXp", { amount: result.xp }) : null,
         ]
           .filter(Boolean)
-          .join(" · ") || "Aucun effet : tout était déjà au maximum.",
+          .join(" · ") || t("adventure.replies.usedNothing"),
       ),
     );
   },
@@ -150,20 +154,26 @@ const itemSelect: StringSelectComponent = {
 const buySelect: StringSelectComponent = {
   type: "stringSelect",
   customIdPrefix: "adventure:buy",
-  async execute(interaction) {
-    if (!(await guard(interaction))) return;
+  async execute(interaction, _client, t) {
+    if (!(await guard(interaction, t))) return;
 
     await interaction.deferUpdate();
     const itemId = interaction.values[0] ?? "";
     const { character, items } = await requireCharacter(interaction.user.id);
-    const result = await buyItem(character, items, itemId, 1);
+    const result = await buyItem(character, items, itemId, 1, t);
 
-    await interaction.editReply(shopView(result.character));
+    await interaction.editReply(shopView(result.character, t));
     await interaction.followUp(
       successPayload(
         true,
-        "Achat conclu",
-        `${itemLabel(itemId)} pour ${gold(result.total)}. Il te reste ${gold(result.character.gold)}.`,
+        t("adventure.replies.boughtTitle"),
+        [
+          t("adventure.replies.boughtOne", {
+            item: itemLabel(t, itemId),
+            total: gold(t, result.total),
+          }),
+          t("adventure.replies.purseLeft", { gold: gold(t, result.character.gold) }),
+        ].join(" "),
       ),
     );
   },
@@ -172,22 +182,25 @@ const buySelect: StringSelectComponent = {
 const craftSelect: StringSelectComponent = {
   type: "stringSelect",
   customIdPrefix: "adventure:craft",
-  async execute(interaction) {
-    if (!(await guard(interaction))) return;
+  async execute(interaction, _client, t) {
+    if (!(await guard(interaction, t))) return;
 
     await interaction.deferUpdate();
     const recipeId = interaction.values[0] ?? "";
     const { character, items } = await requireCharacter(interaction.user.id);
-    const result = await craft(character, items, recipeId);
+    const result = await craft(character, items, recipeId, t);
 
     await interaction.editReply(
-      forgeView(result.character, await listAdventureItems(character.userId)),
+      forgeView(result.character, await listAdventureItems(character.userId), t),
     );
     await interaction.followUp(
       successPayload(
         true,
-        "Forge terminée",
-        `${result.recipe.quantity} × ${itemLabel(result.recipe.itemId)} sort de l'enclume.`,
+        t("adventure.replies.craftedTitle"),
+        t("adventure.replies.craftedLine", {
+          quantity: result.recipe.quantity,
+          item: itemLabel(t, result.recipe.itemId),
+        }),
       ),
     );
   },
@@ -196,13 +209,13 @@ const craftSelect: StringSelectComponent = {
 const tradeAcceptButton: ButtonComponent = {
   type: "button",
   customIdPrefix: "adventure:trade:accept",
-  async execute(interaction) {
+  async execute(interaction, _client, t) {
     await assertAdventureAccess(interaction);
     await interaction.deferUpdate();
 
-    const result = await acceptTrade(tradeIdOf(interaction.customId), interaction.user.id);
+    const result = await acceptTrade(tradeIdOf(interaction.customId), interaction.user.id, t);
     await interaction.editReply(
-      tradeResultView(result.trade, result.initiator, result.target, result.lostUpgrades),
+      tradeResultView(result.trade, result.initiator, result.target, result.lostUpgrades, t),
     );
   },
 };
@@ -210,7 +223,7 @@ const tradeAcceptButton: ButtonComponent = {
 const tradeDeclineButton: ButtonComponent = {
   type: "button",
   customIdPrefix: "adventure:trade:decline",
-  async execute(interaction) {
+  async execute(interaction, _client, t) {
     await assertAdventureAccess(interaction);
     await interaction.deferUpdate();
 
@@ -219,14 +232,14 @@ const tradeDeclineButton: ButtonComponent = {
       interaction.user.id,
       "DECLINED",
     );
-    await interaction.editReply(tradeClosedView(trade, "DECLINED"));
+    await interaction.editReply(tradeClosedView(trade, "DECLINED", t));
   },
 };
 
 const tradeCancelButton: ButtonComponent = {
   type: "button",
   customIdPrefix: "adventure:trade:cancel",
-  async execute(interaction) {
+  async execute(interaction, _client, t) {
     await assertAdventureAccess(interaction);
     await interaction.deferUpdate();
 
@@ -235,49 +248,49 @@ const tradeCancelButton: ButtonComponent = {
       interaction.user.id,
       "CANCELLED",
     );
-    await interaction.editReply(tradeClosedView(trade, "CANCELLED"));
+    await interaction.editReply(tradeClosedView(trade, "CANCELLED", t));
   },
 };
 
 /**
- * Navigation : un seul composant sait afficher toutes les vues consultables (`adventure:nav:
- * <userId>:<vue>`). Ajouter un bouton vers une nouvelle vue ne demande donc aucun composant
- * supplémentaire, seulement une entrée dans `AdventureView`.
+ * Navigation: a single component knows how to render every browsable view (`adventure:nav:
+ * <userId>:<view>`). Adding a button towards a new view therefore needs no extra component, only an
+ * entry in `AdventureView`.
  */
 const navButton: ButtonComponent = {
   type: "button",
   customIdPrefix: "adventure:nav",
-  async execute(interaction) {
-    if (!(await guard(interaction))) return;
+  async execute(interaction, _client, t) {
+    if (!(await guard(interaction, t))) return;
 
     await interaction.deferUpdate();
-    const view = (interaction.customId.split(":")[3] ?? "profil") as AdventureView;
-    await interaction.editReply(await renderAdventureView(interaction.user, view));
+    const view = (interaction.customId.split(":")[3] ?? "profile") as AdventureView;
+    await interaction.editReply(await renderAdventureView(interaction.user, view, t));
   },
 };
 
-/** Voyage depuis la carte : la région visée est portée par l'identifiant du bouton. */
+/** Travel from the map: the target region is carried by the button id. */
 const travelButton: ButtonComponent = {
   type: "button",
   customIdPrefix: "adventure:travel",
-  async execute(interaction) {
-    if (!(await guard(interaction))) return;
+  async execute(interaction, _client, t) {
+    if (!(await guard(interaction, t))) return;
 
     await interaction.deferUpdate();
     const zoneId = interaction.customId.split(":")[3] ?? "";
     const { character, items } = await requireCharacter(interaction.user.id);
-    const result = await travelTo(character, items, zoneId);
+    const result = await travelTo(character, items, zoneId, t);
 
-    await interaction.editReply(travelView(result.character, result.zone, result.notices));
+    await interaction.editReply(travelView(result.character, result.zone, result.notices, t));
   },
 };
 
-/** Soin rapide après un combat : boit la potion la plus économe qui comble les dégâts. */
+/** Quick heal after a fight: drinks the thriftiest potion that covers the damage taken. */
 const healButton: ButtonComponent = {
   type: "button",
   customIdPrefix: "adventure:heal",
-  async execute(interaction) {
-    if (!(await guard(interaction))) return;
+  async execute(interaction, _client, t) {
+    if (!(await guard(interaction, t))) return;
 
     await interaction.deferUpdate();
     const { character, items } = await requireCharacter(interaction.user.id);
@@ -288,81 +301,86 @@ const healButton: ButtonComponent = {
       await interaction.followUp(
         successPayload(
           true,
-          "Aucune potion",
-          "Ton sac est vide de quoi te soigner. La boutique en vend, la forge en fabrique.",
+          t("adventure.replies.noPotionTitle"),
+          t("adventure.replies.noPotionBody"),
         ),
       );
       return;
     }
 
-    const result = await consumeItem(character, items, potion.item.id);
-    const dispatched = await dispatchGameEvents(result.character, result.items, [
-      { type: "POTION", amount: 1 },
-    ]);
+    const result = await consumeItem(character, items, potion.item.id, t);
+    const dispatched = await dispatchGameEvents(
+      result.character,
+      result.items,
+      [{ type: "POTION", amount: 1 }],
+      t,
+    );
 
-    await interaction.editReply(await renderAdventureView(interaction.user, "profil"));
+    await interaction.editReply(await renderAdventureView(interaction.user, "profile", t));
     await interaction.followUp(
       successPayload(
         true,
-        `${itemLabel(potion.item.id)} bue`,
-        [`❤️ +${result.healed} PV`, ...dispatched.notices].join("\n"),
+        t("adventure.replies.drankTitle", { item: itemLabel(t, potion.item.id) }),
+        [t("adventure.replies.healed", { amount: result.healed }), ...dispatched.notices].join(
+          "\n",
+        ),
       ),
     );
   },
 };
 
-/** Lancement du donjon depuis sa fiche, sans repasser par `/aventure donjon lancer:true`. */
+/** Dungeon run from its own sheet, without going back through `/adventure dungeon fight:true`. */
 const dungeonButton: ButtonComponent = {
   type: "button",
   customIdPrefix: "adventure:dungeon",
-  async execute(interaction) {
-    if (!(await guard(interaction))) return;
+  async execute(interaction, _client, t) {
+    if (!(await guard(interaction, t))) return;
 
     await interaction.deferUpdate();
     const { character, items } = await requireCharacter(interaction.user.id);
-    await interaction.editReply(dungeonResultView(await runDungeon(character, items)));
+    await interaction.editReply(dungeonResultView(await runDungeon(character, items, t), t));
   },
 };
 
-/** Renforcement depuis la forge : la pièce choisie monte d'un palier. */
+/** Upgrading from the forge: the chosen piece climbs one tier. */
 const upgradeSelect: StringSelectComponent = {
   type: "stringSelect",
   customIdPrefix: "adventure:upgrade",
-  async execute(interaction) {
-    if (!(await guard(interaction))) return;
+  async execute(interaction, _client, t) {
+    if (!(await guard(interaction, t))) return;
 
     await interaction.deferUpdate();
     const itemId = interaction.values[0] ?? "";
     const { character, items } = await requireCharacter(interaction.user.id);
-    const result = await upgradeItem(character, items, itemId);
+    const result = await upgradeItem(character, items, itemId, t);
 
-    await interaction.editReply(await renderAdventureView(interaction.user, "forge"));
-    await interaction.followUp(upgradeView(result.character, result.plan, true));
+    await interaction.editReply(await renderAdventureView(interaction.user, "forge", t));
+    await interaction.followUp(upgradeView(result.character, result.plan, true, t));
   },
 };
 
 /**
- * Pages du tutoriel. Comme la commande, ces composants ne réclament pas d'aventurier : la garde de
- * propriété suffit, puisqu'un nouveau venu n'a par définition pas encore de personnage.
+ * Tutorial pages. Like the command, these components need no adventurer: the ownership guard is
+ * enough, since a newcomer has by definition no character yet.
  */
 const tutorialPageButton: ButtonComponent = {
   type: "button",
-  customIdPrefix: "adventure:tuto-page",
-  async execute(interaction) {
-    if (!(await guard(interaction))) return;
+  customIdPrefix: "adventure:tutorial-page",
+  async execute(interaction, _client, t) {
+    if (!(await guard(interaction, t))) return;
 
     await interaction.deferUpdate();
     const page = Number(interaction.customId.split(":")[3] ?? "0");
     const character = await getAdventureCharacter(interaction.user.id);
-    await interaction.editReply(tutorialView(interaction.user.id, page, character !== null));
+    await interaction.editReply(tutorialView(interaction.user.id, page, character !== null, t));
   },
 };
 
 const tutorialJumpSelect: StringSelectComponent = {
   type: "stringSelect",
-  customIdPrefix: "adventure:tuto-jump",
-  async execute(interaction) {
-    if (!(await guard(interaction))) return;
+  customIdPrefix: "adventure:tutorial-jump",
+  async execute(interaction, _client, t) {
+    if (!(await guard(interaction, t))) return;
 
     await interaction.deferUpdate();
     const character = await getAdventureCharacter(interaction.user.id);
@@ -371,17 +389,18 @@ const tutorialJumpSelect: StringSelectComponent = {
         interaction.user.id,
         findTutorialPage(interaction.values[0] ?? ""),
         character !== null,
+        t,
       ),
     );
   },
 };
 
-/** Création du personnage depuis le tutoriel : la classe voyage dans l'identifiant du bouton. */
+/** Character creation from the tutorial: the class travels inside the button id. */
 const tutorialStartButton: ButtonComponent = {
   type: "button",
-  customIdPrefix: "adventure:tuto-start",
-  async execute(interaction) {
-    if (!(await guard(interaction))) return;
+  customIdPrefix: "adventure:tutorial-start",
+  async execute(interaction, _client, t) {
+    if (!(await guard(interaction, t))) return;
 
     await interaction.deferUpdate();
     const characterClass = (interaction.customId.split(":")[3] ?? "GUERRIER") as AdventureClass;
@@ -390,14 +409,14 @@ const tutorialStartButton: ButtonComponent = {
       interaction.user.username,
       characterClass,
     );
-    await checkAchievements(created.character);
+    await checkAchievements(created.character, t);
 
-    await interaction.editReply(await renderAdventureView(interaction.user, "profil"));
+    await interaction.editReply(await renderAdventureView(interaction.user, "profile", t));
     await interaction.followUp(
       successPayload(
         true,
-        `${classDefinition(characterClass).emoji} Ton aventure commence`,
-        "Ta fiche est prête. Clique sur **Explorer** pour faire tes premiers pas, et reviens au tutoriel quand tu veux avec `/aventure tuto`.",
+        t("adventure.replies.startedTitle", { emoji: classDefinition(characterClass).emoji }),
+        t("adventure.replies.startedBody"),
       ),
     );
   },

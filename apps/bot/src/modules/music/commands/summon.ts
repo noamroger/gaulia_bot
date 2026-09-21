@@ -1,28 +1,25 @@
 import { SlashCommandBuilder } from "discord.js";
 
 import { Emojis } from "../../../client/Constants";
+import { localizeSlashCommand } from "../../../i18n";
 import type { ChatInputCommand } from "../../../structures/Command";
-import { interventionOf, musicActionPayload } from "../services/musicUi";
+import { musicActionPayload } from "../services/musicUi";
 import {
   getOrCreateConfiguredPlayer,
   requireVoiceChannelId,
   resolveMember,
 } from "../services/playerUtils";
 
+const KEY = "music.commands.summon";
+
 const command: ChatInputCommand = {
   type: "chatInput",
+  i18nKey: KEY,
   guildOnly: true,
-  data: new SlashCommandBuilder()
-    .setName("summon")
-    .setDescription("Fait rejoindre le bot dans ton salon vocal"),
 
-  help: {
-    details:
-      "Fait rejoindre ton salon vocal à Gaulia sans lancer de musique. Tu dois être connecté à un salon vocal.",
-    examples: ["summon"],
-  },
+  data: localizeSlashCommand(new SlashCommandBuilder(), KEY),
 
-  async execute(interaction, client) {
+  async execute(interaction, client, t) {
     const member = await resolveMember(interaction);
     const voiceChannelId = requireVoiceChannelId(member);
 
@@ -40,8 +37,11 @@ const command: ChatInputCommand = {
       musicActionPayload(
         interaction.user,
         Emojis.Music,
-        "Salon vocal rejoint",
-        `Gaulia a rejoint <#${voiceChannelId}> ${interventionOf(interaction.user)}.`,
+        t("music.actions.summon.title"),
+        t("music.actions.summon.joined", {
+          channel: voiceChannelId,
+          user: interaction.user.id,
+        }),
       ),
     );
   },
