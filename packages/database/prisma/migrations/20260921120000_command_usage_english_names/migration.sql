@@ -1,6 +1,12 @@
 -- The canonical name of six commands became English (French now travels as a Discord
 -- localization). Their daily counters would otherwise split in two in the admin panel, so the
 -- rows recorded under the old name are merged into the new one.
+--
+-- Prisma does not wrap a migration file in a transaction, and the merge takes two statements: an
+-- interruption between them would leave the old rows in place, so replaying the migration would
+-- add their counters a second time. BEGIN / COMMIT makes the merge all or nothing.
+
+BEGIN;
 
 WITH renames (old_name, new_name) AS (
     VALUES
@@ -27,3 +33,5 @@ WHERE "commandName" IN (
     'puissance4',
     'Avertir l''utilisateur'
 );
+
+COMMIT;
