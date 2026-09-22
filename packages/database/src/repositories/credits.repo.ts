@@ -135,7 +135,6 @@ export async function recordVote(input: RecordVoteInput): Promise<RecordVoteResu
         type: "VOTE",
         amount: CREDITS_PER_VOTE,
         balanceAfter: account.balance,
-        reason: "top.gg vote",
       },
     });
 

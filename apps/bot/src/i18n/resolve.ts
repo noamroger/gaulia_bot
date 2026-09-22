@@ -1,6 +1,7 @@
 import { getOrCreateGuild, getUserLanguage } from "@gaulia/database";
 import type { BaseInteraction } from "discord.js";
 
+import { logger } from "../client/logger";
 import { DEFAULT_LOCALE, matchDiscordLocale, readStoredLocale, type AppLocale } from "./locales";
 import { createTranslator, type Translator } from "./translator";
 
@@ -53,6 +54,21 @@ export function forgetGuildLanguage(guildId: string): void {
 
 export function forgetUserLanguage(userId: string): void {
   userCache.delete(userId);
+}
+
+/**
+ * Translator that cannot fail. Resolving the language reads stored overrides, so a database
+ * incident would otherwise take down every interaction, including the ones needing no data at all
+ * (`/ping`, the games, the music buttons). Discord sends the member's client locale along with the
+ * interaction, so the fallback stays in their language and costs nothing.
+ */
+export async function resilientTranslator(interaction: BaseInteraction): Promise<Translator> {
+  try {
+    return await translatorFor(interaction);
+  } catch (error) {
+    logger.error({ err: error }, "Could not resolve the locale of an interaction");
+    return createTranslator(matchDiscordLocale(interaction.locale) ?? DEFAULT_LOCALE);
+  }
 }
 
 /** Which step of the resolution decided the language, for `/language show` to explain itself. */

@@ -79,7 +79,8 @@ export function CreditsCard() {
                   <tr key={transaction.id}>
                     <td>{formatDateTime(transaction.createdAt, locale)}</td>
                     <td>
-                      {transaction.reason ?? t(`admin.userCredits.transaction.${transaction.type}`)}
+                      {transaction.reason ??
+                        t(`premium.userCredits.transaction.${transaction.type}`)}
                     </td>
                     <td
                       className={`numeric ${transaction.amount < 0 ? "amount-down" : "amount-up"}`}

@@ -1,19 +1,9 @@
 import type { RepliableInteraction } from "discord.js";
 
 import { logger } from "../../client/logger";
-import { defaultTranslator, translatorFor, type Translator } from "../../i18n";
+import { resilientTranslator } from "../../i18n";
 import { errorPayload } from "../ui/containers";
 import { GauliaError } from "./GauliaError";
-
-/** Falls back to English rather than losing the reply when the language lookup itself fails. */
-async function safeTranslator(interaction: RepliableInteraction): Promise<Translator> {
-  try {
-    return await translatorFor(interaction);
-  } catch (error) {
-    logger.error({ err: error }, "Could not resolve the locale of an interaction");
-    return defaultTranslator();
-  }
-}
 
 /**
  * Single entry point turning an error raised by a command or a component into a Components V2
@@ -23,7 +13,7 @@ export async function handleInteractionError(
   interaction: RepliableInteraction,
   error: unknown,
 ): Promise<void> {
-  const t = await safeTranslator(interaction);
+  const t = await resilientTranslator(interaction);
   const userMessage =
     error instanceof GauliaError ? t(error.key, error.vars) : t("common.error.internal");
 

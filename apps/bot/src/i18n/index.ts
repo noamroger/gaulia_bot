@@ -25,6 +25,7 @@ export {
   forgetUserLanguage,
   guildLanguageOverride,
   guildTranslatorFor,
+  resilientTranslator,
   resolveGuildLocale,
   resolveUserLocale,
   translatorFor,

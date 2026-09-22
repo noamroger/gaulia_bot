@@ -12,7 +12,7 @@ import { GauliaError, handleInteractionError } from "../core/errors";
 import { hasPermissionLevel, PermissionLevel } from "../core/permissions/permissionLevel";
 import { warningPayload } from "../core/ui/containers";
 import { resolveComponent } from "../handlers/componentHandler";
-import { translatorFor, type Translator } from "../i18n";
+import { resilientTranslator, type Translator } from "../i18n";
 import { assertAdventureAccess } from "../modules/adventure/services/access/adventureAccess";
 import { assertFunChannel } from "../modules/fun/services/funAccess";
 import { isBlindtestRunning } from "../modules/music/services/blindtest";
@@ -115,7 +115,7 @@ const event: GauliaEvent<typeof Events.InteractionCreate> = {
   async execute(client: GauliaClient, interaction: Interaction) {
     try {
       // Resolved once per interaction, then handed to every guard, command and component.
-      const t = await translatorFor(interaction);
+      const t = await resilientTranslator(interaction);
 
       if (interaction.isAutocomplete()) {
         const command = client.commands.get(interaction.commandName);

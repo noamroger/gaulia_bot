@@ -1,13 +1,14 @@
 /**
- * Fails on the two translation gaps the compiler cannot see:
+ * Fails on the three translation gaps the compiler cannot see:
  * - a key typed by hand in a `t("...")` call or a `new GauliaError("...")` that no English
  *   catalogue defines;
  * - a `{placeholder}` present in one language and missing from another, which would render the
- *   brace literally to the reader.
+ *   brace literally to the reader;
+ * - a key built at runtime whose namespace (the part before the first `${`) no catalogue defines.
  *
- * TypeScript already guarantees that the French files mirror the English ones key for key. Keys
+ * TypeScript already guarantees that the French files mirror the English ones key for key. A key
  * built at runtime (`t(`prefix.${value}`)` where the value is not a local constant) cannot be
- * resolved statically and are reported as skipped rather than as failures.
+ * resolved in full, so only its namespace is checked and it is counted apart.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join, relative } from "node:path";
@@ -171,9 +172,10 @@ interface Usage {
   file: string;
 }
 
-function collectUsages(app: App): { used: Usage[]; skipped: number } {
+function collectUsages(app: App): { used: Usage[]; dynamic: Usage[]; unresolved: number } {
   const used: Usage[] = [];
-  let skipped = 0;
+  const dynamic: Usage[] = [];
+  let unresolved = 0;
 
   for (const file of walk(join(ROOT, app.sources))) {
     if (file.includes(join(app.locales, ""))) continue;
@@ -182,9 +184,13 @@ function collectUsages(app: App): { used: Usage[]; skipped: number } {
     const constants = localConstants(source);
     const where = relative(ROOT, file);
 
-    const add = (raw: string | null): void => {
+    const add = (raw: string | null, template?: string): void => {
       if (raw === null) {
-        skipped += 1;
+        // A key built at runtime cannot be resolved, but the part before the first `${` can: a
+        // namespace no catalogue defines is a typo, whatever the value turns out to be.
+        const prefix = template?.slice(0, template.indexOf("${"));
+        if (prefix) dynamic.push({ key: prefix, file: where });
+        else unresolved += 1;
         return;
       }
       used.push({ key: raw, file: where });
@@ -193,17 +199,19 @@ function collectUsages(app: App): { used: Usage[]; skipped: number } {
     // t("key") and request.t("key")
     for (const match of source.matchAll(/\bt\(\s*"([\w.]+)"/g)) add(match[1]!);
     // t(`${KEY}.suffix`)
-    for (const match of source.matchAll(/\bt\(\s*`([^`]+)`/g)) add(resolve(match[1]!, constants));
+    for (const match of source.matchAll(/\bt\(\s*`([^`]+)`/g)) {
+      add(resolve(match[1]!, constants), match[1]!);
+    }
     // A GauliaError carries a translation key, resolved when the reply to the member is built.
     for (const match of source.matchAll(/new GauliaError\(\s*"([\w.]+)"/g)) add(match[1]!);
     for (const match of source.matchAll(/new GauliaError\(\s*`([^`]+)`/g)) {
-      add(resolve(match[1]!, constants));
+      add(resolve(match[1]!, constants), match[1]!);
     }
 
     // t.list("key") and t.list(`...`)
     for (const match of source.matchAll(/\bt\.list\(\s*"([\w.]+)"/g)) add(match[1]!);
     for (const match of source.matchAll(/\bt\.list\(\s*`([^`]+)`/g)) {
-      add(resolve(match[1]!, constants));
+      add(resolve(match[1]!, constants), match[1]!);
     }
 
     // A command's i18nKey must carry its Discord metadata and its `/help` entry. A context menu
@@ -215,7 +223,7 @@ function collectUsages(app: App): { used: Usage[]; skipped: number } {
     for (const match of source.matchAll(/i18nKey:\s*(?:"([\w.]+)"|(\w+))/g)) {
       const base = match[1] ?? constants.get(match[2]!);
       if (!base) {
-        skipped += 1;
+        unresolved += 1;
         continue;
       }
       for (const suffix of metadataSuffixes) {
@@ -229,32 +237,40 @@ function collectUsages(app: App): { used: Usage[]; skipped: number } {
     )) {
       const base = match[1] ?? (match[2] ? resolve(match[2], constants) : constants.get(match[3]!));
       if (!base) {
-        skipped += 1;
+        unresolved += 1;
         continue;
       }
       used.push({ key: `${base}.name`, file: where });
     }
   }
 
-  return { used, skipped };
+  return { used, dynamic, unresolved };
 }
 
 let failed = false;
 
 for (const app of APPS) {
   const known = loadKeys(app);
-  const { used, skipped } = collectUsages(app);
+  const { used, dynamic, unresolved } = collectUsages(app);
 
   const missing = new Map<string, string>();
   for (const usage of used) {
     if (!known.has(usage.key)) missing.set(usage.key, usage.file);
   }
 
+  const orphanPrefixes = new Map<string, string>();
+  for (const usage of dynamic) {
+    const covered = [...known].some((key) => key.startsWith(usage.key));
+    if (!covered) orphanPrefixes.set(usage.key, usage.file);
+  }
+
   const mismatched = comparePlaceholders(app);
   const checked = used.length;
 
-  if (missing.size === 0 && mismatched.length === 0) {
-    console.log(`${app.name}: ${known.size} keys, ${checked} usages checked, ${skipped} dynamic`);
+  if (missing.size === 0 && orphanPrefixes.size === 0 && mismatched.length === 0) {
+    console.log(
+      `${app.name}: ${known.size} keys, ${checked} usages checked, ${dynamic.length + unresolved} dynamic`,
+    );
     continue;
   }
 
@@ -262,6 +278,12 @@ for (const app of APPS) {
   if (missing.size > 0) {
     console.error(`${app.name}: ${missing.size} missing key(s)`);
     for (const [key, file] of [...missing].sort()) console.error(`  ${key}  (${file})`);
+  }
+  if (orphanPrefixes.size > 0) {
+    console.error(`${app.name}: ${orphanPrefixes.size} runtime key(s) under an unknown namespace`);
+    for (const [prefix, file] of [...orphanPrefixes].sort()) {
+      console.error(`  ${prefix}...  (${file})`);
+    }
   }
   if (mismatched.length > 0) {
     console.error(`${app.name}: ${mismatched.length} placeholder mismatch(es)`);

@@ -17,12 +17,15 @@ export class ApiError extends Error {
 
 /**
  * The API answers in the reader's language, so every call carries it. This module only ever runs
- * in the browser (it sends credentials), hence reading the cookie rather than taking a parameter.
+ * in the browser (it sends credentials), hence reading the document rather than taking a
+ * parameter. Same order as the server: the explicit choice, then the language the page was
+ * actually rendered in, which the server wrote on `<html>` after reading `Accept-Language`.
  */
 function currentLocale(): AppLocale {
   if (typeof document === "undefined") return DEFAULT_LOCALE;
   const match = new RegExp(`(?:^|; )${LOCALE_COOKIE}=([^;]*)`).exec(document.cookie);
-  return matchLocale(match?.[1] ? decodeURIComponent(match[1]) : null) ?? DEFAULT_LOCALE;
+  const chosen = matchLocale(match?.[1] ? decodeURIComponent(match[1]) : null);
+  return chosen ?? matchLocale(document.documentElement.lang) ?? DEFAULT_LOCALE;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
