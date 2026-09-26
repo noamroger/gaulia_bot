@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 
+import { LoadFailed } from "@/components/LoadFailed";
 import { TabNav } from "@/components/TabNav";
 import { TopNav } from "@/components/TopNav";
 import { useTranslation } from "@/i18n";
@@ -17,7 +18,7 @@ const TABS = [
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-  const { session, loading } = useSession();
+  const { session, loading, failed } = useSession();
   const router = useRouter();
   const pathname = usePathname();
   const t = useTranslation();
@@ -45,6 +46,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             />
             {children}
           </>
+        ) : failed ? (
+          <LoadFailed />
         ) : (
           <p className="text-muted">{t("common.state.loading")}</p>
         )}

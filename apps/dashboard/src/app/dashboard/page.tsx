@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { CreditsCard } from "@/components/credits/CreditsCard";
+import { LoadFailed } from "@/components/LoadFailed";
 import { useTranslation } from "@/i18n";
 import { api } from "@/lib/api";
 import type { ManageableGuild } from "@/lib/types";
@@ -16,7 +17,7 @@ function guildIconUrl(guild: ManageableGuild): string | null {
 
 export default function DashboardPage() {
   const t = useTranslation();
-  const { session, loading } = useSession();
+  const { session, loading, failed } = useSession();
   const [guilds, setGuilds] = useState<ManageableGuild[] | null>(null);
 
   useEffect(() => {
@@ -30,6 +31,14 @@ export default function DashboardPage() {
   function openInvitePopup(guild: ManageableGuild): void {
     if (!guild.inviteUrl) return;
     window.open(guild.inviteUrl, "gaulia-invite", "width=500,height=800,noopener,noreferrer");
+  }
+
+  if (failed) {
+    return (
+      <div className="container">
+        <LoadFailed />
+      </div>
+    );
   }
 
   if (loading || !session) {
