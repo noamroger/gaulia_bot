@@ -17,7 +17,7 @@ const TABS = [
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-  const { session, loading } = useSession();
+  const { session, loading, failed } = useSession();
   const router = useRouter();
   const pathname = usePathname();
   const t = useTranslation();
@@ -46,7 +46,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             {children}
           </>
         ) : (
-          <p className="text-muted">{t("common.state.loading")}</p>
+          <p className="text-muted">{t(failed ? "common.state.error" : "common.state.loading")}</p>
         )}
       </div>
     </div>

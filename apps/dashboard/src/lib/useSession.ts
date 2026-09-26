@@ -6,9 +6,14 @@ import { useEffect, useState } from "react";
 import { api, ApiError } from "./api";
 import type { Session } from "./types";
 
-export function useSession(): { session: Session | null; loading: boolean } {
+/**
+ * `failed` is set when the API could not be reached at all (network, CORS, 5xx): without it the
+ * page would wait on a session that never comes.
+ */
+export function useSession(): { session: Session | null; loading: boolean; failed: boolean } {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -23,6 +28,8 @@ export function useSession(): { session: Session | null; loading: boolean } {
         if (cancelled) return;
         if (error instanceof ApiError && error.status === 401) {
           router.replace("/login");
+        } else {
+          setFailed(true);
         }
       })
       .finally(() => {
@@ -34,5 +41,5 @@ export function useSession(): { session: Session | null; loading: boolean } {
     };
   }, [router]);
 
-  return { session, loading };
+  return { session, loading, failed };
 }

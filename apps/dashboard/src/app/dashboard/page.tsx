@@ -16,7 +16,7 @@ function guildIconUrl(guild: ManageableGuild): string | null {
 
 export default function DashboardPage() {
   const t = useTranslation();
-  const { session, loading } = useSession();
+  const { session, loading, failed } = useSession();
   const [guilds, setGuilds] = useState<ManageableGuild[] | null>(null);
 
   useEffect(() => {
@@ -30,6 +30,10 @@ export default function DashboardPage() {
   function openInvitePopup(guild: ManageableGuild): void {
     if (!guild.inviteUrl) return;
     window.open(guild.inviteUrl, "gaulia-invite", "width=500,height=800,noopener,noreferrer");
+  }
+
+  if (failed) {
+    return <div className="container text-muted">{t("common.state.error")}</div>;
   }
 
   if (loading || !session) {

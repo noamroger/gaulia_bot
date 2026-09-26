@@ -19,9 +19,17 @@ const nextConfig = {
 
   // Read at build time (Docker argument): the dashboard container has no .env at runtime.
   async redirects() {
-    // The adventure pages were renamed from French to English: a bookmark kept from before
-    // would otherwise land on a 404.
     const redirects = [
+      // The API only accepts the bare domain (CORS): from www., every call would be blocked and
+      // the pages would never leave their loading state.
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www\\.(?<domain>.+)" }],
+        destination: "https://:domain/:path*",
+        permanent: true,
+      },
+      // The adventure pages were renamed from French to English: a bookmark kept from before
+      // would otherwise land on a 404.
       { source: "/admin/aventure", destination: "/admin/adventure", permanent: true },
       {
         source: "/dashboard/:guildId/aventure",
