@@ -322,6 +322,10 @@ export default async function adminRoutes(app: FastifyInstance): Promise<void> {
   app.patch<{ Params: { guildId: string } }>(
     "/admin/guilds/:guildId/premium",
     async (request, reply) => {
+      // Without this check, any string created a `guilds` row.
+      if (!snowflakeParamsSchema.safeParse({ id: request.params.guildId }).success) {
+        return reply.status(400).send({ error: request.t("errors.validation.id") });
+      }
       const parsed = setPremiumSchema.safeParse(request.body);
       if (!parsed.success) {
         return reply.status(400).send({ error: request.t("errors.validation.body") });
