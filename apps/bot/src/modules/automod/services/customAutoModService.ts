@@ -86,15 +86,20 @@ function trackerKey(guildId: string, userId: string): string {
   return `${guildId}:${userId}`;
 }
 
+/** Code of an invite link, or of an allowlist entry typed as a code or as a full link. */
+function inviteCode(value: string): string {
+  return (value.trim().replace(/\/+$/, "").split("/").pop() ?? "").toLowerCase();
+}
+
 function checkInvites(content: string, rule: AutomodRules["invites"]): Violation | null {
   if (!rule.enabled) return null;
   const invites = content.match(InviteRegex);
   if (!invites) return null;
 
-  const allowed = rule.allowedInvites.map((code) => code.toLowerCase());
-  const forbidden = invites.some(
-    (invite) => !allowed.some((code) => invite.toLowerCase().includes(code)),
-  );
+  // Exact code match: a substring match let "discord.gg/gaulia-scam" through when "gaulia" was
+  // allowed, and an allowed "gg" let every invite through.
+  const allowed = new Set(rule.allowedInvites.map(inviteCode));
+  const forbidden = invites.some((invite) => !allowed.has(inviteCode(invite)));
   return forbidden ? { rule: "invites", action: rule.action } : null;
 }
 
