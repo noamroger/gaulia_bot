@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Contexte de build : la racine du monorepo (voir docker-compose.yml : build.context: .)
 
-FROM node:20-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 
 # Étape 1 - les manifestes seuls, puis l'installation. Tant que package.json et
@@ -33,7 +33,7 @@ COPY . .
 RUN npm run build -w packages/database
 RUN npm run build -w apps/bot
 
-FROM node:20-alpine AS runtime
+FROM node:24-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules

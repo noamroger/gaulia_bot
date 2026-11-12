@@ -4,7 +4,7 @@
   "description": "Gaulia - bot Discord modulaire (modération, automod, musique, premium) + dashboard web",
   "private": true,
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "workspaces": [
     "packages/*",

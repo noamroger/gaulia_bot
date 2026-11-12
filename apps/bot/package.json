@@ -4,7 +4,7 @@
   "description": "Gaulia - bot Discord (modération, automod, musique, premium, sharding)",
   "private": true,
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

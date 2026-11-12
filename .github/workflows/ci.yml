@@ -26,11 +26,11 @@ jobs:
       - name: Checkout the repository
         uses: actions/checkout@v4
 
-      # Same major version as the node:20-alpine images used in production.
+      # Same major version as the node:24-alpine images used in production.
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: npm
 
       - name: Install the dependencies

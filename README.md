@@ -86,7 +86,7 @@ Le détail des conventions est dans `CLAUDE.md` à la racine.
 
 ## Prérequis
 
-- Node.js ≥ 20
+- Node.js ≥ 22 (les images Docker sont en Node 24)
 - Docker + Docker Compose (recommandé) - ou Postgres/Lavalink installés manuellement
 - Un reverse proxy déjà en place devant cette machine Docker (le tien - ce compose n'en fournit pas),
   capable de terminer le TLS et de router deux domaines vers deux ports (voir
