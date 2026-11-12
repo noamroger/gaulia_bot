@@ -35,7 +35,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       <div className="container container-wide">
         {session?.isOwner ? (
           <>
-            <h1>{t("admin.layout.title")}</h1>
+            <header className="page-header">
+              <h1>{t("admin.layout.title")}</h1>
+              <p>{t("admin.layout.subtitle")}</p>
+            </header>
             <TabNav
               items={TABS.map((tab) => ({
                 href: tab.href,

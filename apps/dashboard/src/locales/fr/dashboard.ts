@@ -10,6 +10,23 @@ const dashboard: DashboardStrings = {
     invitableSubtitle:
       "Tu es gérant sur ces serveurs mais Gaulia n'y est pas encore. Clique pour l'inviter.",
     invite: "Inviter Gaulia sur {guild}",
+    manage: "Gérer",
+    add: "Inviter",
+  },
+
+  panel: {
+    back: "Tous mes serveurs",
+    sectionsLabel: "Sections du serveur",
+  },
+
+  sections: {
+    settings: "Salons de logs, message aux membres sanctionnés et échelle des avertissements.",
+    automod:
+      "Les filtres qui surveillent les messages des membres et sanctionnent automatiquement.",
+    music: "Qui peut utiliser les commandes musique, la lecture par défaut et le blindtest.",
+    fun: "Les salons où répondent les jeux et les autres commandes fun.",
+    adventure: "Les salons où l'aventure peut se jouer sur ce serveur.",
+    premium: "Le statut premium du serveur et l'échange de tes crédits.",
   },
 
   tabs: {

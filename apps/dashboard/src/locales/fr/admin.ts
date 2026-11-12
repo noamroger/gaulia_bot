@@ -3,6 +3,7 @@ import type { AdminStrings } from "../en/admin";
 const admin: AdminStrings = {
   layout: {
     title: "Panel admin",
+    subtitle: "Vue d'ensemble de Gaulia sur tous les serveurs.",
     tabsLabel: "Sections du panel admin",
     tabs: {
       stats: "Statistiques",

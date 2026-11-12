@@ -9,6 +9,22 @@ const dashboard = {
     invitableSubtitle:
       "You manage these servers, but Gaulia is not on them yet. Click one to invite it.",
     invite: "Invite Gaulia to {guild}",
+    manage: "Manage",
+    add: "Invite",
+  },
+
+  panel: {
+    back: "All servers",
+    sectionsLabel: "Server sections",
+  },
+
+  sections: {
+    settings: "Moderation logs, sanction notices and the warning ladder.",
+    automod: "Filters that check members' messages and sanction them automatically.",
+    music: "Who can use the music commands, default playback and the blindtest.",
+    fun: "Where the games and the other fun commands answer.",
+    adventure: "Where the adventure can be played on this server.",
+    premium: "Premium status of the server and redeeming your credits.",
   },
 
   tabs: {

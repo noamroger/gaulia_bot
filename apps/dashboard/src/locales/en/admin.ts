@@ -3,6 +3,7 @@ import type { Dictionary } from "../../i18n/translate";
 const admin = {
   layout: {
     title: "Admin panel",
+    subtitle: "Gaulia at a glance, across every server.",
     tabsLabel: "Admin panel sections",
     tabs: {
       stats: "Statistics",
