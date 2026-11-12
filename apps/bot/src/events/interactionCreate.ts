@@ -11,6 +11,7 @@ import type { GauliaClient } from "../client/GauliaClient";
 import { GauliaError, handleInteractionError } from "../core/errors";
 import { hasPermissionLevel, PermissionLevel } from "../core/permissions/permissionLevel";
 import { warningPayload } from "../core/ui/containers";
+import { KeyedQueue } from "../core/utils/keyedQueue";
 import { resolveComponent } from "../handlers/componentHandler";
 import { resilientTranslator, type Translator } from "../i18n";
 import { assertAdventureAccess } from "../modules/adventure/services/access/adventureAccess";
@@ -20,6 +21,32 @@ import { assertMusicAccess, MUSIC_COMMAND_ACCESS } from "../modules/music/servic
 import { requirePremium } from "../modules/premium/guards/requirePremium";
 import type { Command } from "../structures/Command";
 import type { GauliaEvent } from "../structures/Event";
+
+/**
+ * Adventure actions read the character, decide, then write absolute values: two of them running at
+ * once for the same player (a double click on "buy", explore spammed) would both spend the same
+ * gold or energy. They are therefore run one at a time per player.
+ */
+const adventureQueue = new KeyedQueue();
+
+function isAdventureInteraction(interaction: Interaction, command?: Command): boolean {
+  if (command) return command.category === "adventure";
+  return (
+    (interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) &&
+    interaction.customId.startsWith("adventure:")
+  );
+}
+
+/** Runs a handler, serialised per player when it touches the adventure. */
+function runHandler(
+  interaction: Interaction,
+  command: Command | undefined,
+  handler: () => Promise<void>,
+): Promise<void> {
+  return isAdventureInteraction(interaction, command)
+    ? adventureQueue.run(interaction.user.id, handler)
+    : handler();
+}
 
 type CommandInteraction =
   | ChatInputCommandInteraction
@@ -128,7 +155,7 @@ const event: GauliaEvent<typeof Events.InteractionCreate> = {
         const command = client.commands.get(interaction.commandName);
         if (command?.type !== "chatInput") return;
         if (!(await passesCommandGuards(client, interaction, command, t))) return;
-        await command.execute(interaction, client, t);
+        await runHandler(interaction, command, () => command.execute(interaction, client, t));
         return;
       }
 
@@ -156,13 +183,15 @@ const event: GauliaEvent<typeof Events.InteractionCreate> = {
         const component = resolveComponent(client, interaction.customId);
         if (!component) return;
 
-        if (interaction.isButton() && component.type === "button") {
-          await component.execute(interaction, client, t);
-        } else if (interaction.isStringSelectMenu() && component.type === "stringSelect") {
-          await component.execute(interaction, client, t);
-        } else if (interaction.isModalSubmit() && component.type === "modal") {
-          await component.execute(interaction, client, t);
-        }
+        await runHandler(interaction, undefined, async () => {
+          if (interaction.isButton() && component.type === "button") {
+            await component.execute(interaction, client, t);
+          } else if (interaction.isStringSelectMenu() && component.type === "stringSelect") {
+            await component.execute(interaction, client, t);
+          } else if (interaction.isModalSubmit() && component.type === "modal") {
+            await component.execute(interaction, client, t);
+          }
+        });
       }
     } catch (error) {
       if (interaction.isRepliable()) {
