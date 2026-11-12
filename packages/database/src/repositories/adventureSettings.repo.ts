@@ -14,12 +14,16 @@ const DEFAULTS: Omit<AdventureSettings, "guildId" | "updatedAt"> = {
 };
 
 export async function getAdventureSettings(guildId: string): Promise<AdventureSettings> {
+  const existing = await prisma.adventureSettings.findUnique({ where: { guildId } });
+  if (existing) return existing;
+
+  // Same race-free creation as getOrCreateGuild.
   await getOrCreateGuild(guildId);
-  return prisma.adventureSettings.upsert({
-    where: { guildId },
-    update: {},
-    create: { guildId, ...DEFAULTS },
+  await prisma.adventureSettings.createMany({
+    data: [{ guildId, ...DEFAULTS }],
+    skipDuplicates: true,
   });
+  return prisma.adventureSettings.findUniqueOrThrow({ where: { guildId } });
 }
 
 export async function updateAdventureSettings(

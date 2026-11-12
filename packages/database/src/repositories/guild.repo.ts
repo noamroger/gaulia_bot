@@ -4,12 +4,17 @@ import { prisma } from "../client";
 import { describePremium } from "./premium.repo";
 
 /** Guild config, created with the default values when it does not exist yet. */
+/**
+ * Prisma's `upsert` is a read then an insert, so two first calls racing on a new id collide on the
+ * primary key (P2002). Reading first, then inserting with `skipDuplicates`, cannot collide and costs
+ * a single SELECT on the common path, where the row already exists.
+ */
 export async function getOrCreateGuild(guildId: string): Promise<Guild> {
-  return prisma.guild.upsert({
-    where: { id: guildId },
-    update: {},
-    create: { id: guildId },
-  });
+  const existing = await prisma.guild.findUnique({ where: { id: guildId } });
+  if (existing) return existing;
+
+  await prisma.guild.createMany({ data: [{ id: guildId }], skipDuplicates: true });
+  return prisma.guild.findUniqueOrThrow({ where: { id: guildId } });
 }
 
 export async function updateGuild(

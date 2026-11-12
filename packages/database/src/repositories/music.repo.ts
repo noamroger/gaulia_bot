@@ -12,12 +12,13 @@ const DEFAULTS: Omit<MusicSettings, "guildId" | "updatedAt"> = {
 };
 
 export async function getMusicSettings(guildId: string): Promise<MusicSettings> {
+  const existing = await prisma.musicSettings.findUnique({ where: { guildId } });
+  if (existing) return existing;
+
+  // Same race-free creation as getOrCreateGuild.
   await getOrCreateGuild(guildId);
-  return prisma.musicSettings.upsert({
-    where: { guildId },
-    update: {},
-    create: { guildId, ...DEFAULTS },
-  });
+  await prisma.musicSettings.createMany({ data: [{ guildId, ...DEFAULTS }], skipDuplicates: true });
+  return prisma.musicSettings.findUniqueOrThrow({ where: { guildId } });
 }
 
 export async function updateMusicSettings(
