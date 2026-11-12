@@ -54,6 +54,11 @@ function allowImport(userId: string): boolean {
     return false;
   }
   importAttempts.set(userId, [...recent, now]);
+
+  // Idle accounts do not stay in memory forever.
+  for (const [key, attempts] of importAttempts) {
+    if (attempts.every((at) => now - at >= IMPORT_WINDOW_MS)) importAttempts.delete(key);
+  }
   return true;
 }
 

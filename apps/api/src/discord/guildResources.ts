@@ -84,6 +84,11 @@ export async function getGuildResources(guildId: string): Promise<GuildResources
       .map((role) => ({ id: role.id, name: role.name, color: role.color })),
   };
 
-  cache.set(guildId, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+  const now = Date.now();
+  // Expired entries are dropped here, otherwise every server ever opened stays in memory.
+  for (const [key, entry] of cache) {
+    if (entry.expiresAt <= now) cache.delete(key);
+  }
+  cache.set(guildId, { value, expiresAt: now + CACHE_TTL_MS });
   return value;
 }

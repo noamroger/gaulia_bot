@@ -5,6 +5,17 @@
 export class CooldownManager {
   private readonly expiryByKey = new Map<string, number>();
 
+  constructor(sweepIntervalMs = 10 * 60_000) {
+    // Without it, every (command, user) pair ever seen stays in memory for the life of the shard.
+    setInterval(() => this.sweep(), sweepIntervalMs).unref();
+  }
+
+  private sweep(now = Date.now()): void {
+    for (const [key, expiresAt] of this.expiryByKey) {
+      if (expiresAt <= now) this.expiryByKey.delete(key);
+    }
+  }
+
   private key(commandName: string, userId: string): string {
     return `${commandName}:${userId}`;
   }

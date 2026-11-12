@@ -19,6 +19,16 @@ interface CacheEntry {
 const guildCache = new Map<string, CacheEntry>();
 const userCache = new Map<string, CacheEntry>();
 
+// Entries are only dropped when read again: a member seen once would otherwise stay forever.
+setInterval(() => {
+  const now = Date.now();
+  for (const cache of [guildCache, userCache]) {
+    for (const [id, entry] of cache) {
+      if (entry.expiresAt <= now) cache.delete(id);
+    }
+  }
+}, CACHE_TTL_MS).unref();
+
 function readCache(cache: Map<string, CacheEntry>, id: string): CacheEntry | undefined {
   const entry = cache.get(id);
   if (!entry) return undefined;
