@@ -147,8 +147,10 @@ services:
       migrate:
         condition: service_completed_successfully
     # Port public de l'API (4501 en production) : ton reverse proxy doit pointer api.<ton-domaine> ici.
+    # HOST_BIND_ADDRESS limite l'interface d'écoute (voir README > Domaine & ports) : Docker ouvre ses
+    # ports en contournant ufw, donc un port publié sur toutes les interfaces est joignable d'Internet.
     ports:
-      - "${API_HOST_PORT:-4501}:4000"
+      - "${HOST_BIND_ADDRESS:-0.0.0.0}:${API_HOST_PORT:-4501}:4000"
     networks:
       - gaulia
 
@@ -170,7 +172,7 @@ services:
     restart: unless-stopped
     # Port public du dashboard (4500 en production) : ton reverse proxy doit pointer <ton-domaine> ici.
     ports:
-      - "${DASHBOARD_HOST_PORT:-4500}:3000"
+      - "${HOST_BIND_ADDRESS:-0.0.0.0}:${DASHBOARD_HOST_PORT:-4500}:3000"
     networks:
       - gaulia
 

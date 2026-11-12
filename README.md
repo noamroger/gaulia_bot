@@ -538,6 +538,15 @@ et `:4501` (ces deux ports sont déjà choisis hors des plages courantes 3000/30
 autre port n'a besoin d'être exposé : Postgres et Lavalink restent uniquement accessibles sur le
 réseau Docker interne.
 
+Docker publie ses ports en contournant ufw : une règle de pare-feu ne suffit pas à fermer 4500 et
+4501. Renseigne `HOST_BIND_ADDRESS` dans `.env` pour qu'ils n'écoutent que là où le reverse proxy
+les attend :
+
+- `127.0.0.1` si le reverse proxy tourne sur cette machine ;
+- l'IP privée de cette machine (réseau local ou VPN) s'il tourne sur une autre.
+
+Sans cette variable, les deux ports écoutent sur toutes les interfaces, Internet compris.
+
 Si tu ajoutes un service public supplémentaire plus tard (ex: un futur endpoint de stats), donne-lui
 un port du même bloc (`4502`, `4503`, …) dans `docker-compose.yml`, et ajoute la règle correspondante
 côté ton reverse proxy.
