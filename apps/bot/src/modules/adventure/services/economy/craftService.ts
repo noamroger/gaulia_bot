@@ -1,5 +1,6 @@
 import {
-  removeAdventureItem,
+  listAdventureItems,
+  takeAdventureItems,
   updateAdventureCharacter,
   type AdventureCharacter,
   type AdventureItem,
@@ -16,6 +17,26 @@ export interface CraftResult {
   character: AdventureCharacter;
   recipe: RecipeDefinition;
   notices: string[];
+}
+
+function materialsError(entries: RecipeDefinition["ingredients"], t: Translator): GauliaError {
+  return new GauliaError("adventure.error.recipeMaterials", {
+    missing: entries
+      .map((entry) =>
+        t("adventure.views.forge.material", {
+          quantity: entry.quantity,
+          item: itemLabel(t, entry.itemId),
+        }),
+      )
+      .join(", "),
+  });
+}
+
+function assertIngredients(recipe: RecipeDefinition, items: AdventureItem[], t: Translator): void {
+  const missing = recipe.ingredients.filter(
+    (ingredient) => countItem(items, ingredient.itemId) < ingredient.quantity,
+  );
+  if (missing.length > 0) throw materialsError(missing, t);
 }
 
 /** Crafts an item: level, full ingredients and gold are checked, then the item is produced. */
@@ -40,24 +61,11 @@ export async function craft(
     });
   }
 
-  const missing = recipe.ingredients.filter(
-    (ingredient) => countItem(items, ingredient.itemId) < ingredient.quantity,
-  );
-  if (missing.length > 0) {
-    throw new GauliaError("adventure.error.recipeMaterials", {
-      missing: missing
-        .map((entry) =>
-          t("adventure.views.forge.material", {
-            quantity: entry.quantity,
-            item: itemLabel(t, entry.itemId),
-          }),
-        )
-        .join(", "),
-    });
-  }
-
-  for (const ingredient of recipe.ingredients) {
-    await removeAdventureItem(character.userId, ingredient.itemId, ingredient.quantity);
+  assertIngredients(recipe, items, t);
+  // All or nothing: a bag emptied since the menu opened (another action running) consumes nothing.
+  if (!(await takeAdventureItems(character.userId, recipe.ingredients))) {
+    assertIngredients(recipe, await listAdventureItems(character.userId), t);
+    throw materialsError(recipe.ingredients, t);
   }
   await grantItems(character.userId, [{ itemId: recipe.itemId, quantity: recipe.quantity }]);
 

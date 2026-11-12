@@ -2,6 +2,7 @@ import type { AdventureCharacter, AdventureTrade, Prisma } from "@prisma/client"
 
 import { prisma } from "../client";
 import type { AdventureTradeItems } from "../schemas/adventure";
+import { takeItemsInTransaction } from "./adventureCharacter.repo";
 
 export interface CreateTradeInput {
   initiatorId: string;
@@ -115,14 +116,8 @@ export async function applyAdventureTrade(operations: {
       });
       if (claimed.count === 0) throw new TradeAborted("alreadyHandled");
 
-      for (const removal of operations.removals) {
-        const where = { userId: removal.userId, itemId: removal.itemId };
-        const taken = await tx.adventureItem.updateMany({
-          where: { ...where, quantity: { gte: removal.quantity } },
-          data: { quantity: { decrement: removal.quantity } },
-        });
-        if (taken.count === 0) throw new TradeAborted("missingItems");
-        await tx.adventureItem.deleteMany({ where: { ...where, quantity: { lte: 0 } } });
+      if (!(await takeItemsInTransaction(tx, operations.removals))) {
+        throw new TradeAborted("missingItems");
       }
 
       for (const addition of operations.additions) {

@@ -1,7 +1,8 @@
 import {
   adventureUpgradeCost,
   ADVENTURE_MAX_UPGRADE,
-  removeAdventureItem,
+  listAdventureItems,
+  takeAdventureItems,
   updateAdventureCharacter,
   upgradeAdventureItem,
   type AdventureCharacter,
@@ -92,12 +93,12 @@ export async function upgradeItem(
     });
   }
 
-  for (const material of plan.cost.materials) {
-    if (!(await removeAdventureItem(character.userId, material.itemId, material.quantity))) {
-      throw new GauliaError("adventure.error.missingMaterial", {
-        item: itemLabel(t, material.itemId),
-      });
-    }
+  // All or nothing: a bag emptied since the plan was read (another action running) loses nothing.
+  if (!(await takeAdventureItems(character.userId, plan.cost.materials))) {
+    const fresh = planUpgrade(character, await listAdventureItems(character.userId), itemId, t);
+    throw new GauliaError("adventure.error.missingForUpgrade", {
+      missing: fresh.missing.join(", "),
+    });
   }
   await upgradeAdventureItem(character.userId, itemId, plan.nextLevel);
 

@@ -100,6 +100,55 @@ export async function upgradeAdventureItem(
   });
 }
 
+export interface ItemRemoval {
+  userId: string;
+  itemId: string;
+  quantity: number;
+}
+
+/**
+ * Takes stacks out of bags inside a running transaction and reports whether every one of them was
+ * there. Each decrement is conditioned on the quantity still held, never on an earlier read, so two
+ * concurrent spends can never take the same copy twice. On `false` the caller must roll back.
+ */
+export async function takeItemsInTransaction(
+  tx: Prisma.TransactionClient,
+  removals: ItemRemoval[],
+): Promise<boolean> {
+  for (const removal of removals) {
+    const where = { userId: removal.userId, itemId: removal.itemId };
+    const taken = await tx.adventureItem.updateMany({
+      where: { ...where, quantity: { gte: removal.quantity } },
+      data: { quantity: { decrement: removal.quantity } },
+    });
+    if (taken.count === 0) return false;
+    await tx.adventureItem.deleteMany({ where: { ...where, quantity: { lte: 0 } } });
+  }
+  return true;
+}
+
+class MissingItems extends Error {}
+
+/**
+ * Removes several stacks from a bag, all or nothing: a craft or an upgrade either consumes every
+ * material or none. Returns false without changing anything when the inventory is short.
+ */
+export async function takeAdventureItems(
+  userId: string,
+  entries: { itemId: string; quantity: number }[],
+): Promise<boolean> {
+  try {
+    await prisma.$transaction(async (tx) => {
+      const removals = entries.map((entry) => ({ userId, ...entry }));
+      if (!(await takeItemsInTransaction(tx, removals))) throw new MissingItems();
+    });
+    return true;
+  } catch (error) {
+    if (error instanceof MissingItems) return false;
+    throw error;
+  }
+}
+
 /**
  * Removes copies of an item. Returns false without writing anything when the inventory is short,
  * which guards purchases, crafts and consumables.
@@ -109,20 +158,7 @@ export async function removeAdventureItem(
   itemId: string,
   quantity: number,
 ): Promise<boolean> {
-  const row = await prisma.adventureItem.findUnique({
-    where: { userId_itemId: { userId, itemId } },
-  });
-  if (!row || row.quantity < quantity) return false;
-
-  if (row.quantity === quantity) {
-    await prisma.adventureItem.delete({ where: { id: row.id } });
-  } else {
-    await prisma.adventureItem.update({
-      where: { id: row.id },
-      data: { quantity: { decrement: quantity } },
-    });
-  }
-  return true;
+  return takeAdventureItems(userId, [{ itemId, quantity }]);
 }
 
 /** Equips a piece and unequips every other one in the same slot at once. */
