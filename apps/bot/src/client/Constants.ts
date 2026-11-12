@@ -84,8 +84,12 @@ export const Emojis = {
   Filters: "🎚️",
 } as const;
 
+/**
+ * Invite links. On discord.com the code sits behind `/invite/`: matching `discord.com/<anything>`
+ * read a message link (`discord.com/channels/...`) as an invite to a server called "channels".
+ */
 export const InviteRegex =
-  /(?:https?:\/\/)?(?:www\.)?(?:discord\.(?:gg|io|me|li|com)|discordapp\.com\/invite)\/[a-zA-Z0-9-]+/gi;
+  /(?:https?:\/\/)?(?:www\.)?(?:discord\.(?:gg|io|me|li)|discord(?:app)?\.com\/invite)\/[a-zA-Z0-9-]+/gi;
 
 export const FREE_QUEUE_LIMIT = 100;
 export const PREMIUM_QUEUE_LIMIT = 1000;
