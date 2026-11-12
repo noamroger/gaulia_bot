@@ -2,6 +2,7 @@ import { recordCommandUsage } from "@gaulia/database";
 import {
   Events,
   type ChatInputCommandInteraction,
+  type GuildMember,
   type Interaction,
   type MessageContextMenuCommandInteraction,
   type UserContextMenuCommandInteraction,
@@ -9,7 +10,11 @@ import {
 
 import type { GauliaClient } from "../client/GauliaClient";
 import { GauliaError, handleInteractionError } from "../core/errors";
-import { hasPermissionLevel, PermissionLevel } from "../core/permissions/permissionLevel";
+import {
+  hasPermissionLevel,
+  PermissionLevel,
+  resolvePermissionLevel,
+} from "../core/permissions/permissionLevel";
 import { warningPayload } from "../core/ui/containers";
 import { KeyedQueue } from "../core/utils/keyedQueue";
 import { resolveComponent } from "../handlers/componentHandler";
@@ -54,6 +59,19 @@ type CommandInteraction =
   | MessageContextMenuCommandInteraction;
 
 /**
+ * The Discord permissions a command asks for by default (Ban Members for /ban...) are only a
+ * default: an administrator can open the command to any role from the server's integration
+ * settings, and the bot then acts with its own permissions on behalf of someone who holds none.
+ * The member must therefore really hold them. Bot owners keep their bypass.
+ */
+function holdsCommandPermissions(member: GuildMember, command: Command): boolean {
+  const required = command.data.default_member_permissions;
+  if (!required) return true;
+  if (resolvePermissionLevel(member) === PermissionLevel.Owner) return true;
+  return member.permissions.has(BigInt(required));
+}
+
+/**
  * Applies the guards every command shares (server required, permission, cooldown, premium) before
  * running it. Returns `true` when the command may proceed.
  */
@@ -75,8 +93,15 @@ async function passesCommandGuards(
   }
 
   if (command.permissionLevel !== undefined && command.permissionLevel > PermissionLevel.Everyone) {
-    const guildMember = interaction.guild?.members.cache.get(interaction.user.id);
-    if (guildMember && !hasPermissionLevel(guildMember, command.permissionLevel)) {
+    // Fails closed: a member missing from the cache used to skip the check entirely.
+    const guildMember = interaction.inCachedGuild()
+      ? interaction.member
+      : ((await interaction.guild?.members.fetch(interaction.user.id).catch(() => null)) ?? null);
+    if (
+      !guildMember ||
+      !hasPermissionLevel(guildMember, command.permissionLevel) ||
+      !holdsCommandPermissions(guildMember, command)
+    ) {
       await interaction.reply(
         warningPayload(
           true,
