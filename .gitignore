@@ -41,3 +41,6 @@ docker/lavalink/plugins/*.jar
 
 # local AI assistant config
 .claude/
+
+# local instance notes (production server, see CLAUDE.local.md)
+CLAUDE.local.md
