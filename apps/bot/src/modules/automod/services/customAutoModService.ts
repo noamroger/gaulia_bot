@@ -24,7 +24,8 @@ const URL_REGEX = /\bhttps?:\/\/[^\s<>]+/gi;
 
 interface CachedSettings {
   settings: AutomodSettings;
-  badWordPatterns: RegExp[];
+  /** Every banned word in one expression, null when the list is empty. */
+  badWordPattern: RegExp | null;
   expiresAt: number;
 }
 
@@ -63,9 +64,14 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Whole word, case insensitive ("con" does not block "second"). */
-function badWordPattern(word: string): RegExp {
-  return new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(word)}(?![\\p{L}\\p{N}])`, "iu");
+/**
+ * Whole word, case insensitive ("con" does not block "second"). One alternation instead of one
+ * expression per word: the list holds up to 500 words and is tested against every message.
+ */
+function buildBadWordPattern(words: string[]): RegExp | null {
+  if (words.length === 0) return null;
+  const alternatives = words.map(escapeRegExp).join("|");
+  return new RegExp(`(?<![\\p{L}\\p{N}])(?:${alternatives})(?![\\p{L}\\p{N}])`, "iu");
 }
 
 async function loadSettings(guildId: string): Promise<CachedSettings> {
@@ -75,7 +81,7 @@ async function loadSettings(guildId: string): Promise<CachedSettings> {
   const settings = await getAutomodConfig(guildId);
   const entry: CachedSettings = {
     settings,
-    badWordPatterns: settings.rules.badWords.words.map(badWordPattern),
+    badWordPattern: buildBadWordPattern(settings.rules.badWords.words),
     expiresAt: Date.now() + SETTINGS_TTL_MS,
   };
   settingsCache.set(guildId, entry);
@@ -140,9 +146,9 @@ function checkLinks(content: string, rule: AutomodRules["links"]): Violation | n
 function checkBadWords(
   content: string,
   rule: AutomodRules["badWords"],
-  patterns: RegExp[],
+  pattern: RegExp | null,
 ): Violation | null {
-  if (!rule.enabled || !patterns.some((pattern) => pattern.test(content))) return null;
+  if (!rule.enabled || !pattern?.test(content)) return null;
   return { rule: "badWords", action: rule.action };
 }
 
@@ -294,7 +300,7 @@ async function enforce(
 export async function runCustomAutoMod(message: Message): Promise<void> {
   if (!message.inGuild() || message.author.bot) return;
 
-  const { settings, badWordPatterns } = await loadSettings(message.guildId);
+  const { settings, badWordPattern } = await loadSettings(message.guildId);
   if (settings.ignoredChannelIds.includes(message.channelId)) return;
 
   const member = message.member;
@@ -310,7 +316,7 @@ export async function runCustomAutoMod(message: Message): Promise<void> {
   const violation =
     checkInvites(content, rules.invites) ??
     checkLinks(content, rules.links) ??
-    checkBadWords(content, rules.badWords, badWordPatterns) ??
+    checkBadWords(content, rules.badWords, badWordPattern) ??
     checkMentions(message, rules.mentions) ??
     checkCaps(content, rules.caps) ??
     checkDuplicates(key, content, rules.duplicates) ??
