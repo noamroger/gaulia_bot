@@ -1,7 +1,6 @@
 import {
-  addAdventureItem,
-  addAdventureLog,
   ADVENTURE_ACTS,
+  applyAdventureIntervention,
   ADVENTURE_ENERGY_MAX,
   ADVENTURE_ITEMS,
   ADVENTURE_MAX_ECHOES,
@@ -11,15 +10,12 @@ import {
   ADVENTURE_MAX_UPGRADE,
   ADVENTURE_TOTAL_CHAPTERS,
   adventureQuestLabel,
-  applyAdventureXp,
   isAdventureItemTradable,
   listPendingAdventureTrades,
   findAdventureItem,
   localized,
   getAdventurePlayerDetail,
   listAdventurePlayers,
-  removeAdventureItem,
-  updateAdventureCharacter,
   type AdventurePlayerDetail,
 } from "@gaulia/database";
 import type { FastifyInstance } from "fastify";
@@ -191,51 +187,22 @@ export default async function adventureRoutes(app: FastifyInstance): Promise<voi
     }
 
     const { userId } = params.data;
-    const detail = await getAdventurePlayerDetail(userId);
-    if (!detail) {
-      return reply.status(404).send({ error: request.t("errors.adventure.noCharacter") });
-    }
-
     const unknown = (body.data.items ?? []).filter((entry) => !findAdventureItem(entry.itemId));
     if (unknown.length > 0) {
       return reply.status(400).send({ error: request.t("errors.adventure.unknownItem") });
     }
 
-    const { character } = detail;
-    // XP goes through the same rule as the game, so levels rise exactly as they do in play.
-    const progression = applyAdventureXp(character, body.data.xp ?? 0);
-
-    const updated = await updateAdventureCharacter(userId, {
-      level: body.data.level ?? progression.level,
-      xp: body.data.level !== undefined ? 0 : progression.xp,
-      totalXp: progression.totalXp,
-      statPoints: Math.max(0, progression.statPoints + (body.data.statPoints ?? 0)),
-      gold: Math.min(ADVENTURE_MAX_GOLD, Math.max(0, character.gold + (body.data.gold ?? 0))),
-      echoes: Math.min(
-        ADVENTURE_MAX_ECHOES,
-        Math.max(0, character.echoes + (body.data.echoes ?? 0)),
-      ),
-      energy: Math.min(
-        ADVENTURE_ENERGY_MAX,
-        Math.max(0, character.energy + (body.data.energy ?? 0)),
-      ),
-    });
-
-    for (const entry of body.data.items ?? []) {
-      if (entry.quantity > 0) {
-        await addAdventureItem(userId, entry.itemId, entry.quantity);
-      } else {
-        await removeAdventureItem(userId, entry.itemId, -entry.quantity);
-      }
-    }
-
     // Trace visible both to the player (adventure journal) and in the admin panel.
-    await addAdventureLog({
-      userId,
-      type: "ADMIN",
+    const outcome = await applyAdventureIntervention(userId, body.data, {
       message: `Staff intervention: ${describeIntervention(body.data)}`,
       actorId: request.user.userId,
     });
+    if (outcome === "noCharacter") {
+      return reply.status(404).send({ error: request.t("errors.adventure.noCharacter") });
+    }
+    if (outcome === "missingItems") {
+      return reply.status(400).send({ error: request.t("errors.adventure.notEnoughItems") });
+    }
 
     request.log.info(
       { ownerId: request.user.userId, userId, intervention: body.data },
@@ -243,15 +210,9 @@ export default async function adventureRoutes(app: FastifyInstance): Promise<voi
     );
 
     const refreshed = await getAdventurePlayerDetail(userId);
-    return refreshed
-      ? withDetails(refreshed, request.t.locale)
-      : {
-          character: updated,
-          items: [],
-          quests: [],
-          achievements: [],
-          logs: [],
-          pendingTrades: [],
-        };
+    if (!refreshed) {
+      return reply.status(404).send({ error: request.t("errors.adventure.noCharacter") });
+    }
+    return withDetails(refreshed, request.t.locale);
   });
 }

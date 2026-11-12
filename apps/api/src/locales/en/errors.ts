@@ -57,6 +57,7 @@ const errors = {
   adventure: {
     noCharacter: "This player has no adventurer.",
     unknownItem: "Unknown item in the catalogue.",
+    notEnoughItems: "This player does not hold enough of this item.",
   },
 } satisfies Dictionary;
 

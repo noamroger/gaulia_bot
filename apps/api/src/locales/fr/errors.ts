@@ -57,6 +57,7 @@ const errors: ErrorsStrings = {
   adventure: {
     noCharacter: "Ce joueur n'a pas d'aventurier.",
     unknownItem: "Objet inconnu au catalogue.",
+    notEnoughItems: "Ce joueur n'a pas assez de cet objet.",
   },
 };
 
