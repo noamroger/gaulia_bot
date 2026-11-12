@@ -54,8 +54,16 @@ export async function advanceAdventureQuests(
   );
 }
 
-export async function claimAdventureQuest(id: number): Promise<AdventureQuest> {
-  return prisma.adventureQuest.update({ where: { id }, data: { claimedAt: new Date() } });
+/**
+ * Marks a quest as claimed, only if nobody claimed it yet: false means another action got there
+ * first and already paid the reward.
+ */
+export async function claimAdventureQuest(id: number): Promise<boolean> {
+  const { count } = await prisma.adventureQuest.updateMany({
+    where: { id, claimedAt: null },
+    data: { claimedAt: new Date() },
+  });
+  return count > 0;
 }
 
 /** Purges batches older than a cutoff; called by the API retention job. */

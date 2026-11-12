@@ -187,7 +187,7 @@ export async function applyQuestProgress(
   for (const view of [...refreshed.daily, ...refreshed.weekly]) {
     if (view.row.claimedAt !== null || view.row.progress < view.row.target) continue;
 
-    await claimAdventureQuest(view.row.id);
+    if (!(await claimAdventureQuest(view.row.id))) continue;
     goldReward += view.reward.gold;
     current = (await grantXp(current, items, view.reward.xp)).character;
     notices.push(
