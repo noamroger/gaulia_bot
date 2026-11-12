@@ -45,4 +45,7 @@ COPY --from=build /app/packages/database/package.json ./packages/database/packag
 COPY --from=build /app/apps/bot/dist ./apps/bot/dist
 COPY --from=build /app/apps/bot/package.json ./apps/bot/package.json
 
+# Le code reste à root, en lecture seule pour le processus : une faille dans l'application ne
+# peut ni réécrire le code ni agir en root dans le conteneur.
+USER node
 CMD ["node", "apps/bot/dist/index.js"]

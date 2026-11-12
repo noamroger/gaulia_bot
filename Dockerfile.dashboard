@@ -40,9 +40,12 @@ FROM node:20-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-COPY --from=build /app/apps/dashboard/.next/standalone ./
-COPY --from=build /app/apps/dashboard/.next/static ./apps/dashboard/.next/static
-COPY --from=build /app/apps/dashboard/public ./apps/dashboard/public
+# Next.js écrit son cache dans .next/cache à l'exécution : ces fichiers appartiennent à
+# l'utilisateur non-root qui fait tourner le serveur.
+COPY --from=build --chown=node:node /app/apps/dashboard/.next/standalone ./
+COPY --from=build --chown=node:node /app/apps/dashboard/.next/static ./apps/dashboard/.next/static
+COPY --from=build --chown=node:node /app/apps/dashboard/public ./apps/dashboard/public
+USER node
 
 EXPOSE 3000
 CMD ["node", "apps/dashboard/server.js"]
