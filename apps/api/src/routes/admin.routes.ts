@@ -58,11 +58,18 @@ const creditAdjustSchema = z
  */
 const flagFilterSchema = z.enum(["all", "yes", "no"]).default("all");
 
+/** True for a calendar day that exists: the pattern alone lets 2026-13-45 through. */
+function isRealDay(value: string): boolean {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value);
+}
+
 /** Date from a day field (YYYY-MM-DD), pinned to the start or the end of the UTC day. */
 function dayBoundarySchema(edge: "start" | "end") {
   return z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .refine(isRealDay)
     .optional()
     .transform((value) =>
       value ? new Date(`${value}T${edge === "start" ? "00:00:00.000" : "23:59:59.999"}Z`) : null,
