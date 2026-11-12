@@ -1,6 +1,7 @@
 import {
   deleteAdventureQuestsBefore,
   deleteAdventureTradesBefore,
+  purgeExpiredDashboardSessions,
   purgeExpiredCommandUsage,
   purgeExpiredShardMetrics,
 } from "@gaulia/database";
@@ -14,15 +15,23 @@ const ADVENTURE_RETENTION_DAYS = 30;
 async function runRetentionPurge(): Promise<void> {
   try {
     const cutoff = new Date(Date.now() - ADVENTURE_RETENTION_DAYS * 24 * 3_600_000);
-    const [commandUsage, shardMetrics, adventureQuests, adventureTrades] = await Promise.all([
-      purgeExpiredCommandUsage(),
-      purgeExpiredShardMetrics(),
-      deleteAdventureQuestsBefore(cutoff),
-      deleteAdventureTradesBefore(cutoff),
-    ]);
-    if (commandUsage > 0 || shardMetrics > 0 || adventureQuests > 0 || adventureTrades > 0) {
+    const [commandUsage, shardMetrics, adventureQuests, adventureTrades, sessions] =
+      await Promise.all([
+        purgeExpiredCommandUsage(),
+        purgeExpiredShardMetrics(),
+        deleteAdventureQuestsBefore(cutoff),
+        deleteAdventureTradesBefore(cutoff),
+        purgeExpiredDashboardSessions(),
+      ]);
+    if (
+      commandUsage > 0 ||
+      shardMetrics > 0 ||
+      adventureQuests > 0 ||
+      adventureTrades > 0 ||
+      sessions > 0
+    ) {
       logger.info(
-        { commandUsage, shardMetrics, adventureQuests, adventureTrades },
+        { commandUsage, shardMetrics, adventureQuests, adventureTrades, sessions },
         "Expired data deleted",
       );
     }

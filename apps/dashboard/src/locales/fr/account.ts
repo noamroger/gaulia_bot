@@ -130,7 +130,7 @@ const account: AccountStrings = {
 
     dashboard: {
       title: "3. Données traitées par le tableau de bord",
-      body: "La connexion se fait avec votre compte Discord (autorisations « identify », « guilds » et « email »). Nous recevons votre identifiant, votre pseudo, votre avatar, l'adresse vérifiée de votre compte et la liste des serveurs que vous pouvez gérer. Ces informations sont placées uniquement dans un cookie de session signé, et ne sont pas enregistrées en base de données. L'adresse ne sert qu'à vous répondre si vous écrivez depuis la page {contact} : elle n'est jamais ajoutée à une liste de diffusion. Le jeton d'accès fourni par Discord sert une seule fois, pendant la connexion, puis n'est pas conservé.",
+      body: "La connexion se fait avec votre compte Discord (autorisations « identify », « guilds » et « email »). Nous recevons votre identifiant, votre pseudo, votre avatar, l'adresse vérifiée de votre compte et la liste des serveurs que vous pouvez gérer. Votre identifiant, votre pseudo, votre avatar et votre adresse sont placés uniquement dans un cookie de session signé, et ne sont pas enregistrés en base de données. La liste des serveurs, trop longue pour un cookie, est conservée sur notre serveur avec votre session, puis supprimée à la déconnexion, au bout de 12 heures au plus, ou quand vous supprimez vos données. L'adresse ne sert qu'à vous répondre si vous écrivez depuis la page {contact} : elle n'est jamais ajoutée à une liste de diffusion. Le jeton d'accès fourni par Discord sert une seule fois, pendant la connexion, puis n'est pas conservé.",
       contactLink: "Nous contacter",
 
       cookies: {
@@ -343,7 +343,7 @@ const account: AccountStrings = {
     guilds: {
       title: "Serveurs que tu peux gérer",
       empty: "Aucun serveur administrable avec ce compte.",
-      note: "Cette liste vient de Discord à chaque connexion et n'est pas enregistrée. Elle sert à savoir quels serveurs afficher dans le tableau de bord.",
+      note: "Cette liste vient de Discord à chaque connexion et n'est conservée que le temps de votre session (12 heures au plus, moins si vous vous déconnectez). Elle sert à savoir quels serveurs afficher dans le tableau de bord.",
     },
 
     deleteAccount: {

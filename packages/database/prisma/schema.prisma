@@ -513,3 +513,19 @@ model AdventureTrade {
   @@index([status, expiresAt])
   @@map("adventure_trades")
 }
+
+/// Server side half of a dashboard session. The list of servers an account manages does not fit in
+/// a cookie (4 KB, reached around 30 servers): the signed cookie carries the session id, this row
+/// carries the list. Deleted at sign-out, on data erasure, and purged once expired.
+model DashboardSession {
+  id               String   @id
+  userId           String
+  /// `{ id, name, icon }[]` of the servers the account could manage at sign-in.
+  manageableGuilds Json
+  expiresAt        DateTime
+  createdAt        DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("dashboard_sessions")
+}

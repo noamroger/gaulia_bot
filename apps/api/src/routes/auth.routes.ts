@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 
+import { createDashboardSession, deleteDashboardSession } from "@gaulia/database";
 import type { FastifyInstance } from "fastify";
 
 import { env } from "../config/env";
@@ -11,6 +12,7 @@ import {
   filterManageableGuilds,
 } from "../discord/discordApi";
 import { logger } from "../logger";
+import type { TokenPayload } from "../auth/session";
 import { authenticate } from "../plugins/authenticate";
 
 const STATE_COOKIE = "gaulia_oauth_state";
@@ -68,19 +70,26 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
           icon: guild.icon,
         }));
 
-        const jwt = app.jwt.sign(
-          {
-            userId: user.id,
-            username: user.username,
-            avatar: user.avatar,
-            // Discord only returns the address with the `email` scope, and only when verified:
-            // without it, the contact form asks for a new sign-in.
-            email: user.verified ? (user.email ?? null) : null,
-            manageableGuilds,
-            isOwner: env.OWNER_IDS.includes(user.id),
-          },
-          { expiresIn: "12h" },
-        );
+        // The server list stays server side: past ~30 servers it no longer fits in a cookie, and
+        // the browser silently drops a cookie over 4 KB.
+        const sid = randomBytes(32).toString("base64url");
+        await createDashboardSession({
+          id: sid,
+          userId: user.id,
+          manageableGuilds,
+          expiresAt: new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000),
+        });
+
+        const payload: TokenPayload = {
+          sid,
+          userId: user.id,
+          username: user.username,
+          avatar: user.avatar,
+          // Discord only returns the address with the `email` scope, and only when verified:
+          // without it, the contact form asks for a new sign-in.
+          email: user.verified ? (user.email ?? null) : null,
+        };
+        const jwt = app.jwt.sign(payload, { expiresIn: "12h" });
 
         return reply
           .setCookie(SESSION_COOKIE, jwt, {
@@ -99,7 +108,10 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
     return request.user;
   });
 
-  app.post("/auth/logout", async (_request, reply) => {
+  app.post("/auth/logout", async (request, reply) => {
+    // Signing out really ends the session: the cookie alone would stay valid until it expires.
+    const token = await request.jwtVerify<TokenPayload>().catch(() => null);
+    if (token?.sid) await deleteDashboardSession(token.sid);
     return reply.clearCookie(SESSION_COOKIE, { path: "/" }).send({ ok: true });
   });
 }

@@ -139,6 +139,7 @@ export async function eraseUserData(userId: string): Promise<UserDataSummary> {
     // Inventory, quests, achievements and logs cascade with the character.
     prisma.adventureCharacter.deleteMany({ where: { userId } }),
     prisma.userPreference.deleteMany({ where: { userId } }),
+    prisma.dashboardSession.deleteMany({ where: { userId } }),
   ]);
   return summary;
 }
@@ -160,6 +161,7 @@ export async function eraseOwnUserData(userId: string): Promise<UserDataSummary>
     // Inventory, quests, achievements and logs cascade with the character.
     prisma.adventureCharacter.deleteMany({ where: { userId } }),
     prisma.userPreference.deleteMany({ where: { userId } }),
+    prisma.dashboardSession.deleteMany({ where: { userId } }),
   ]);
   return summary;
 }

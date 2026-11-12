@@ -130,7 +130,7 @@ const account = {
 
     dashboard: {
       title: "3. Data handled by the dashboard",
-      body: "Signing in goes through your Discord account, with the identify, guilds and email scopes. We receive your id, your username, your avatar, the verified address of your account and the list of servers you can manage. That information only goes into a signed session cookie, and is not stored in a database. The address is only used to answer you if you write from the {contact} page: it is never added to a mailing list. The access token Discord provides is used once, during sign-in, and is not kept afterwards.",
+      body: "Signing in goes through your Discord account, with the identify, guilds and email scopes. We receive your id, your username, your avatar, the verified address of your account and the list of servers you can manage. Your id, username, avatar and address only go into a signed session cookie, and are not stored in a database. The list of servers is too long for a cookie: it is kept on our server alongside your session, then deleted when you sign out, after 12 hours at most, or when you delete your data. The address is only used to answer you if you write from the {contact} page: it is never added to a mailing list. The access token Discord provides is used once, during sign-in, and is not kept afterwards.",
       contactLink: "Contact us",
 
       cookies: {
@@ -342,7 +342,7 @@ const account = {
     guilds: {
       title: "Servers you can manage",
       empty: "No server can be managed with this account.",
-      note: "This list comes from Discord at every sign-in and is not stored. It tells us which servers to show in the dashboard.",
+      note: "This list comes from Discord at every sign-in and is only kept for the length of your session (12 hours at most, less if you sign out). It tells us which servers to show in the dashboard.",
     },
 
     deleteAccount: {

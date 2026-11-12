@@ -2,6 +2,7 @@ export { prisma, disconnectDatabase } from "./client";
 
 export * from "./repositories/guild.repo";
 export * from "./repositories/userPreference.repo";
+export * from "./repositories/dashboardSession.repo";
 export * from "./repositories/moderation.repo";
 export * from "./repositories/warn.repo";
 export * from "./repositories/automod.repo";
