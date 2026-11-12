@@ -10,6 +10,25 @@ const { version } = require("../../package.json");
 const nextConfig = {
   output: "standalone",
   reactStrictMode: true,
+  poweredByHeader: false,
+
+  // The dashboard holds one-click actions (premium redeem, settings toggles): no page may be framed
+  // by another site, which would allow clickjacking. Only `frame-ancestors` is set in the CSP: a
+  // full policy would have to allow the inline theme script and Next's own scripts.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+        ],
+      },
+    ];
+  },
 
   env: {
     NEXT_PUBLIC_APP_VERSION: version,
