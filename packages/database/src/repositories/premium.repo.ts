@@ -1,4 +1,4 @@
-import type { Guild, PremiumEntitlement } from "@prisma/client";
+import type { Guild, PremiumEntitlement, Prisma } from "@prisma/client";
 
 import { prisma } from "../client";
 import { MAX_CREDIT_BALANCE } from "./credits.repo";
@@ -44,32 +44,41 @@ export async function listActiveEntitlements(): Promise<PremiumEntitlement[]> {
 }
 
 /**
+ * Locks a guild row until the end of the transaction. Concurrent writers of the granted premium
+ * window then queue up instead of each computing from the same stale deadline.
+ */
+async function lockGuild(tx: Prisma.TransactionClient, guildId: string): Promise<void> {
+  await tx.$queryRaw`SELECT 1 FROM "guilds" WHERE "id" = ${guildId} FOR UPDATE`;
+}
+
+/**
  * Extends a guild's granted premium (credits redeemed). The new deadline starts from the running
- * one while it is still valid, so two redeems add up instead of overwriting each other.
+ * one while it is still valid, so two redeems add up instead of overwriting each other, even when
+ * they land at the same moment (the row is locked while the deadline is computed).
  * Independent of `Guild.premium`, which reflects Discord entitlements.
  */
 export async function grantGuildPremium(guildId: string, durationMs: number): Promise<Date> {
-  const guild = await prisma.guild.upsert({
-    where: { id: guildId },
-    update: {},
-    create: { id: guildId },
-  });
+  return prisma.$transaction(async (tx) => {
+    await tx.guild.createMany({ data: [{ id: guildId }], skipDuplicates: true });
+    await lockGuild(tx, guildId);
+    const guild = await tx.guild.findUniqueOrThrow({ where: { id: guildId } });
 
-  const now = Date.now();
-  const running = guild.premiumGrantedUntil !== null && guild.premiumGrantedUntil.getTime() > now;
-  const base = running ? guild.premiumGrantedUntil!.getTime() : now;
-  const premiumGrantedUntil = new Date(base + durationMs);
+    const now = Date.now();
+    const running = guild.premiumGrantedUntil !== null && guild.premiumGrantedUntil.getTime() > now;
+    const base = running ? guild.premiumGrantedUntil!.getTime() : now;
+    const premiumGrantedUntil = new Date(base + durationMs);
 
-  await prisma.guild.update({
-    where: { id: guildId },
-    data: {
-      premiumGrantedUntil,
-      // A running window keeps its start date: successive redeems form a single period, refundable
-      // in one block pro rata (see refundUnusedGrantedPremium).
-      ...(running && guild.premiumGrantedAt !== null ? {} : { premiumGrantedAt: new Date(now) }),
-    },
+    await tx.guild.update({
+      where: { id: guildId },
+      data: {
+        premiumGrantedUntil,
+        // A running window keeps its start date: successive redeems form a single period,
+        // refundable in one block pro rata (see refundUnusedGrantedPremium).
+        ...(running && guild.premiumGrantedAt !== null ? {} : { premiumGrantedAt: new Date(now) }),
+      },
+    });
+    return premiumGrantedUntil;
   });
-  return premiumGrantedUntil;
 }
 
 /** Sets (or clears, with `null`) the granted premium deadline - admin panel. */
@@ -154,6 +163,7 @@ export async function refundUnusedGrantedPremium(
   guildId: string,
 ): Promise<PremiumGrantRefund | null> {
   return prisma.$transaction(async (tx) => {
+    await lockGuild(tx, guildId);
     const guild = await tx.guild.findUnique({ where: { id: guildId } });
     const grantedUntil = guild?.premiumGrantedUntil ?? null;
     const grantedAt = guild?.premiumGrantedAt ?? null;
