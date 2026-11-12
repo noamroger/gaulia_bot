@@ -30,7 +30,7 @@ const domainSchema = z
   .transform(normalizeDomain)
   .refine((domain) => /^(?:[a-z0-9-]+\.)+[a-z]{2,}$/.test(domain), { message: "Invalid domain." });
 
-function uniqueList<T extends z.ZodType<string, z.ZodTypeDef, string>>(item: T, max: number) {
+function uniqueList<T extends z.ZodType<string, string>>(item: T, max: number) {
   return z
     .array(item)
     .max(max)
@@ -40,51 +40,54 @@ function uniqueList<T extends z.ZodType<string, z.ZodTypeDef, string>>(item: T, 
 
 const enabled = z.boolean().default(false);
 
+// `prefault` rather than `default` for the objects: zod 4 returns a default as is, without parsing
+// it, so `{}` would skip the defaults of every field inside.
+
 export const automodRulesSchema = z.object({
   links: z
     .object({
       enabled,
       mode: z.enum(["blocklist", "allowlist"]).default("blocklist"),
       domains: uniqueList(domainSchema, 200),
-      action: sanctionSchema.default({}),
+      action: sanctionSchema.prefault({}),
     })
-    .default({}),
+    .prefault({}),
   invites: z
     .object({
       enabled,
       allowedInvites: uniqueList(z.string().trim().min(1).max(100), 50),
-      action: sanctionSchema.default({}),
+      action: sanctionSchema.prefault({}),
     })
-    .default({}),
+    .prefault({}),
   badWords: z
     .object({
       enabled,
       words: uniqueList(z.string().trim().toLowerCase().min(1).max(50), 500),
-      action: sanctionSchema.default({}),
+      action: sanctionSchema.prefault({}),
     })
-    .default({}),
+    .prefault({}),
   mentions: z
     .object({
       enabled,
       maxMentions: z.number().int().min(1).max(50).default(5),
       action: sanctionSchema.default({ type: "timeout", timeoutMinutes: 10 }),
     })
-    .default({}),
+    .prefault({}),
   caps: z
     .object({
       enabled,
       percent: z.number().int().min(50).max(100).default(70),
       minLength: z.number().int().min(5).max(200).default(10),
-      action: sanctionSchema.default({}),
+      action: sanctionSchema.prefault({}),
     })
-    .default({}),
+    .prefault({}),
   duplicates: z
     .object({
       enabled,
       maxRepeats: z.number().int().min(2).max(10).default(3),
-      action: sanctionSchema.default({}),
+      action: sanctionSchema.prefault({}),
     })
-    .default({}),
+    .prefault({}),
   flood: z
     .object({
       enabled,
@@ -92,7 +95,7 @@ export const automodRulesSchema = z.object({
       perSeconds: z.number().int().min(2).max(60).default(5),
       action: sanctionSchema.default({ type: "timeout", timeoutMinutes: 5 }),
     })
-    .default({}),
+    .prefault({}),
 });
 export type AutomodRules = z.infer<typeof automodRulesSchema>;
 
