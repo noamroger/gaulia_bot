@@ -15,11 +15,11 @@
     "adventure:pacing": "tsx scripts/adventure-pacing.ts"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "7.10.0",
-    "@prisma/client": "7.10.0",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
     "dotenv": "^16.4.7",
     "pg": "^8.23.0",
-    "prisma": "7.10.0",
+    "prisma": "7.10.1",
     "zod": "^3.24.1"
   },
   "devDependencies": {
