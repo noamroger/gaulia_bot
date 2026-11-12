@@ -77,9 +77,23 @@ export async function resolveAdventureTrade(
   return count > 0;
 }
 
+/** Outcome of `applyAdventureTrade`: anything but `applied` means nothing moved. */
+export type ApplyTradeOutcome = "applied" | "alreadyHandled" | "missingItems" | "missingGold";
+
+/** Thrown inside the transaction to roll it back, then turned into an outcome. */
+class TradeAborted extends Error {
+  constructor(readonly outcome: Exclude<ApplyTradeOutcome, "applied">) {
+    super(outcome);
+  }
+}
+
 /**
  * Runs the whole swap in a single transaction: without it, a failure midway would leave one player
  * stripped and the other empty-handed.
+ *
+ * Every write is guarded by its own condition rather than by what was read before: the offer must
+ * still be pending (a double click on "accept" would otherwise run the swap twice), and each bag and
+ * purse must still hold what leaves it (the players keep playing while the offer is open).
  */
 export async function applyAdventureTrade(operations: {
   tradeId: number;
@@ -90,50 +104,55 @@ export async function applyAdventureTrade(operations: {
   /** Removals first, additions after: the same item can move from one bag to the other. */
   removals: { userId: string; itemId: string; quantity: number }[];
   additions: { userId: string; itemId: string; quantity: number }[];
-}): Promise<void> {
-  await prisma.$transaction(async (tx) => {
-    for (const removal of operations.removals) {
-      const row = await tx.adventureItem.findUnique({
-        where: { userId_itemId: { userId: removal.userId, itemId: removal.itemId } },
+}): Promise<ApplyTradeOutcome> {
+  try {
+    await prisma.$transaction(async (tx) => {
+      // First write of the transaction: the row lock it takes makes a concurrent acceptance wait,
+      // then find the offer already resolved.
+      const claimed = await tx.adventureTrade.updateMany({
+        where: { id: operations.tradeId, status: "PENDING" },
+        data: { status: "ACCEPTED", resolvedAt: new Date() },
       });
-      if (!row || row.quantity < removal.quantity) {
-        throw new Error(`Missing item during trade: ${removal.itemId}`);
-      }
-      if (row.quantity === removal.quantity) {
-        await tx.adventureItem.delete({ where: { id: row.id } });
-      } else {
-        await tx.adventureItem.update({
-          where: { id: row.id },
+      if (claimed.count === 0) throw new TradeAborted("alreadyHandled");
+
+      for (const removal of operations.removals) {
+        const where = { userId: removal.userId, itemId: removal.itemId };
+        const taken = await tx.adventureItem.updateMany({
+          where: { ...where, quantity: { gte: removal.quantity } },
           data: { quantity: { decrement: removal.quantity } },
         });
+        if (taken.count === 0) throw new TradeAborted("missingItems");
+        await tx.adventureItem.deleteMany({ where: { ...where, quantity: { lte: 0 } } });
       }
-    }
 
-    for (const addition of operations.additions) {
-      await tx.adventureItem.upsert({
-        where: { userId_itemId: { userId: addition.userId, itemId: addition.itemId } },
-        update: { quantity: { increment: addition.quantity } },
-        create: {
-          userId: addition.userId,
-          itemId: addition.itemId,
-          quantity: addition.quantity,
-        },
-      });
-    }
+      for (const addition of operations.additions) {
+        await tx.adventureItem.upsert({
+          where: { userId_itemId: { userId: addition.userId, itemId: addition.itemId } },
+          update: { quantity: { increment: addition.quantity } },
+          create: {
+            userId: addition.userId,
+            itemId: addition.itemId,
+            quantity: addition.quantity,
+          },
+        });
+      }
 
-    await tx.adventureCharacter.update({
-      where: { userId: operations.initiatorId },
-      data: { gold: { increment: operations.initiatorGoldDelta }, trades: { increment: 1 } },
+      for (const [userId, delta] of [
+        [operations.initiatorId, operations.initiatorGoldDelta],
+        [operations.targetId, operations.targetGoldDelta],
+      ] as const) {
+        const paid = await tx.adventureCharacter.updateMany({
+          where: { userId, ...(delta < 0 ? { gold: { gte: -delta } } : {}) },
+          data: { gold: { increment: delta }, trades: { increment: 1 } },
+        });
+        if (paid.count === 0) throw new TradeAborted("missingGold");
+      }
     });
-    await tx.adventureCharacter.update({
-      where: { userId: operations.targetId },
-      data: { gold: { increment: operations.targetGoldDelta }, trades: { increment: 1 } },
-    });
-    await tx.adventureTrade.update({
-      where: { id: operations.tradeId },
-      data: { status: "ACCEPTED", resolvedAt: new Date() },
-    });
-  });
+    return "applied";
+  } catch (error) {
+    if (error instanceof TradeAborted) return error.outcome;
+    throw error;
+  }
 }
 
 /** Marks offers past their deadline as expired (called before each listing). */

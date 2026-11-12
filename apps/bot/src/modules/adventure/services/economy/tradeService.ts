@@ -227,7 +227,7 @@ export async function acceptTrade(
     ...upgradeWarnings(targetItems, requested, t),
   ];
 
-  await applyAdventureTrade({
+  const outcome = await applyAdventureTrade({
     tradeId: trade.id,
     initiatorId: trade.initiatorId,
     targetId: trade.targetId,
@@ -242,6 +242,10 @@ export async function acceptTrade(
       ...requested.items.map((entry) => ({ userId: trade.initiatorId, ...entry })),
     ],
   });
+  // The checks above read a snapshot; the swap re-checks everything under lock and has the last
+  // word (double click, or a bag emptied in the meantime).
+  if (outcome === "alreadyHandled") throw new GauliaError("adventure.error.tradeJustHandled");
+  if (outcome !== "applied") throw new GauliaError("adventure.error.tradeFailed");
 
   // Each journal entry is written in the language of the player who will read it. Only the
   // accepting side is interacting, so the other one falls back on their stored choice.
