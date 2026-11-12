@@ -205,21 +205,21 @@ export interface AdjustCreditsInput {
  */
 export async function adjustCredits(input: AdjustCreditsInput): Promise<CreditAccountSummary> {
   return prisma.$transaction(async (tx) => {
-    const current = await tx.creditAccount.findUnique({ where: { userId: input.userId } });
-    const previousBalance = current?.balance ?? 0;
+    // The clamp needs the current balance, so the row is locked while it is read and rewritten: a
+    // vote credited in between would otherwise be overwritten by the absolute value below.
+    await tx.creditAccount.createMany({ data: [{ userId: input.userId }], skipDuplicates: true });
+    await tx.$queryRaw`SELECT 1 FROM "credit_accounts" WHERE "userId" = ${input.userId} FOR UPDATE`;
+    const current = await tx.creditAccount.findUniqueOrThrow({ where: { userId: input.userId } });
+
+    const previousBalance = current.balance;
     const nextBalance = Math.min(MAX_CREDIT_BALANCE, Math.max(0, previousBalance + input.delta));
     const applied = nextBalance - previousBalance;
 
-    const account = await tx.creditAccount.upsert({
+    const account = await tx.creditAccount.update({
       where: { userId: input.userId },
-      update: {
+      data: {
         balance: nextBalance,
         ...(applied > 0 ? { totalEarned: { increment: applied } } : {}),
-      },
-      create: {
-        userId: input.userId,
-        balance: nextBalance,
-        totalEarned: Math.max(0, applied),
       },
     });
 
