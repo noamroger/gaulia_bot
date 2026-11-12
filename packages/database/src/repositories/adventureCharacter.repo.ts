@@ -192,13 +192,13 @@ export async function unlockAdventureAchievement(
   userId: string,
   achievementId: string,
 ): Promise<boolean> {
-  const existing = await prisma.adventureAchievement.findUnique({
-    where: { userId_achievementId: { userId, achievementId } },
+  // A single insert that tolerates the duplicate: a find-then-create let two concurrent actions
+  // both try the insert, and the second one failed on the unique key.
+  const { count } = await prisma.adventureAchievement.createMany({
+    data: [{ userId, achievementId }],
+    skipDuplicates: true,
   });
-  if (existing) return false;
-
-  await prisma.adventureAchievement.create({ data: { userId, achievementId } });
-  return true;
+  return count > 0;
 }
 
 export async function addAdventureLog(entry: {
